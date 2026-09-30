@@ -115,10 +115,6 @@ object BuildInspector {
         val reason: String,
     )
 
-    const val BLOCKED_REASON = "No Android-host JDK, Kotlin compiler, Gradle daemon, aapt2 or d8 is bundled. " +
-        "Android 10+ also refuses to execute programs downloaded into app storage, so a toolchain must ship " +
-        "inside the APK's native library directory. Until that exists, this phone cannot compile projects."
-
     fun inspect(dir: File): Report {
         val settings = listOf("settings.gradle.kts", "settings.gradle").any { File(dir, it).isFile }
         val build = listOf("build.gradle.kts", "build.gradle").any { File(dir, it).isFile }
@@ -129,6 +125,9 @@ object BuildInspector {
         val apks = dir.walkTopDown().onEnter { it.name != ".git" && !Files.isSymbolicLink(it.toPath()) }
             .filter { it.isFile && it.extension == "apk" }.take(50)
             .map { it.relativeTo(dir).invariantSeparatorsPath }.toList()
-        return Report(settings || build, wrapper, android, apks, CheckStatus.BLOCKED, BLOCKED_REASON)
+        return Report(settings || build, wrapper, android, apks,
+            if (settings || build) CheckStatus.PASSED else CheckStatus.BLOCKED,
+            if (settings || build) "Gradle source detected. Actual compatibility is established by a build with installed tools."
+            else "No Gradle build configuration found. This tool profile runs Gradle projects.")
     }
 }

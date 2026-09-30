@@ -59,7 +59,7 @@ class ProjectArchiveTest {
         assertEquals("keep", File(outside, "file").readText())
     }
 
-    @Test fun buildInspectorReportsBlockedWithProjectFacts() {
+    @Test fun buildInspectorReportsSourceFactsWithoutClaimingExecution() {
         val project = File(base, "android").apply { mkdirs() }
         File(project, "settings.gradle.kts").writeText("include(\":app\")")
         File(project, "app").mkdirs(); File(project, "app/build.gradle.kts").writeText("plugins { id(\"com.android.application\") }")
@@ -67,6 +67,6 @@ class ProjectArchiveTest {
         val report = BuildInspector.inspect(project)
         assertTrue(report.gradleProject && report.androidApp && !report.wrapper)
         assertEquals(listOf("out/app.apk"), report.apks)
-        assertEquals(CheckStatus.BLOCKED, report.status)
+        assertEquals(CheckStatus.PASSED, report.status)
     }
 }

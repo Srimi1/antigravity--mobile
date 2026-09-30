@@ -4,4 +4,4 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
 rootProject.name = "AntigravityMobileProbe"
-include(":app")
+include(":app", ":build-worker")

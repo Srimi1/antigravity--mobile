@@ -1,0 +1,12 @@
+{
+  "serial": "emulator-5556",
+  "variant": "debug",
+  "trace": "/data/misc/perfetto-traces/integration-ui-20260930-01.pftrace",
+  "pid": 9537,
+  "uids": [
+    "10151",
+    "10150"
+  ],
+  "startedAt": 1790783193.347035,
+  "finishedAt": 1790783630.574482
+}

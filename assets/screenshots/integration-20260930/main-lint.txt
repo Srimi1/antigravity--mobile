@@ -1,0 +1,260 @@
+/Users/srimi/.gradle/caches/modules-2/files-2.1/org.eclipse.jgit/org.eclipse.jgit/5.13.5.202508271544-r/166bc880beb891b201cd3216407fd4ffcd4930fd/org.eclipse.jgit-5.13.5.202508271544-r.jar: Warning: Invalid package reference in org.eclipse.jgit:org.eclipse.jgit; not included in Android: java.lang.management. Referenced from org.eclipse.jgit.internal.storage.file.GC.PidLock. [InvalidPackage]
+/Users/srimi/.gradle/caches/modules-2/files-2.1/org.eclipse.jgit/org.eclipse.jgit/5.13.5.202508271544-r/166bc880beb891b201cd3216407fd4ffcd4930fd/org.eclipse.jgit-5.13.5.202508271544-r.jar: Warning: Invalid package reference in org.eclipse.jgit:org.eclipse.jgit; not included in Android: javax.management. Referenced from org.eclipse.jgit.util.Monitoring. [InvalidPackage]
+
+   Explanation for issues of type "InvalidPackage":
+   This check scans through libraries looking for calls to APIs that are not
+   included in Android.
+
+   When you create Android projects, the classpath is set up such that you can
+   only access classes in the API packages that are included in Android.
+   However, if you add other projects to your libs/ folder, there is no
+   guarantee that those .jar files were built with an Android specific
+   classpath, and in particular, they could be accessing unsupported APIs such
+   as java.applet.
+
+   This check scans through library jars and looks for references to API
+   packages that are not included in Android and flags these. This is only an
+   error if your code calls one of the library classes which wind up
+   referencing the unsupported package.
+
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/gradle/wrapper/gradle-wrapper.properties:3: Warning: A newer version of Gradle than 8.13 is available: 8.14.5 [AndroidGradlePluginVersion]
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.13-bin.zip
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "AndroidGradlePluginVersion":
+   This detector looks for usage of the Android Gradle Plugin where the
+   version you are using is not the current stable release. Using older
+   versions is fine, and there are cases where you deliberately want to stick
+   with an older version. However, you may simply not be aware that a more
+   recent version is available, and that is what this lint check helps find.
+
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/build.gradle.kts:89: Warning: A newer version of androidx.compose:compose-bom than 2025.04.01 is available: 2026.09.00 [GradleDependency]
+    implementation(platform("androidx.compose:compose-bom:2025.04.01"))
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/build.gradle.kts:90: Warning: A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0 [GradleDependency]
+    implementation("androidx.activity:activity-compose:1.10.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/build.gradle.kts:94: Warning: A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.9.0 is available: 2.11.0 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/build.gradle.kts:95: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.9.0 is available: 2.11.0 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/build.gradle.kts:96: Warning: A newer version of androidx.room:room-runtime than 2.7.1 is available: 2.8.5 [GradleDependency]
+    implementation("androidx.room:room-runtime:2.7.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/build.gradle.kts:97: Warning: A newer version of androidx.room:room-ktx than 2.7.1 is available: 2.8.5 [GradleDependency]
+    implementation("androidx.room:room-ktx:2.7.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/build.gradle.kts:98: Warning: A newer version of androidx.room:room-compiler than 2.7.1 is available: 2.8.5 [GradleDependency]
+    kapt("androidx.room:room-compiler:2.7.1")
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/build.gradle.kts:102: Warning: A newer version of androidx.core:core-ktx than 1.16.0 is available: 1.19.1 [GradleDependency]
+    implementation("androidx.core:core-ktx:1.16.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/build.gradle.kts:109: Warning: A newer version of androidx.test.ext:junit than 1.2.1 is available: 1.3.0 [GradleDependency]
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/build.gradle.kts:110: Warning: A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0 [GradleDependency]
+    androidTestImplementation("androidx.test:runner:1.6.2")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/build.gradle.kts:21: Warning: Missing x86_64 ABI support for ChromeOS [ChromeOsAbiSupport]
+        ndk { abiFilters += listOf("arm64-v8a") }
+                            ~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "ChromeOsAbiSupport":
+   To properly support ChromeOS, your Android application should have an x86
+   and/or x86_64 binary as part of the build configuration. To fix the issue,
+   ensure your files are properly optimized for ARM; the binary translator
+   will then ensure compatibility with x86. Alternatively, add an abiSplit for
+   x86 within your build.gradle file and create the required x86
+   dependencies.
+
+   https://developer.android.com/ndk/guides/abis
+
+/Users/srimi/.gradle/caches/modules-2/files-2.1/org.eclipse.jgit/org.eclipse.jgit/5.13.5.202508271544-r/166bc880beb891b201cd3216407fd4ffcd4930fd/org.eclipse.jgit-5.13.5.202508271544-r.jar: Warning: checkClientTrusted is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers [TrustAllX509TrustManager]
+/Users/srimi/.gradle/caches/modules-2/files-2.1/org.eclipse.jgit/org.eclipse.jgit/5.13.5.202508271544-r/166bc880beb891b201cd3216407fd4ffcd4930fd/org.eclipse.jgit-5.13.5.202508271544-r.jar: Warning: checkServerTrusted is empty, which could cause insecure network traffic due to trusting arbitrary TLS/SSL certificates presented by peers [TrustAllX509TrustManager]
+
+   Explanation for issues of type "TrustAllX509TrustManager":
+   This check looks for X509TrustManager implementations whose
+   checkServerTrusted or checkClientTrusted methods do nothing (thus trusting
+   any certificate chain) which could result in insecure network traffic
+   caused by trusting arbitrary TLS/SSL certificates presented by peers.
+
+   https://goo.gle/TrustAllX509TrustManager
+
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/AndroidManifest.xml:10: Warning: The attribute android:dataExtractionRules only applies for Android 12 and higher; since minSdkVersion is API 29 you should also set android:fullBackupContent [DataExtractionRules]
+        android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:dataExtractionRules="@xml/data_extraction_rules"
+                                                                                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "DataExtractionRules":
+   Before Android 12, the attributes android:allowBackup and
+   android:fullBackupContent were used to configure all forms of backup,
+   including cloud backups, device-to-device transfers and adb backup.
+
+   In Android 12 and higher, these attributes have been deprecated and will
+   only apply to cloud backups. You should instead use the attribute
+   android:dataExtractionRules, specifying an @xml resource that configures
+   which files to back up, for cloud backups and for device-to-device
+   transfers, separately. If your minSdkVersion supports older versions,
+   you'll still want to specify an android:fullBackupContent resource if the
+   default behavior is not right for your app.
+
+   https://developer.android.com/about/versions/12/backup-restore#xml-changes
+   https://goo.gle/DataExtractionRules
+
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/res/mipmap-anydpi-v26: Warning: This folder configuration (v26) is unnecessary; minSdkVersion is 29. Merge all the resources in this folder into mipmap-anydpi. [ObsoleteSdkInt]
+
+   Explanation for issues of type "ObsoleteSdkInt":
+   This check flags version checks that are not necessary, because the
+   minSdkVersion (or surrounding known API level) is already at least as high
+   as the version checked for.
+
+   Similarly, it also looks for resources in -vNN folders, such as values-v14
+   where the version qualifier is less than or equal to the minSdkVersion,
+   where the contents should be merged into the best folder.
+
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/build.gradle.kts:98: Warning: This library supports using KSP instead of kapt, which greatly improves performance. Learn more: https://developer.android.com/studio/build/migrate-to-ksp [KaptUsageInsteadOfKsp]
+    kapt("androidx.room:room-compiler:2.7.1")
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "KaptUsageInsteadOfKsp":
+   KSP is a more efficient replacement for kapt. For libraries that support
+   both, KSP should be used to improve build times.
+
+   https://developer.android.com/studio/build/migrate-to-ksp
+
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/ProjectsScreen.kt:118: Hint: Prefer mutableIntStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var tab by rememberSaveable { mutableStateOf(0) }
+                                  ~~~~~~~~~~~~~~
+
+   Explanation for issues of type "AutoboxingStateCreation":
+   Calling mutableStateOf<T>() when T is either backed by a primitive type on
+   the JVM or is a value class results in a state implementation that requires
+   all state values to be boxed. This usually causes an additional allocation
+   for each state write, and adds some additional work to auto-unbox values
+   when reading the value of the state. Instead, prefer to use a specialized
+   primitive state implementation for Int, Long, Float, and Double when the
+   state does not need to track null values and does not override the default
+   SnapshotMutationPolicy. See mutableIntStateOf(), mutableLongStateOf(),
+   mutableFloatStateOf(), and mutableDoubleStateOf() for more information.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.runtime
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml:1: Warning: The application adaptive icon is missing a monochrome tag [MonochromeLauncherIcon]
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+^
+
+   Explanation for issues of type "MonochromeLauncherIcon":
+   If android:roundIcon and android:icon are both in your manifest, you must
+   either remove the reference to android:roundIcon if it is not needed; or,
+   supply the monochrome icon in the drawable defined by the android:roundIcon
+   and android:icon attribute.
+
+   For example, if android:roundIcon and android:icon are both in the
+   manifest, a launcher might choose to use android:roundIcon over
+   android:icon to display the adaptive app icon. Therefore, your themed
+   application iconwill not show if your monochrome attribute is not also
+   specified in android:roundIcon.
+
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/AccountsScreen.kt:38: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                        Button(onClick = { model.connectChatGpt { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } },
+                                                                                                                          ~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/AntigravityApp.kt:43: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().apply { if (id == null) remove("selectedProject") else putString("selectedProject", id) }.apply()
+        ~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/AntigravityApp.kt:81: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        set(value) { prefs.edit().putString("authorName", value.trim()).apply() }
+                     ~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/AntigravityApp.kt:84: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        set(value) { prefs.edit().putString("authorEmail", value.trim()).apply() }
+                     ~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/BuildScreen.kt:33: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
+                                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/ChatGptProbeAdapter.kt:32: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().putString("hostId", it).commit())
+              ~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/ChatGptProbeAdapter.kt:73: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                val builder = Uri.parse("https://auth.openai.com/api/accounts/authorize").buildUpon()
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/ChatGptProbeAdapter.kt:93: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                        val uri = Uri.parse("http://127.0.0.1$target")
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/ChatGptProbeAdapter.kt:166: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        set(value) { prefs.edit().apply { if (value == null) remove("model") else putString("model", value) }.apply() }
+                     ~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/ChatGptProbeAdapter.kt:201: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                    prefs.edit().putLong("verifiedAt", System.currentTimeMillis()).apply()
+                    ~~~~~~~~~~~~
+/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/ChatGptProbeAdapter.kt:256: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            prefs.edit().remove("verifiedAt").apply()
+            ~~~~~~~~~~~~
+
+   Explanation for issues of type "UseKtx":
+   The Android KTX libraries decorates the Android platform SDK as well as
+   various libraries with more convenient extension functions available from
+   Kotlin, allowing you to use default parameters, named parameters, and
+   more.
+
+   Available options:
+
+   **remove-defaults** (default is true):
+   Whether to skip arguments that match the defaults provided by the extension.
+
+   Extensions often provide default values for some of the parameters. For example:
+   ```kotlin
+   fun Path.readLines(charset: Charset = Charsets.UTF_8): List<String> { return Files.readAllLines(this, charset) }
+   ```
+   This lint check will by default automatically omit parameters that match the default, so if your code was calling
+
+   ```kotlin
+   Files.readAllLines(file, Charset.UTF_8)
+   ```
+   lint would replace this with
+   ```kotlin
+   file.readLines()
+   ```
+   rather than
+
+   ```kotlin
+   file.readLines(Charset.UTF_8
+   ```
+   You can turn this behavior off using this option.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="remove-defaults" value="true" />
+       </issue>
+   </lint>
+   ```
+
+   **require-present** (default is true):
+   Whether to only offer extensions already available.
+
+   This option lets you only have lint suggest extension replacements if those extensions are already available on the class path (in other words, you're already depending on the library containing the extension method.)
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="require-present" value="true" />
+       </issue>
+   </lint>
+   ```
+
+0 errors, 31 warnings, 1 hint

@@ -176,7 +176,17 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     }
 }
 
-data class BuildState(val report: BuildInspector.Report? = null, val project: ProjectRecord? = null, val checking: Boolean = false)
+data class BuildState(
+    val report: BuildInspector.Report? = null,
+    val project: ProjectRecord? = null,
+    val checking: Boolean = false,
+    val preparing: Boolean = false,
+    val workerInstalled: Boolean = false,
+    val records: List<BuildRecord> = emptyList(),
+    val output: Map<String,String> = emptyMap(),
+    val approval: BuildRecord? = null,
+    val message: String? = null,
+)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BuildViewModel(application: Application) : AndroidViewModel(application) {
@@ -185,18 +195,59 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<BuildState> = mutable.asStateFlow()
     init {
         viewModelScope.launch {
-            services.selectedProjectId.mapLatest { id -> id?.let { services.projects.find(it) } }
-                .collect { project -> mutable.update { BuildState(project = project) }; inspect() }
+            try {
+                services.ready.await()
+                services.selectedProjectId.flatMapLatest { id ->
+                    val project = id?.let { services.projects.find(it) }
+                    mutable.update { BuildState(project = project, workerInstalled = services.builds.client.installed(), output = it.output) }
+                    inspect()
+                    if (project == null) flowOf(emptyList()) else services.database.builds().observe(project.id)
+                }.collect { records -> mutable.update { it.copy(records = records) } }
+            } catch (error: Exception) { mutable.update { it.copy(message = friendly(error)) } }
         }
+        viewModelScope.launch { services.builds.output.collect { output -> mutable.update { it.copy(output = output) } } }
     }
+    fun refreshTools() { mutable.update { it.copy(workerInstalled = services.builds.client.installed()) } }
+    fun dismissMessage() { mutable.update { it.copy(message = null) } }
     fun inspect() {
         val project = state.value.project ?: return
         mutable.update { it.copy(checking = true) }
         viewModelScope.launch {
-            val report = withContext(Dispatchers.IO) { BuildInspector.inspect(services.projects.directory(project)) }
-            mutable.update { it.copy(report = report, checking = false) }
+            try {
+                val report = withContext(Dispatchers.IO) { BuildInspector.inspect(services.projects.directory(project)) }
+                mutable.update { if (it.project?.id == project.id) it.copy(report = report, checking = false) else it }
+            } catch (error: Exception) { mutable.update { it.copy(checking = false, message = friendly(error)) } }
         }
     }
+    fun prepare(tasks: String) {
+        val project = state.value.project ?: return
+        if (state.value.preparing) return
+        mutable.update { it.copy(preparing = true) }
+        viewModelScope.launch {
+            try {
+                val record = services.builds.prepare(project, tasks)
+                if (state.value.project?.id == project.id) mutable.update { it.copy(preparing = false, approval = record) }
+                else { services.builds.decline(record.id); mutable.update { it.copy(preparing = false) } }
+            } catch (error: Exception) { mutable.update { it.copy(preparing = false, message = friendly(error)) } }
+        }
+    }
+    fun review(record: BuildRecord) { if (record.status == "AWAITING_APPROVAL") mutable.update { it.copy(approval = record) } }
+    fun approve() {
+        val id = state.value.approval?.id ?: return
+        mutable.update { it.copy(approval = null) }
+        services.scope.launch {
+            try { services.builds.approve(id) }
+            catch (error: Exception) { mutable.update { it.copy(message = friendly(error)) } }
+        }
+    }
+    fun decline() {
+        val id = state.value.approval?.id ?: return
+        mutable.update { it.copy(approval = null) }
+        services.scope.launch { services.builds.decline(id) }
+    }
+    fun cancel(id: String) { services.scope.launch { services.builds.cancel(id) } }
+    fun refresh(id: String) { services.builds.refresh(id) }
+    fun artifacts(id: String) = services.builds.artifacts(id)
     fun apkFile(path: String): java.io.File? = state.value.project?.let {
         val file = java.io.File(services.projects.directory(it), path).canonicalFile
         file.takeIf { f -> f.path.startsWith(services.projects.directory(it).canonicalPath + java.io.File.separator) && f.isFile }

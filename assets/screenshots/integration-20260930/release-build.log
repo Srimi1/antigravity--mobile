@@ -1,0 +1,186 @@
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:bundleSample UP-TO-DATE
+> Task :app:compileNativeProbe UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:kaptGenerateStubsDebugKotlin UP-TO-DATE
+> Task :app:kaptDebugKotlin UP-TO-DATE
+> Task :app:compileDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :app:bundleDebugClassesToRuntimeJar UP-TO-DATE
+> Task :app:bundleDebugClassesToCompileJar UP-TO-DATE
+> Task :app:kaptGenerateStubsDebugUnitTestKotlin UP-TO-DATE
+> Task :app:kaptDebugUnitTestKotlin UP-TO-DATE
+> Task :app:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest UP-TO-DATE
+> Task :app:buildKotlinToolingMetadata UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:checkReleaseAarMetadata UP-TO-DATE
+> Task :app:generateReleaseResValues UP-TO-DATE
+> Task :app:mapReleaseSourceSetPaths UP-TO-DATE
+> Task :app:generateReleaseResources UP-TO-DATE
+> Task :app:mergeReleaseResources UP-TO-DATE
+> Task :app:packageReleaseResources UP-TO-DATE
+> Task :app:parseReleaseLocalResources UP-TO-DATE
+> Task :app:createReleaseCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksRelease UP-TO-DATE
+> Task :app:processReleaseMainManifest UP-TO-DATE
+> Task :app:processReleaseManifest UP-TO-DATE
+> Task :app:processReleaseManifestForPackage UP-TO-DATE
+> Task :app:processReleaseResources UP-TO-DATE
+> Task :app:javaPreCompileRelease UP-TO-DATE
+> Task :app:extractProguardFiles UP-TO-DATE
+> Task :app:preReleaseUnitTestBuild UP-TO-DATE
+> Task :app:mergeReleaseJniLibFolders UP-TO-DATE
+> Task :app:mergeReleaseNativeLibs UP-TO-DATE
+> Task :app:stripReleaseDebugSymbols UP-TO-DATE
+> Task :app:extractReleaseNativeSymbolTables UP-TO-DATE
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:checkReleaseDuplicateClasses UP-TO-DATE
+> Task :app:desugarReleaseFileDependencies UP-TO-DATE
+> Task :app:mergeReleaseStartupProfile UP-TO-DATE
+> Task :app:mergeExtDexRelease UP-TO-DATE
+> Task :app:mergeReleaseArtProfile UP-TO-DATE
+> Task :build-worker:compilejava_launcher UP-TO-DATE
+> Task :build-worker:compilejdk_paths UP-TO-DATE
+> Task :build-worker:preBuild UP-TO-DATE
+> Task :build-worker:preReleaseBuild UP-TO-DATE
+> Task :build-worker:mergeReleaseJniLibFolders UP-TO-DATE
+> Task :build-worker:mergeReleaseNativeLibs UP-TO-DATE
+> Task :build-worker:stripReleaseDebugSymbols UP-TO-DATE
+> Task :build-worker:extractReleaseNativeSymbolTables UP-TO-DATE
+> Task :build-worker:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :build-worker:checkReleaseDuplicateClasses UP-TO-DATE
+> Task :build-worker:buildKotlinToolingMetadata UP-TO-DATE
+> Task :build-worker:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :build-worker:checkReleaseAarMetadata UP-TO-DATE
+> Task :build-worker:generateReleaseResValues UP-TO-DATE
+> Task :build-worker:mapReleaseSourceSetPaths UP-TO-DATE
+> Task :build-worker:generateReleaseResources UP-TO-DATE
+> Task :build-worker:mergeReleaseResources UP-TO-DATE
+> Task :build-worker:packageReleaseResources UP-TO-DATE
+> Task :build-worker:parseReleaseLocalResources UP-TO-DATE
+> Task :build-worker:createReleaseCompatibleScreenManifests UP-TO-DATE
+> Task :build-worker:extractDeepLinksRelease UP-TO-DATE
+> Task :build-worker:processReleaseMainManifest UP-TO-DATE
+> Task :build-worker:processReleaseManifest UP-TO-DATE
+> Task :build-worker:processReleaseManifestForPackage UP-TO-DATE
+> Task :build-worker:processReleaseResources UP-TO-DATE
+> Task :build-worker:compileReleaseKotlin UP-TO-DATE
+> Task :build-worker:javaPreCompileRelease UP-TO-DATE
+> Task :build-worker:compileReleaseJavaWithJavac UP-TO-DATE
+> Task :build-worker:dexBuilderRelease UP-TO-DATE
+> Task :build-worker:desugarReleaseFileDependencies UP-TO-DATE
+> Task :build-worker:mergeReleaseStartupProfile UP-TO-DATE
+> Task :build-worker:mergeExtDexRelease UP-TO-DATE
+> Task :build-worker:mergeDexRelease UP-TO-DATE
+> Task :build-worker:mergeReleaseArtProfile UP-TO-DATE
+> Task :build-worker:mergeReleaseGlobalSynthetics UP-TO-DATE
+> Task :build-worker:compileReleaseArtProfile UP-TO-DATE
+> Task :build-worker:mergeReleaseShaders UP-TO-DATE
+> Task :build-worker:compileReleaseShaders NO-SOURCE
+> Task :build-worker:generateReleaseAssets UP-TO-DATE
+> Task :build-worker:mergeReleaseAssets UP-TO-DATE
+> Task :build-worker:compressReleaseAssets UP-TO-DATE
+> Task :build-worker:extractReleaseVersionControlInfo UP-TO-DATE
+> Task :build-worker:extractProguardFiles UP-TO-DATE
+> Task :build-worker:generateReleaseLintVitalReportModel UP-TO-DATE
+> Task :build-worker:lintVitalAnalyzeRelease UP-TO-DATE
+> Task :build-worker:lintVitalReportRelease UP-TO-DATE
+> Task :build-worker:lintVitalRelease
+> Task :build-worker:processReleaseJavaRes UP-TO-DATE
+> Task :build-worker:mergeReleaseJavaResource UP-TO-DATE
+> Task :build-worker:optimizeReleaseResources UP-TO-DATE
+> Task :build-worker:collectReleaseDependencies UP-TO-DATE
+> Task :build-worker:sdkReleaseDependencyData UP-TO-DATE
+> Task :build-worker:validateSigningRelease UP-TO-DATE
+> Task :build-worker:writeReleaseAppMetadata UP-TO-DATE
+> Task :build-worker:writeReleaseSigningConfigVersions UP-TO-DATE
+> Task :build-worker:packageRelease UP-TO-DATE
+> Task :build-worker:createReleaseApkListingFileRedirect UP-TO-DATE
+> Task :build-worker:assembleRelease UP-TO-DATE
+> Task :app:kaptGenerateStubsReleaseKotlin
+> Task :app:bundleReleaseBuildWorker
+> Task :app:kaptReleaseKotlin UP-TO-DATE
+> Task :app:mergeReleaseShaders UP-TO-DATE
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:extractReleaseVersionControlInfo UP-TO-DATE
+> Task :app:optimizeReleaseResources UP-TO-DATE
+> Task :app:collectReleaseDependencies UP-TO-DATE
+> Task :app:compressReleaseAssets
+> Task :app:sdkReleaseDependencyData UP-TO-DATE
+> Task :app:validateSigningRelease UP-TO-DATE
+> Task :app:writeReleaseAppMetadata UP-TO-DATE
+> Task :app:writeReleaseSigningConfigVersions UP-TO-DATE
+
+> Task :app:compileReleaseKotlin
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/BuildWorkerClient.kt:36:90 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/BuildWorkerClient.kt:37:29 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/BuildWorkerClient.kt:64:23 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/BuildWorkerClient.kt:86:26 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+
+> Task :app:compileReleaseJavaWithJavac UP-TO-DATE
+> Task :app:generateReleaseLintReportModel
+> Task :app:bundleReleaseClassesToCompileJar
+> Task :app:dexBuilderRelease
+> Task :app:generateReleaseUnitTestLintModel
+> Task :app:mergeReleaseGlobalSynthetics UP-TO-DATE
+> Task :app:generateReleaseLintVitalReportModel
+> Task :app:processReleaseJavaRes UP-TO-DATE
+> Task :app:mergeReleaseJavaResource UP-TO-DATE
+> Task :app:lintAnalyzeReleaseUnitTest
+> Task :app:mergeDexRelease
+> Task :app:compileReleaseArtProfile
+> Task :app:lintVitalAnalyzeRelease
+> Task :app:lintVitalReportRelease SKIPPED
+> Task :app:lintVitalRelease SKIPPED
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleRelease
+> Task :app:lintAnalyzeRelease
+
+> Task :app:lintReportRelease
+Wrote HTML report to file:///Users/srimi/.cache/antigravity-mobile-build/app/reports/lint-results-release.html
+
+> Task :app:lintRelease
+
+BUILD SUCCESSFUL in 15s
+137 actionable tasks: 19 executed, 118 up-to-date
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=Srimi Personal Mobile Probe
+Signer #1 certificate SHA-256 digest: 791980edfce3d623dfe1ba2e3209a506b01c4be7da74065805d400a5051210b5
+Signer #1 certificate SHA-1 digest: 01a8afc27eb530a75f1cc5630504cf8eab14222e
+Signer #1 certificate MD5 digest: 2d5c0f471576a587d15bee63c6c75b12
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 3072
+Signer #1 public key SHA-256 digest: 66d56a03db15780347af493f8e1ed3b39997a0f50814134f3e204212fc862779
+Signer #1 public key SHA-1 digest: 7fd1ebf890cd52c29efb6fcbabb79eac4795a635
+Signer #1 public key MD5 digest: ed1b570128af1d39d977be355a94ae6a

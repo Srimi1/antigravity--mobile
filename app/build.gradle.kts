@@ -10,12 +10,13 @@ plugins {
 android {
     namespace = "dev.srimi.antigravitymobile"
     compileSdk = 36
+    buildToolsVersion = "36.0.0"
     defaultConfig {
         applicationId = "dev.srimi.antigravitymobile.probe"
         minSdk = 29
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.2.0"
+        versionCode = 5
+        versionName = "0.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a") }
     }
@@ -49,6 +50,8 @@ android {
         // JGit ships OSGi metadata that has no use in an APK.
         resources { excludes += listOf("about.html", "plugin.properties", "META-INF/DEPENDENCIES", "META-INF/LICENSE*", "META-INF/NOTICE*") }
     }
+    androidResources { noCompress += "apk" }
+    sourceSets.getByName("main").java.srcDir(rootProject.file("runtime-contract/src/main/java"))
     lint {
         // JGit references java.lang.management/javax.management only for JMX (opt-in) and gc pid locks,
         // which GitRuntime disables. Keep the finding visible as a warning instead of failing release lint.
@@ -75,7 +78,7 @@ val compileNativeProbe by tasks.registering(Exec::class) {
 android.sourceSets.getByName("main").jniLibs.srcDir(layout.buildDirectory.dir("generated/probe"))
 tasks.named("preBuild").configure { dependsOn(compileNativeProbe) }
 val bundleSample by tasks.registering(Zip::class) {
-    from(rootProject.file("samples/HelloPhone")) { exclude(".gradle/**", "**/build/**", "local.properties") }
+    from(rootProject.file("samples/HelloPhone")) { exclude(".gradle/**", ".kotlin/**", "**/build/**", "local.properties") }
     destinationDirectory.set(layout.buildDirectory.dir("generated/sample-assets"))
     archiveFileName.set("hello-phone.zip")
 }
@@ -105,4 +108,24 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
+}
+
+// Match the companion signer to each main APK variant; never embed the private key.
+androidComponents.onVariants { variant ->
+    val capital = variant.name.replaceFirstChar { it.uppercase() }
+    val bundle = tasks.register<BundleWorkerApk>("bundle${capital}BuildWorker") {
+        dependsOn(":build-worker:assemble$capital")
+        input.set(project(":build-worker").layout.buildDirectory.file("outputs/apk/${variant.name}/build-worker-${variant.name}.apk"))
+        output.set(layout.buildDirectory.dir("generated/${variant.name}/worker-assets"))
+    }
+    variant.sources.assets?.addGeneratedSourceDirectory(bundle) { it.output }
+}
+
+abstract class BundleWorkerApk : DefaultTask() {
+    @get:InputFile abstract val input: RegularFileProperty
+    @get:OutputDirectory abstract val output: DirectoryProperty
+    @TaskAction fun bundle() {
+        val folder = output.get().asFile.apply { mkdirs() }
+        input.get().asFile.copyTo(File(folder, "build-worker.apk"), overwrite = true)
+    }
 }

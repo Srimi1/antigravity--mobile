@@ -1,0 +1,17 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=Srimi Personal Mobile Probe
+Signer #1 certificate SHA-256 digest: 791980edfce3d623dfe1ba2e3209a506b01c4be7da74065805d400a5051210b5
+Signer #1 certificate SHA-1 digest: 01a8afc27eb530a75f1cc5630504cf8eab14222e
+Signer #1 certificate MD5 digest: 2d5c0f471576a587d15bee63c6c75b12
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 3072
+Signer #1 public key SHA-256 digest: 66d56a03db15780347af493f8e1ed3b39997a0f50814134f3e204212fc862779
+Signer #1 public key SHA-1 digest: 7fd1ebf890cd52c29efb6fcbabb79eac4795a635
+Signer #1 public key MD5 digest: ed1b570128af1d39d977be355a94ae6a

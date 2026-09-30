@@ -25,13 +25,14 @@ val Context.container: AppContainer get() = (applicationContext as AntigravityAp
 class AppContainer(context: Context) {
     private val app = context.applicationContext
     val database: SessionStore = Room.databaseBuilder(app, SessionStore::class.java, "probe.db")
-        .addMigrations(SessionStore.MIGRATION_1_2).build()
+        .addMigrations(SessionStore.MIGRATION_1_2, SessionStore.MIGRATION_2_3).build()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val prefs = app.getSharedPreferences("app", Context.MODE_PRIVATE)
     val projects = ProjectRepository(database.projects(), File(app.filesDir, "projects"))
     val changes = ChangeService(database.changes(), File(app.filesDir, "changesets"))
     val git = GitService(File(app.noBackupFilesDir, "git-home"))
     val chatgpt = ChatGptProbeAdapter(app)
+    val builds = BuildCoordinator(app, database.builds(), projects, scope)
     private val checkpointRoot = File(app.filesDir, "checkpoints")
     private val gitCredentialStore = CredentialStore(app, "git.credentials")
 
@@ -57,7 +58,9 @@ class AppContainer(context: Context) {
                 conversations.interruptRunning()
                 conversations.interruptActions()
                 changes.recoverInterrupted()
-            } finally { ready.complete(Unit) }
+                builds.recover()
+                ready.complete(Unit)
+            } catch (error: Exception) { ready.completeExceptionally(error) }
         }
     }
 

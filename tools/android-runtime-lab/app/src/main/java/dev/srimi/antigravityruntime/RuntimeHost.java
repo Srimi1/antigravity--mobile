@@ -170,14 +170,23 @@ public final class RuntimeHost {
         File log = new File(evidence, label + ".log");
         Thread reader = new Thread(() -> {
             try (BufferedReader in = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                    Writer disk = new FileWriter(log)) {
+                    RandomAccessFile disk = new RandomAccessFile(log, "rw")) {
                 String line;
-                while ((line = in.readLine()) != null) {
+                while ((line = boundedLine(in)) != null) {
                     if (line.startsWith("AG_PROCESS_GROUP=")) {
                         group.compareAndSet(0, Integer.parseInt(line.substring("AG_PROCESS_GROUP=".length())));
                     } else {
-                        disk.write(line + "\n"); disk.flush();
-                        synchronized (output) { if (output.length() < 1024 * 1024) output.append(line).append('\n'); }
+                        byte[] data = (line + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                        if (disk.length() + data.length > 4L * 1024 * 1024) {
+                            int keep = (int)Math.min(disk.length(), 2L * 1024 * 1024);
+                            byte[] tail = new byte[keep]; disk.seek(disk.length()-keep); disk.readFully(tail);
+                            disk.setLength(0); disk.seek(0); disk.write(tail);
+                        }
+                        disk.seek(disk.length()); disk.write(data);
+                        synchronized (output) {
+                            output.append(line).append('\n');
+                            if (output.length() > 1024 * 1024) output.delete(0, output.length()-1024*1024);
+                        }
                     }
                 }
             } catch (Exception error) { synchronized (output) { output.append("Reader: ").append(error); } }
@@ -203,6 +212,17 @@ public final class RuntimeHost {
         String text; synchronized (output) { text = output.toString(); }
         if (!finished) throw new IOException(label + " timed out\n" + text);
         return new Result(exit, text, elapsed);
+    }
+
+    /** Drain oversized lines without growing memory; keep output and disk bounded. */
+    private static String boundedLine(BufferedReader input) throws IOException {
+        StringBuilder line = new StringBuilder(); boolean truncated = false; int c;
+        while ((c = input.read()) != -1 && c != '\n') {
+            if (line.length() < 8192) line.append((char)c); else truncated = true;
+        }
+        if (c == -1 && line.length() == 0 && !truncated) return null;
+        if (truncated) line.append(" [line truncated]");
+        return line.toString();
     }
 
     private static void record(File file, JSONObject record) throws Exception {

@@ -17,6 +17,31 @@ class FullAppDeviceTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private fun scratch() = File(context.cacheDir, "device-test-${UUID.randomUUID()}").apply { mkdirs() }
 
+    @Test fun migrationFromVersion2PreservesProjectAndConversation() = runBlocking {
+        val name = "migration-v2-${UUID.randomUUID()}.db"
+        val file = context.getDatabasePath(name).apply { parentFile!!.mkdirs() }
+        SQLiteDatabase.openOrCreateDatabase(file,null).use { db ->
+            db.execSQL("CREATE TABLE `checks` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `status` TEXT NOT NULL, " +
+                "`detail` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            SessionStore.MIGRATION_1_2_SQL.forEach(db::execSQL)
+            db.execSQL("INSERT INTO projects VALUES ('p','kept project','dir',1,2)")
+            db.execSQL("INSERT INTO conversations VALUES ('c','p','kept chat','chatgpt','READY',1,2)")
+            db.execSQL("INSERT INTO messages VALUES ('m','c','user','kept message',1)")
+            db.version = 2
+        }
+        val store=Room.databaseBuilder(context,SessionStore::class.java,name).addMigrations(SessionStore.MIGRATION_2_3).build()
+        try {
+            assertEquals("kept project",store.projects().find("p")!!.name)
+            val messages=store.conversations().messages("c")
+            assertEquals("kept message",messages.single().content)
+            val build=BuildRecord(UUID.randomUUID().toString(),"p","help","AWAITING_APPROVAL","prepared","hash",1)
+            store.builds().save(build)
+            assertEquals(1,store.builds().claimApproval(build.id))
+            assertEquals(0,store.builds().claimApproval(build.id))
+            assertEquals("DISPATCHING",store.builds().find(build.id)!!.status)
+        } finally { store.close(); context.deleteDatabase(name) }
+    }
+
     @Test fun migrationFromVersion1KeepsCheckHistory() = runBlocking {
         val name = "migration-${UUID.randomUUID()}.db"
         val file = context.getDatabasePath(name).apply { parentFile!!.mkdirs() }
@@ -26,7 +51,7 @@ class FullAppDeviceTest {
             db.execSQL("INSERT INTO checks VALUES ('old', 'Native command: version', 'PASSED', 'kept', 1, 2)")
             db.version = 1
         }
-        val store = Room.databaseBuilder(context, SessionStore::class.java, name).addMigrations(SessionStore.MIGRATION_1_2).build()
+        val store = Room.databaseBuilder(context, SessionStore::class.java, name).addMigrations(SessionStore.MIGRATION_1_2, SessionStore.MIGRATION_2_3).build()
         try {
             assertEquals("kept", store.checks().all().single().detail)
             store.projects().save(ProjectRecord("p", "Project", "dir", 1, 1))
@@ -78,7 +103,7 @@ class FullAppDeviceTest {
             assertTrue(File(base, "gradlew").canExecute())
             val report = BuildInspector.inspect(base)
             assertTrue(report.gradleProject && report.wrapper && report.androidApp)
-            assertEquals(CheckStatus.BLOCKED, report.status)
+            assertEquals(CheckStatus.PASSED, report.status)
         } finally { Archives.deleteTree(base) }
     }
 }

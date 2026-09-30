@@ -1,10 +1,25 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **30 September 2026** (0.2.0 emulator QA plus separate native-runtime validation, unreleased).
+Last updated **30 September 2026** (0.3.0 integrated native-worker QA, unreleased).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## Latest: Android-native Compose build succeeded — 30 September 2026
+## Latest: integrated foreground build worker — 30 September 2026
+
+See [integration evidence](build-worker-qa-2026-09-30.md) and `assets/screenshots/integration-20260930/`. Baseline `8c2888a6ccd6e2bdf66014388c1bf60ae4ababdf`, fetched/equal before edits; recovery ref `refs/checkpoints/before-worker-integration-20260930`.
+
+- Source now **0.3.0/code 5**, unpublished. Main embeds matching debug/release companion `dev.srimi.antigravitymobile.worker`, code 1, same signer/different UID. Packaged toolchain runs in its foreground service; main account storage is not mounted or transferred. Gradle scripts can access all worker storage/internet, so there is no isolation between build projects.
+- New `BuildSnapshot`, `BuildCoordinator`, `BuildWorkerClient`, `build-worker/` and `runtime-contract/`. Immutable bounded source copy/hash, exact-task approval, one-shot Room claim, per-build caches, bounded logs, cancellation, dead-worker reconnection and APK transfer. Main death reconnects to a live worker; worker death interrupts commands without replay.
+- Room **v3** with `MIGRATION_2_3`, retaining v1→v2 migration. **37 JVM + 16 device tests passed**, real AGP/kapt, main/worker release lint and signed release assembly. Device checks preserved old project/chat/message and covered declined/consumed approval, source-copy isolation, private-file denial, cancellation and worker force-stop/refused old ID. Fixed recycled Messenger reply race (two initial test failures) and explicit reconnection.
+- Through visible controls: create Compose project → approve → Android-native Gradle build → transfer → install → open → Count 0→1. Build ID `b94e9172-9f34-4518-ae9d-cfba78fc7512`, all 35 tasks executed in **3m 52s**, exit 0/matching attempt IDs. Main force-stop/restart during compilation retained the same job. Scratch application ID changed through ADB to preserve the old lab fixture; companion was installed with ADB for QA (embedded companion installer itself unvalidated).
+- Actual installer **low-storage failure reproduced**. Archived and verified the older generated lab cache before clearing it; original source/APKs/logs preserved. Added APK staging cleanup and conditional disk guard; controlled 348 MiB reservation displayed 728 MB free/63 MB needed. Reservation removed, install succeeded. Original failure and recovered UI evidence retained.
+- One 86,055,588-byte trace parsed, no nonzero error/data-loss stats. Sampled minimum available memory **21,544,960 bytes** on 3 GB emulator; daemon peak RSS **1,652,932,608 bytes**. Generated-app gfxinfo counters conflict (0/48 of 50), so no smoothness claim. Not physical OnePlus evidence.
+- Private main release `dist/antigravity-mobile-0.3.0.apk`, 286,454,547 bytes, SHA-256 `c0e4e74efe40c2915a3220796c2dc76d3621d4616ba0107e92f7c6778807a771`. Worker release 261,800,807 bytes, SHA-256 `f90d1fe4e7cfd06590c169d039edf97ede12541a22b17eadf0ea84f99150adae`. Original certificate preserved. Android-built sample `~/.cache/antigravity-mobile-runtime/integrated-compose.apk`, SHA-256 `e0bd612b2252950fd96c041a3a67ef8c9bf93a10c0f73eb6518fe47141951d2f`.
+- All runtime APKs remain private/unpublished. Existing 0.1.2 release/Drive/artwork/key preserved. Raw evidence and verified cache archive under `~/.cache/antigravity-mobile-runtime/evidence/integration-20260930/`. QA AVD `emulator-5556` retained; no command left running. Generated cache/storage management remains unfinished.
+
+**Next:** validate companion install/update and release in-place migration on the preserved release emulator; physical OnePlus 7 Pro (reported 12 GB/256 GB, Android/free space unverified), broader repositories/languages/websites and agent durability. Complete native runtime health/security/licensing acceptance before publishing. ChatGPT live coding is unverified and requires user consent; approved Google/Claude subscription routes remain blocked. The earlier ANR remains unresolved. Full app acceptance is still **not achieved**.
+
+## Earlier: Android-native Compose build succeeded — 30 September 2026
 
 See [Compose evidence](native-compose-qa-2026-09-30.md) and `assets/screenshots/compose-20260930/`. Baseline `b5dfa65f3af74f8d5c6ca2ec97d19769ef016a26`; recovery ref `refs/checkpoints/before-compose-trace-20260930`.
 

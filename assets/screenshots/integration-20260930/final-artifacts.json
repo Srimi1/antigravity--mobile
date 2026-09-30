@@ -1,0 +1,27 @@
+{
+  "mainDebug": {
+    "path": "/Users/srimi/.cache/antigravity-mobile-build/app/outputs/apk/debug/app-debug.apk",
+    "bytes": 296050808,
+    "sha256": "8e8e874ec8671453d90e27be56f18f241d58c33c604f92145cb92929031838e5"
+  },
+  "workerDebug": {
+    "path": "/Users/srimi/.cache/antigravity-mobile-build/build-worker/outputs/apk/debug/build-worker-debug.apk",
+    "bytes": 264267438,
+    "sha256": "46619fe63630baeb9dfd3360fd9bf5bfc9ffee28b1a7a35f2b943363d361a590"
+  },
+  "mainRelease": {
+    "path": "/Users/srimi/Library/Mobile Documents/com~apple~CloudDocs/Antigravity--Mobile/dist/antigravity-mobile-0.3.0.apk",
+    "bytes": 286454547,
+    "sha256": "c0e4e74efe40c2915a3220796c2dc76d3621d4616ba0107e92f7c6778807a771"
+  },
+  "workerRelease": {
+    "path": "/Users/srimi/.cache/antigravity-mobile-build/build-worker/outputs/apk/release/build-worker-release.apk",
+    "bytes": 261800807,
+    "sha256": "f90d1fe4e7cfd06590c169d039edf97ede12541a22b17eadf0ea84f99150adae"
+  },
+  "androidBuiltCompose": {
+    "path": "/Users/srimi/.cache/antigravity-mobile-runtime/integrated-compose.apk",
+    "bytes": 23669282,
+    "sha256": "e0bd612b2252950fd96c041a3a67ef8c9bf93a10c0f73eb6518fe47141951d2f"
+  }
+}

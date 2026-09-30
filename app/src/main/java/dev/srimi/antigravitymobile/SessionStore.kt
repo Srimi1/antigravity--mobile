@@ -140,18 +140,52 @@ interface ChangeDao {
     @Query("DELETE FROM change_sets WHERE id = :id") suspend fun deleteSet(id: String)
 }
 
+/** A build runs from its approved immutable archive in a separate worker UID. */
+@Entity(tableName = "build_runs")
+data class BuildRecord(
+    @PrimaryKey val id: String,
+    val projectId: String,
+    val tasks: String,
+    val status: String,
+    val detail: String,
+    val snapshotHash: String,
+    val createdAt: Long,
+    val finishedAt: Long = 0,
+    val durationMs: Long = 0,
+)
+@Dao
+interface BuildDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun save(record: BuildRecord)
+    @Query("SELECT * FROM build_runs WHERE id = :id") suspend fun find(id: String): BuildRecord?
+    @Query("UPDATE build_runs SET status = 'DISPATCHING', detail = 'Starting build worker' WHERE id = :id AND status = 'AWAITING_APPROVAL'")
+    suspend fun claimApproval(id: String): Int
+    @Query("SELECT * FROM build_runs WHERE projectId = :projectId ORDER BY createdAt DESC")
+    fun observe(projectId: String): Flow<List<BuildRecord>>
+    @Query("SELECT * FROM build_runs WHERE status IN ('RUNNING', 'CANCEL_REQUESTED', 'DISPATCHING')")
+    suspend fun unfinished(): List<BuildRecord>
+}
+
 @Database(
     entities = [CheckRecord::class, ProjectRecord::class, ConversationRecord::class, MessageRecord::class,
-        ActionRecord::class, ChangeSetRecord::class, ChangeFileRecord::class],
-    version = 2, exportSchema = false,
+        ActionRecord::class, ChangeSetRecord::class, ChangeFileRecord::class, BuildRecord::class],
+    version = 3, exportSchema = false,
 )
 abstract class SessionStore : RoomDatabase() {
     abstract fun checks(): CheckDao
     abstract fun projects(): ProjectDao
     abstract fun conversations(): ConversationDao
     abstract fun changes(): ChangeDao
+    abstract fun builds(): BuildDao
 
     companion object {
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `build_runs` (`id` TEXT NOT NULL, `projectId` TEXT NOT NULL, " +
+                    "`tasks` TEXT NOT NULL, `status` TEXT NOT NULL, `detail` TEXT NOT NULL, `snapshotHash` TEXT NOT NULL, " +
+                    "`createdAt` INTEGER NOT NULL, `finishedAt` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+
         /** Adds the full-app tables. Version 1 check history is left untouched. */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {

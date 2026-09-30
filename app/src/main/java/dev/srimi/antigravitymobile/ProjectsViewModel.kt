@@ -83,7 +83,7 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
             services.git.init(dir)
         }
         open(project)
-        "Created ${project.name} from the Compose template. Building it on this phone is still blocked; see Build."
+        "Created ${project.name} from the Compose template. Open Build to review a local build with the installed tools."
     }
     fun clone(url: String, name: String) = operation("Clone") {
         val clean = url.trim()

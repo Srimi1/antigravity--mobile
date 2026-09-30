@@ -10,36 +10,39 @@ For agents continuing this project, read [AGENTS.md](AGENTS.md) and the [saved c
 
 A native Kotlin/Compose coding app for one Android phone: open or clone a repository, ask an agent for changes, review every edit, and commit locally.
 
-**Status:** **0.2.0** builds with the real Android toolchain; 34 JVM and 12 emulator tests pass. Manual QA found an unresolved first-upgrade ANR, followed by three cold starts without recurrence. The signed APK remains unpublished; the download above is still 0.1.2. See [QA evidence](docs/emulator-qa-2026-09-30.md) and the [checkpoint](docs/PROJECT_CHECKPOINT.md). Live subscriptions, physical OnePlus and phone-only builds remain unverified or blocked.
+**Status:** **0.3.0 is unreleased**. The integrated Android-native worker built a Compose project on an ARM64 emulator; Antigravity transferred, installed and launched it. **37 JVM and 16 device tests pass**, including migration, approval, isolation, cancellation and worker recovery. See [integration evidence](docs/build-worker-qa-2026-09-30.md) and the [checkpoint](docs/PROJECT_CHECKPOINT.md). Live subscriptions, physical OnePlus, websites/wider development and the earlier upgrade ANR remain unaccepted. The public download is still 0.1.2.
 
 Version 0.1.2 includes the original adaptive launcher icon, round launcher support and an Android 13+ themed-icon silhouette. The repository artwork and icon sources are in [assets/branding](assets/branding/README.md).
 
 <img src="assets/screenshots/launcher.png" width="240" alt="Icon on the Android emulator launcher" /> <img src="assets/screenshots/prototype.png" width="240" alt="0.1.2 prototype running on the Android emulator" />
 
-## What 0.2.0 does
+## What the current source does
 
 - **Projects:** create, clone over HTTPS, import a folder (as a copy), start from a Compose template, export as ZIP. Browse and edit files. Git status, commit, history, pull and push (JGit, no `git` binary needed).
 - **Agent:** persistent conversations with streaming replies. The agent can list, read and search files and propose writes or deletes. Each edit needs your approval, shows a diff, and is recorded. Stop works at any point; interrupted tasks are never replayed.
 - **Changes:** every agent task becomes a change set with diffs. Keep it, revert it (refused if you edited the file afterwards), and commit only accepted files.
-- **Build:** shows honestly that on-phone builds are blocked, inspects the project, installs APKs from the project or storage, and keeps the device diagnostics.
+- **Build:** installs a bundled companion toolchain, prepares a source snapshot for approval, runs Gradle locally in a separate foreground worker, tracks cancellation/recovery and transfers built APKs to Android’s installer. Device diagnostics remain available.
 - **Accounts:** ChatGPT sign-in, test request, renewal, model choice and disconnect. Git commit author and an encrypted HTTPS token for private repos and push.
 
 ## What is still blocked
 
 - **Claude and Google subscriptions.** Supported, approved integration routes have not been established for this app, so both show as blocked. There is no API-key fallback.
 - **ChatGPT** uses OpenAI's documented Sign in with ChatGPT flow, but has not been tested against a live account.
-- **Building apps on the phone.** The main APK has no build toolchain. A [separate Android-native lab](tools/android-runtime-lab/README.md) passed five tests and built/installed/launched a small Java APK on the emulator. A later [full Kotlin/Compose build, install and launch passed on Android](docs/native-compose-qa-2026-09-30.md); production integration and physical validation remain pending. See [runtime evidence](docs/native-runtime-qa-2026-09-30.md).
+- **Physical phone and wider projects.** The experimental ARM64 toolchain is now integrated through a separate Android UID. The [separate Kotlin/Compose proof](docs/native-compose-qa-2026-09-30.md) succeeded; see the checkpoint for integration QA. Physical OnePlus, websites, other languages and general desktop capabilities are not accepted. Native compatibility and redistribution requirements remain open.
 - **No shell.** The agent cannot run commands, builds or tests.
 
 ## Build
 
-Requires Java 17, Android SDK platform 36, build tools 36.0.0 and NDK 27.2.12479018. Gradle 8.13 is pinned by the wrapper. Kotlin 2.1.21 and AGP 8.10.1 are pinned. The APK is built on a development machine; this is distinct from proving on-phone project builds.
+Requires Java 17, Android SDK platform 36, build tools 36.0.0, NDK 27.2.12479018 and prepared runtime inputs. Gradle 8.13 is pinned by the wrapper. Kotlin 2.1.21 and AGP 8.10.1 are pinned. The APK is built on a development machine; this is distinct from proving on-phone project builds.
 
 ```bash
 export JAVA_HOME=/path/to/jdk17
 export ANDROID_HOME=/path/to/android-sdk
 "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
   "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018"
+# Prepare the bundled runtime (downloads are hash pinned):
+python3 tools/android-runtime-lab/prepare.py --sdk "$ANDROID_HOME" \
+  --gradle /path/to/extracted/gradle-8.13 --host-jdk "$JAVA_HOME"
 ./tools/build.sh
 ```
 
@@ -62,12 +65,13 @@ Network loss and access denial leave a failed check. Reconnect explicitly. If lo
 
 ```bash
 ./gradlew :app:testDebugUnitTest :app:lintRelease
-./gradlew :app:connectedDebugAndroidTest
+# Worker/main debug APKs must share the test signer:
+./gradlew :build-worker:installDebug :app:connectedDebugAndroidTest
 ./gradlew -p samples/HelloPhone :app:assembleDebug
 # Fallback when Google Maven is unreachable (compile + JVM tests only):
 gradle -p tools/jvm-harness compileDeviceTestKotlin test
 ```
 
-Device tests use a separate test credential file and never overwrite a saved ChatGPT account. They verify native execution/cancellation, recovery records, credential encryption, the Room v1 to v2 migration, JGit on the device and the change ledger. JVM tests cover workspace and archive boundaries, change review and revert conflicts, JGit operations, the Responses stream format, the agent tool loop and signed-token validation. The agent loop tests use a scripted model that exists only in tests. No unit test is represented as a live subscription test.
+Device tests use a separate test credential file and never overwrite a saved ChatGPT account. They verify native execution/cancellation, recovery records, credential encryption, the Room v1/v2 to v3 migrations and approved worker isolation/cancellation, JGit on the device and the change ledger. JVM tests cover workspace and archive boundaries, change review and revert conflicts, JGit operations, the Responses stream format, the agent tool loop and signed-token validation. The agent loop tests use a scripted model that exists only in tests. No unit test is represented as a live subscription test.
 
 The command probe launches only its fixed native test program, which creates no child processes. That is not proof of safe cancellation of arbitrary shell process trees. File path checks are not a shell sandbox.

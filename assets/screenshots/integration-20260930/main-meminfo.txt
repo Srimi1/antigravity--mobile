@@ -1,0 +1,56 @@
+Applications Memory Usage (in Kilobytes):
+Uptime: 7311760 Realtime: 7311760
+
+** MEMINFO in pid 9831 [dev.srimi.antigravitymobile.probe] **
+                   Pss  Private  Private     Swap      Rss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------   ------
+  Native Heap    16156    16092        0        0    18988    24948    17692     2321
+  Dalvik Heap     6356     6132        0        0    14500    13112     6556     6556
+ Dalvik Other     6933     5220        0        0    10004                           
+        Stack     1224     1224        0        0     1240                           
+       Ashmem       17        0        0        0      536                           
+    Other dev        8        0        8        0      276                           
+     .so mmap     2643      260        0        0    31484                           
+    .jar mmap     3464        0      612        0    25620                           
+    .apk mmap    16730        0    16684        0    16912                           
+    .ttf mmap      307        0        0        0      708                           
+    .dex mmap       26        0        0        0      468                           
+    .oat mmap       84        0        0        0     1376                           
+    .art mmap     6497     6136        0        0    19796                           
+   Other mmap       49        8       32        0      672                           
+      Unknown      436      428        0        0      988                           
+        TOTAL    60930    35500    17336        0   143568    38060    24248     8877
+ 
+ App Summary
+                       Pss(KB)                        Rss(KB)
+                        ------                         ------
+           Java Heap:    12268                          34296
+         Native Heap:    16092                          18988
+                Code:    17556                          80004
+               Stack:     1224                           1240
+            Graphics:        0                              0
+       Private Other:     5696
+              System:     8094
+             Unknown:                                    9040
+ 
+           TOTAL PSS:    60930            TOTAL RSS:   143568      TOTAL SWAP (KB):        0
+ 
+ Objects
+               Views:       11         ViewRootImpl:        1
+         AppContexts:        6           Activities:        1
+              Assets:       15        AssetManagers:        0
+       Local Binders:       23        Proxy Binders:       39
+       Parcel memory:        8         Parcel count:       34
+    Death Recipients:        1      OpenSSL Sockets:        0
+            WebViews:        0
+ 
+ SQL
+         MEMORY_USED:      231
+  PAGECACHE_OVERFLOW:       66          MALLOC_SIZE:       46
+ 
+ DATABASES
+      pgsz     dbsz   Lookaside(b)          cache  Dbname
+         4       80             89     664/531/11  /data/user/0/dev.srimi.antigravitymobile.probe/databases/probe.db
+         4        8                         0/0/0    (attached) temp
+         4       80            123      435/30/12  /data/user/0/dev.srimi.antigravitymobile.probe/databases/probe.db (1)

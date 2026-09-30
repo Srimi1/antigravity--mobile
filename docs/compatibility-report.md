@@ -1,10 +1,16 @@
 # Compatibility report
 
-Status: **0.2.0 BUILT AND EMULATOR-TESTED, UNRELEASED; first-upgrade ANR unresolved. Full-product gate BLOCKED**. See [current QA evidence](emulator-qa-2026-09-30.md). Historical results are retained below.
+Status: **0.3.0 INTEGRATED NATIVE WORKER EMULATOR-TESTED, UNRELEASED; full-product gate BLOCKED**. See [integration evidence](build-worker-qa-2026-09-30.md). Physical phone, subscriptions, wider development and the earlier ANR remain unaccepted. Historical results are retained below.
 
 Latest user-reported target: OnePlus 7 Pro, 12 GB RAM, 256 GB storage (earlier records said 7T Pro). Physical model, current Android and free storage remain uninspected. No physical device was used in QA. Android 10+ and `arm64-v8a` remain the app requirements.
 
-## Current 0.2.0 validation — 30 September 2026
+## Current 0.3.0 validation — 30 September 2026
+
+Real AGP/kapt, **37 JVM tests**, main/worker release lint, signed release build and **16 device tests** passed. Through Antigravity's UI, a Compose project was approved, compiled in the separate Android foreground worker, transferred back, installed and launched. Main restart retained a live build; worker death interrupted/refused replay. One-shot approval, immutable source copy, private-account-storage isolation and Room v1/v2→v3 migrations passed. Companion installation was done with ADB for QA; its embedded installer still needs validation.
+
+Low-storage installation failure was reproduced and recovered after verified backup/clear of a generated lab cache. A conditional staging-space guard was validated. One parsed trace shows memory pressure on the 3 GB emulator; physical OnePlus performance is unknown. Native health/MTE/security/licensing, storage management, wider projects/languages/websites, foreground agent durability, live subscriptions and the earlier ANR remain open. The full app is not ready for acceptance.
+
+## Earlier 0.2.0 validation — 30 September 2026
 
 Real AGP build, Room kapt, 34 JVM tests, release lint and signed APK passed on the Mac. All 12 instrumentation tests passed on a separate Android 12 ARM64 emulator, including the four previously unrun full-app tests. Release upgraded 0.1.2 and retained its exact check record. Manual project creation, save/restart, Git status, five tabs and Compose-template generation passed after recovery.
 
@@ -23,14 +29,14 @@ Five lab instrumentation tests passed on Android 12 ARM64: real Java compilation
 | ChatGPT consent, inference, renewal, logout | UNVERIFIED: implementation exists; live account validation pending |
 | Workspace file edit and rollback | PASSED in JVM checks; physical OnePlus validation pending |
 | Packaged Android ARM64 command and cancellation | PASSED on Android 12 ARM64 emulator; physical OnePlus validation pending |
-| Native sample generation | Implemented; not an APK compilation result |
-| On-phone Kotlin/Compose compilation | BLOCKED in main app: Java and full Compose APK lab passed on emulator; integration and physical-phone acceptance pending |
+| Native sample generation | PASSED through emulator UI; generated project compiled/installed/launched |
+| Local Kotlin/Compose compilation | PASSED for the integrated emulator fixture; physical phone/wider projects unverified |
 | APK installer and launch on OnePlus | UNVERIFIED until performed on the target phone |
 | Full repo maintenance / autonomous agent loop | Local Git passed on ART; full existing-repo workflow and live agent acceptance unverified |
 
-The downloaded desktop Android SDK/NDK is used to cross-compile the probe, not claimed as a phone runtime. The embedded native program proves Android executable packaging only. It is neither a compiler nor a terminal toolchain.
+The development SDK/NDK cross-compiles the initial app and native libraries. The old childless diagnostic probe remains a probe. The companion executes a separate Android-native Java/Gradle/resource toolchain; architecture support alone is not broader compatibility proof.
 
-## Development validation
+## Historical 0.1.2 development validation
 
 Validated on 2026-09-30 using Java 17.0.20, Gradle 8.13, Kotlin 2.1.21, AGP 8.10.1, Android platform/build tools 36 and NDK 27.2.12479018:
 
@@ -47,7 +53,7 @@ Emulator results must not be treated as OnePlus acceptance. Live subscriptions r
 
 The first instrumentation run caught an interrupted-output-reader error during process cancellation. It was fixed and the final five device checks passed; the delivered APK includes that fix.
 
-## Next required evidence
+## Historical next required evidence (0.1.2)
 
 Install the probe on the OnePlus, run the checks, and export its JSON report. Establish supported Google and Claude routes. Supply and validate an Android-host JDK/Gradle/build-tool distribution before extending to project compilation. The complete five-screen agent application is gated on those results.
 
