@@ -8,3 +8,4 @@ gradlew text eol=lf
 # Preserve raw device/test evidence, including log padding and CR progress lines.
 assets/screenshots/integration-20260930/** -text -whitespace
 assets/screenshots/web-20261001/** -text -whitespace
+assets/screenshots/upgrade-20261001/** -text -whitespace

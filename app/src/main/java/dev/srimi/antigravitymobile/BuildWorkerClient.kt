@@ -37,6 +37,11 @@ class BuildWorkerClient(private val context: Context) {
         } else message.data.getParcelable<ParcelFileDescriptor>("artifact")?.close()
         true
     })
+    /** Older tools from this app's signer: Android's installer can update them in place. */
+    fun outdated(): Boolean = runCatching {
+        context.packageManager.getPackageInfo(P.WORKER, 0).longVersionCode < P.MIN_WORKER_VERSION &&
+            context.packageManager.checkSignatures(context.packageName, P.WORKER) == PackageManager.SIGNATURE_MATCH
+    }.getOrDefault(false)
     fun installed(): Boolean = runCatching {
         context.packageManager.getPackageInfo(P.WORKER, 0).longVersionCode >= P.MIN_WORKER_VERSION &&
             context.packageManager.checkSignatures(context.packageName, P.WORKER) == PackageManager.SIGNATURE_MATCH

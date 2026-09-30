@@ -1,0 +1,7 @@
+Starting: Intent { cmp=dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity
+TotalTime: 448
+WaitTime: 449
+Complete

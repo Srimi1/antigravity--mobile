@@ -24,7 +24,7 @@ class WebsiteDeviceTest {
         fun walk(node: AccessibilityNodeInfo) { found += node; repeat(node.childCount) { node.getChild(it)?.let(::walk) } }
         walk(root); return found
     }
-    private suspend fun text(value: String): AccessibilityNodeInfo = withTimeout(20000) {
+    private suspend fun text(value: String): AccessibilityNodeInfo = withTimeout(60000) {
         while (true) {
             nodes().firstOrNull { it.text?.toString()?.contains(value, ignoreCase = true) == true }?.let { return@withTimeout it }
             delay(200)

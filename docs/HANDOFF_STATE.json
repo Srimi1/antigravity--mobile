@@ -12,12 +12,12 @@
   "validated_source_baseline": "f3e8592d3bdc5e1123c2616e68d9705e5a2285f6 plus website completion commit (see git log)",
   "local_recovery_ref": "refs/checkpoints/before-web-workflow-20260930",
   "current_source": {
-    "main_version": "0.4.0",
-    "main_code": 6,
+    "main_version": "0.4.1",
+    "main_code": 7,
     "worker_version": "0.4.0-tools",
     "worker_code": 2,
     "room_version": 3,
-    "status": "static-website workflow implemented and emulator-validated; unpublished"
+    "status": "emulator-validated; private draft release for phone test"
   },
   "current_validation": {
     "date": "2026-10-01",
@@ -65,7 +65,7 @@
     "apk_bytes": 286454547,
     "apk_sha256": "c0e4e74efe40c2915a3220796c2dc76d3621d4616ba0107e92f7c6778807a771"
   },
-  "public_release": "0.1.2-probe/code3, unchanged",
+  "public_release": "0.1.2-probe/code3 unchanged; 0.4.1 only as private GitHub draft",
   "provider_acceptance": {
     "ChatGPT": "unverified live account",
     "Claude": "blocked supported approved route",
@@ -81,5 +81,12 @@
     "physical_phone": false
   },
   "full_product_ready": false,
-  "credentials_and_signing_key_in_source_archive": false
+  "credentials_and_signing_key_in_source_archive": false,
+  "upgrade_validation": {
+    "release_emulator_chain": "0.2.0->0.3.0->0.4.0->0.4.1 signed in place, data preserved, no ANR",
+    "companion_update_1_to_2_via_ui": "passed on emulators",
+    "oneplus_like_sim": "0.1.2->0.4.1 via Files/installer; Compose build 188s; website preview",
+    "main_0_4_1_apk_sha256": "d4144955ede813a745de0177f2d5a9b374a107a0030b4b4ac55845ea323b55b7",
+    "report": "docs/upgrade-qa-2026-10-01.md"
+  }
 }

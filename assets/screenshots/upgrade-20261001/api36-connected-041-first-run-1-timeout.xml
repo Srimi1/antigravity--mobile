@@ -1,0 +1,37 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="dev.srimi.antigravitymobile.BuildWorkerDeviceTest" tests="20" failures="1" errors="0" skipped="0" time="46.138" timestamp="2026-09-30T21:38:00" hostname="localhost">
+  <properties>
+    <property name="device" value="AntigravityMobileQA_API36(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="cancellingForegroundBuildTerminatesItsTask" classname="dev.srimi.antigravitymobile.BuildWorkerDeviceTest" time="7.779" />
+  <testcase name="approvalUsesImmutableSnapshotAndWorkerCannotReadMainPrivateFile" classname="dev.srimi.antigravitymobile.BuildWorkerDeviceTest" time="4.075" />
+  <testcase name="workerDeathIsInterruptedAndAnOldBuildIdCannotRunAgain" classname="dev.srimi.antigravitymobile.BuildWorkerDeviceTest" time="7.14" />
+  <testcase name="generatedProjectHasExecutableWrapperAndReportReflectsResult" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.033" />
+  <testcase name="cancellationStopsProcessWithinThreeSeconds" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.001" />
+  <testcase name="launcherIconUsesAdaptiveArtwork" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.0" />
+  <testcase name="packagedArm64ExecutableRunsAndReturnsNonzeroExit" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.001" />
+  <testcase name="coroutineCancellationReleasesExecutionSlot" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.13" />
+  <testcase name="interruptedRunsAreRecoveredWithoutReplay" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.003" />
+  <testcase name="encryptedCredentialStorageRoundTrip" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.003" />
+  <testcase name="apkContainsCompleteComposeSourceArchive" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.001" />
+  <testcase name="changeLedgerRevertsThroughRoomAndRefusesLaterEdit" classname="dev.srimi.antigravitymobile.FullAppDeviceTest" time="0.042" />
+  <testcase name="migrationFromVersion1KeepsCheckHistory" classname="dev.srimi.antigravitymobile.FullAppDeviceTest" time="0.032" />
+  <testcase name="jgitInitCommitStatusAndLogRunOnDevice" classname="dev.srimi.antigravitymobile.FullAppDeviceTest" time="0.035" />
+  <testcase name="composeTemplateExtractsIntoProjectWithExecutableWrapper" classname="dev.srimi.antigravitymobile.FullAppDeviceTest" time="0.001" />
+  <testcase name="migrationFromVersion2PreservesProjectAndConversation" classname="dev.srimi.antigravitymobile.FullAppDeviceTest" time="0.067" />
+  <testcase name="websiteTemplateIsPackagedAndHasRealLocalAssets" classname="dev.srimi.antigravitymobile.WebsiteDeviceTest" time="0.006" />
+  <testcase name="eachNewPreviewHasEmptyStorageAndFailedIdsCannotBeReused" classname="dev.srimi.antigravitymobile.WebsiteDeviceTest" time="1.244" />
+  <testcase name="actualWebViewRunsModulesCssJsonAndReloadsOnlyTheApprovedCopy" classname="dev.srimi.antigravitymobile.WebsiteDeviceTest" time="20.432">
+    <failure>kotlinx.coroutines.TimeoutCancellationException: Timed out waiting for 20000 ms
+at kotlinx.coroutines.TimeoutKt.TimeoutCancellationException(Timeout.kt:189)
+at kotlinx.coroutines.TimeoutCoroutine.run(Timeout.kt:157)
+at kotlinx.coroutines.EventLoopImplBase$DelayedRunnableTask.run(EventLoop.common.kt:505)
+at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:263)
+at kotlinx.coroutines.DefaultExecutor.run(DefaultExecutor.kt:105)
+at java.lang.Thread.run(Thread.java:1119)
+</failure>
+  </testcase>
+  <testcase name="browserDeniesExternalFileContentPostWorkersAndPeerConnections" classname="dev.srimi.antigravitymobile.WebsiteDeviceTest" time="0.969" />
+</testsuite>

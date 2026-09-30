@@ -182,6 +182,7 @@ data class BuildState(
     val checking: Boolean = false,
     val preparing: Boolean = false,
     val workerInstalled: Boolean = false,
+    val workerOutdated: Boolean = false,
     val records: List<BuildRecord> = emptyList(),
     val output: Map<String,String> = emptyMap(),
     val approval: BuildRecord? = null,
@@ -199,7 +200,8 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
                 services.ready.await()
                 services.selectedProjectId.flatMapLatest { id ->
                     val project = id?.let { services.projects.find(it) }
-                    mutable.update { BuildState(project = project, workerInstalled = services.builds.client.installed(), output = it.output) }
+                    mutable.update { BuildState(project = project, workerInstalled = services.builds.client.installed(),
+                        workerOutdated = services.builds.client.outdated(), output = it.output) }
                     inspect()
                     if (project == null) flowOf(emptyList()) else services.database.builds().observe(project.id)
                 }.collect { records -> mutable.update { it.copy(records = records) } }
@@ -207,7 +209,7 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch { services.builds.output.collect { output -> mutable.update { it.copy(output = output) } } }
     }
-    fun refreshTools() { mutable.update { it.copy(workerInstalled = services.builds.client.installed()) } }
+    fun refreshTools() { mutable.update { it.copy(workerInstalled = services.builds.client.installed(), workerOutdated = services.builds.client.outdated()) } }
     fun dismissMessage() { mutable.update { it.copy(message = null) } }
     fun inspect() {
         val project = state.value.project ?: return

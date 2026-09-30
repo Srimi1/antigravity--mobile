@@ -96,10 +96,15 @@ object ApkInstaller {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Build", style = MaterialTheme.typography.headlineSmall)
         SectionCard("On-phone build") {
-            StatusChip(if (state.workerInstalled) "Tools installed" else "Install tools", if (state.workerInstalled) "CONNECTED" else "BLOCKED")
+            StatusChip(when { state.workerInstalled -> "Tools installed"; state.workerOutdated -> "Tools update needed"; else -> "Install tools" },
+                if (state.workerInstalled) "CONNECTED" else "BLOCKED")
             Text("Gradle 8.13, Java 17 and Android SDK 36 run locally in a separate build app. " +
                 "The Kotlin/Compose sample has built on an ARM64 emulator; this phone and other projects still need validation.")
-            if (!state.workerInstalled) Button(onClick = { install { context.assets.open("build-worker.apk") } }) { Text("Install build tools") }
+            if (!state.workerInstalled) Button(onClick = { install { context.assets.open("build-worker.apk") } }) {
+                Text(if (state.workerOutdated) "Update build tools" else "Install build tools")
+            }
+            if (state.workerOutdated) Text("This version needs newer build tools. Updating keeps your projects; previous build outputs in the tools app are kept.",
+                style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(value = tasks, onValueChange = { tasks = it }, label = { Text("Gradle tasks") },
                 singleLine = true, modifier = Modifier.fillMaxWidth())
             Button(onClick = { build.prepare(tasks) }, enabled = state.workerInstalled && state.project != null &&
