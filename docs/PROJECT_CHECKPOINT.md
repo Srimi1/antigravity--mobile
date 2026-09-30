@@ -1,8 +1,21 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **30 September 2026** (0.3.0 integrated native-worker QA, unreleased).
+Last updated **30 September 2026** (portable AI handoff; unfinished 0.4.0 website groundwork preserved).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
+
+## Latest: user-requested complete AI handoff — 30 September 2026
+
+Read [CONTINUE_WITH_ANY_AI.md](../CONTINUE_WITH_ANY_AI.md) for the complete copyable goal, constraints, verified progress, architecture, evidence, artifacts, remaining work and continuation instructions. The user asked to save the full context and current work in this folder so another AI can continue.
+
+- Before website edits, clean `main` matched fetched `origin/main` at **`29d0d11e68b367cfad3ccaf36dc4b0e1b0545e9c`**. Local recovery ref: `refs/checkpoints/before-web-workflow-20260930`.
+- **Current source is 0.4.0/code 6; companion source 0.4.0-tools/code 2, unfinished.** Added `samples/HelloWeb`, `hello-web.zip` packaging, shared `WebFiles`, worker `WebPreviewStore`/`WebPreviewActivity`, signed Messenger preview-copy operation and a client requiring matching worker code 2. Room remains v3. Website files are saved; **no Projects/Editor creation, approval, preview-launch or export UI has been wired**.
+- The new preview code intends bounded copied-site HTTPS loading, JavaScript/CSS/local JSON, console output, network/file/content denial and no native JS bridge. These behaviors and safeguards have **not** received website tests or emulator validation. Node/frontend package builds, backend servers, external API access and deployment are not implemented.
+- Real-toolchain **main/worker debug Kotlin compilation + existing 37 JVM tests passed, zero failures/errors/skips**; Room kapt ran. No new website-specific tests, 0.4.0 release lint/main APK/device tests, installation or live account/phone validation were performed. Build evidence: [handoff-validation-2026-09-30.txt](handoff-validation-2026-09-30.txt). The 16 passing device tests below belong to validated 0.3.0, not 0.4.0.
+- Source-only handoff archive: `dist/antigravity-mobile-handoff-2026-09-30.zip` and checksum; current generic source ZIP also refreshed. Prior 0.3.0 source ZIP preserved separately. Archives exclude keys, credentials, APKs, build caches and generated native inputs; another machine needs the pinned preparation script and original signer obtained privately if an upgrade is intended.
+- Read-only device check: `emulator-5556` connected, worker 0.3.0-tools/code 1 and generated fixtures installed; **main package not listed**. No install/uninstall was performed during this handoff. Historical 0.3.0 private APK/evidence preserved. No physical phone attached.
+
+**Next:** complete and validate website UI/approval/export and matching worker update; then continue the remaining full-app gates in the handoff. Published 0.1.2, original signer, artwork and Drive artifact unchanged. **Full app is not ready; overall objective remains unachieved.** The validated 0.3.0 milestone and its actual evidence follow below.
 
 ## Latest: integrated foreground build worker — 30 September 2026
 

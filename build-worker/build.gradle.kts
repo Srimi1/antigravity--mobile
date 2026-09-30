@@ -11,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "dev.srimi.antigravitymobile.worker"
         minSdk = 29; targetSdk = 36
-        versionCode = 1; versionName = "0.3.0-tools"
+        versionCode = 2; versionName = "0.4.0-tools"
         ndk { abiFilters += "arm64-v8a" }
     }
     signingConfigs {
@@ -48,5 +48,6 @@ for ((name, shared) in listOf("java_launcher" to false, "jdk_paths" to true)) {
 }
 dependencies {
     implementation("androidx.core:core-ktx:1.16.0")
+    implementation("androidx.webkit:webkit:1.15.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 }

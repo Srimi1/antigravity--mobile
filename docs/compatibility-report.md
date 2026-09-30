@@ -1,6 +1,6 @@
 # Compatibility report
 
-Status: **0.3.0 INTEGRATED NATIVE WORKER EMULATOR-TESTED, UNRELEASED; full-product gate BLOCKED**. See [integration evidence](build-worker-qa-2026-09-30.md). Physical phone, subscriptions, wider development and the earlier ANR remain unaccepted. Historical results are retained below.
+Status: **CURRENT SOURCE 0.4.0 WEBSITE WORK IN PROGRESS; full-product gate BLOCKED**. Main/worker debug Kotlin compilation and the existing 37 JVM tests passed. Website UI/wiring, website-specific tests, 0.4.0 release lint/main APK and device validation are not done. See [complete handoff](../CONTINUE_WITH_ANY_AI.md) and [current compile evidence](handoff-validation-2026-09-30.txt). **0.3.0** is the last complete integrated-worker emulator-tested milestone; its [integration evidence](build-worker-qa-2026-09-30.md) is historical. Physical phone, subscriptions, wider development and the earlier ANR remain unaccepted.
 
 Latest user-reported target: OnePlus 7 Pro, 12 GB RAM, 256 GB storage (earlier records said 7T Pro). Physical model, current Android and free storage remain uninspected. No physical device was used in QA. Android 10+ and `arm64-v8a` remain the app requirements.
 

@@ -15,8 +15,8 @@ android {
         applicationId = "dev.srimi.antigravitymobile.probe"
         minSdk = 29
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.3.0"
+        versionCode = 6
+        versionName = "0.4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a") }
     }
@@ -84,6 +84,12 @@ val bundleSample by tasks.registering(Zip::class) {
 }
 android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/sample-assets"))
 tasks.named("preBuild").configure { dependsOn(bundleSample) }
+val bundleWebsite by tasks.registering(Zip::class) {
+    from(rootProject.file("samples/HelloWeb"))
+    destinationDirectory.set(layout.buildDirectory.dir("generated/sample-assets"))
+    archiveFileName.set("hello-web.zip")
+}
+tasks.named("preBuild").configure { dependsOn(bundleWebsite) }
 
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.04.01"))

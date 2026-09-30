@@ -4,12 +4,15 @@ object BuildProtocol {
     const val MAIN = "dev.srimi.antigravitymobile.probe"
     const val WORKER = "dev.srimi.antigravitymobile.worker"
     const val SERVICE = "$WORKER.BuildWorkerService"
+    const val PREVIEW_ACTIVITY = "$WORKER.WebPreviewActivity"
+    const val MIN_WORKER_VERSION = 2L
     const val PERMISSION = "dev.srimi.antigravitymobile.permission.BUILD_WORKER"
     const val HELLO = 1
     const val START = 2
     const val QUERY = 3
     const val CANCEL = 4
     const val ARTIFACT = 5
+    const val PREVIEW = 6
     const val REPLY = 100
     val terminal = setOf("COMPLETED", "FAILED", "CANCELLED", "INTERRUPTED")
     fun validateId(id: String) {

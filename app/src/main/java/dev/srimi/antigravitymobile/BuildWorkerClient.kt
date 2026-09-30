@@ -38,7 +38,7 @@ class BuildWorkerClient(private val context: Context) {
         true
     })
     fun installed(): Boolean = runCatching {
-        context.packageManager.getPackageInfo(P.WORKER, 0).longVersionCode >= 1 &&
+        context.packageManager.getPackageInfo(P.WORKER, 0).longVersionCode >= P.MIN_WORKER_VERSION &&
             context.packageManager.checkSignatures(context.packageName, P.WORKER) == PackageManager.SIGNATURE_MATCH
     }.getOrDefault(false)
     private suspend fun connect() = withContext(Dispatchers.Main.immediate) {
@@ -81,6 +81,15 @@ class BuildWorkerClient(private val context: Context) {
         }
     }
     suspend fun cancel(id: String) { request(P.CANCEL) { putString("id", id) } }
+    suspend fun preparePreview(id: String, archive: File, hash: String, entry: String) {
+        P.validateId(id)
+        ParcelFileDescriptor.open(archive, ParcelFileDescriptor.MODE_READ_ONLY).use { source ->
+            request(P.PREVIEW) {
+                putString("id", id); putString("sha256", hash); putString("entry", entry)
+                putParcelable("source", source)
+            }
+        }
+    }
     suspend fun artifact(id: String, index: Int, destination: File) {
         val message = request(P.ARTIFACT) { putString("id", id); putInt("index", index) }
         val fd = message.getParcelable<ParcelFileDescriptor>("artifact") ?: error("Worker returned no artifact")

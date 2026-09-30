@@ -83,6 +83,20 @@ class BuildWorkerService : Service() {
                 P.HELLO -> send(reply, request, JSONObject().put("ready", true).put("uid", android.os.Process.myUid())
                     .put("profile", "Gradle 8.13 · Java 17 · Android SDK 36"))
                 P.START -> start(data, reply, request)
+                P.PREVIEW -> {
+                    val id = data.getString("id").orEmpty(); P.validateId(id)
+                    val hash = data.getString("sha256").orEmpty()
+                    val entry = data.getString("entry").orEmpty()
+                    val source = data.getParcelable<ParcelFileDescriptor>("source") ?: error("Missing website copy")
+                    scope.launch {
+                        try {
+                            WebPreviewStore(this@BuildWorkerService).prepare(id, hash, entry, source)
+                            send(reply, request, JSONObject().put("id", id).put("ready", true))
+                        } catch (error: Exception) {
+                            send(reply, request, JSONObject().put("error", error.message?.take(500) ?: "Website copy failed"))
+                        } finally { source.close() }
+                    }
+                }
                 P.QUERY -> {
                     val id = data.getString("id").orEmpty(); P.validateId(id)
                     val record = records[id]?.let { JSONObject(it.toString()) } ?: JSONObject().put("status", "NOT_FOUND").put("id", id)

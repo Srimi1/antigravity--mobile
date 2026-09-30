@@ -10,7 +10,7 @@ For agents continuing this project, read [AGENTS.md](AGENTS.md) and the [saved c
 
 A native Kotlin/Compose coding app for one Android phone: open or clone a repository, ask an agent for changes, review every edit, and commit locally.
 
-**Status:** **0.3.0 is unreleased**. The integrated Android-native worker built a Compose project on an ARM64 emulator; Antigravity transferred, installed and launched it. **37 JVM and 16 device tests pass**, including migration, approval, isolation, cancellation and worker recovery. See [integration evidence](docs/build-worker-qa-2026-09-30.md) and the [checkpoint](docs/PROJECT_CHECKPOINT.md). Live subscriptions, physical OnePlus, websites/wider development and the earlier upgrade ANR remain unaccepted. The public download is still 0.1.2.
+**Status:** Current **0.4.0 source is unfinished website groundwork**, with main/worker debug Kotlin compilation and the existing 37 JVM tests passing; website UI and device validation are not done. The last complete validated milestone is **unreleased 0.3.0**: its integrated Android-native worker built a Compose project on an ARM64 emulator; Antigravity transferred, installed and launched it; **37 JVM and 16 device tests passed**. See the [complete continuation prompt](CONTINUE_WITH_ANY_AI.md), [integration evidence](docs/build-worker-qa-2026-09-30.md) and [checkpoint](docs/PROJECT_CHECKPOINT.md). Live subscriptions, physical OnePlus, websites/wider development and the earlier upgrade ANR remain unaccepted. The public download is still 0.1.2.
 
 Version 0.1.2 includes the original adaptive launcher icon, round launcher support and an Android 13+ themed-icon silhouette. The repository artwork and icon sources are in [assets/branding](assets/branding/README.md).
 

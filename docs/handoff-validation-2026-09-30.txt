@@ -1,0 +1,145 @@
+Antigravity Mobile handoff validation — 30 September 2026
+
+Scope: real main/worker debug Kotlin compilation and existing JVM tests.
+No website-specific tests, Android device tests, new main APK, release lint, physical phone or live provider validation.
+First run executed the JVM suite. Final run recompiles the annotation-only correction; JVM tests remained up-to-date.
+
+Command for each run:
+JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+ANDROID_HOME=/Users/srimi/Library/Android/sdk
+./gradlew --project-cache-dir "$HOME/.cache/antigravity-mobile-gradle" :build-worker:compileDebugKotlin :app:compileDebugKotlin :app:testDebugUnitTest --console=plain
+
+Captured log: handoff-compile-20260930.log
+SHA-256: 21937f11f885421d1538645d0ecbf707ba70dde9a6e92d8f8f39eeea3822049e
+
+> Task :build-worker:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :build-worker:compilejava_launcher
+> Task :build-worker:compilejdk_paths
+> Task :build-worker:preBuild
+> Task :build-worker:preDebugBuild
+> Task :build-worker:generateDebugResValues UP-TO-DATE
+> Task :build-worker:checkDebugAarMetadata
+> Task :build-worker:mapDebugSourceSetPaths
+> Task :build-worker:generateDebugResources UP-TO-DATE
+> Task :build-worker:packageDebugResources UP-TO-DATE
+> Task :build-worker:parseDebugLocalResources UP-TO-DATE
+> Task :build-worker:createDebugCompatibleScreenManifests
+> Task :build-worker:extractDeepLinksDebug UP-TO-DATE
+> Task :build-worker:processDebugMainManifest
+> Task :build-worker:mergeDebugResources
+> Task :build-worker:processDebugManifest
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:bundleSample UP-TO-DATE
+> Task :app:bundleWebsite
+> Task :app:compileNativeProbe
+> Task :app:preBuild
+> Task :app:preDebugBuild
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:preDebugUnitTestBuild
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:processDebugManifestForPackage
+> Task :build-worker:processDebugManifestForPackage
+> Task :build-worker:processDebugResources
+> Task :app:processDebugResources
+> Task :app:kaptGenerateStubsDebugKotlin
+> Task :app:kaptDebugKotlin
+
+> Task :build-worker:compileDebugKotlin
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/build-worker/src/main/java/dev/srimi/antigravitymobile/worker/BuildWorkerService.kt:78:18 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/build-worker/src/main/java/dev/srimi/antigravitymobile/worker/BuildWorkerService.kt:90:39 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/build-worker/src/main/java/dev/srimi/antigravitymobile/worker/BuildWorkerService.kt:127:18 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/build-worker/src/main/java/dev/srimi/antigravitymobile/worker/BuildWorkerService.kt:137:31 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/build-worker/src/main/java/dev/srimi/antigravitymobile/worker/WebPreviewActivity.kt:75:17 Wrapping the left-hand side of assignments in parentheses, labels or annotations is not allowed. This will become an error in Kotlin 2.2.
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/build-worker/src/main/java/dev/srimi/antigravitymobile/worker/WebPreviewActivity.kt:76:17 Wrapping the left-hand side of assignments in parentheses, labels or annotations is not allowed. This will become an error in Kotlin 2.2.
+
+> Task :app:compileDebugKotlin
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/BuildWorkerClient.kt:36:90 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/BuildWorkerClient.kt:37:29 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/BuildWorkerClient.kt:64:23 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+w: file:///Users/srimi/Library/Mobile%20Documents/com~apple~CloudDocs/Antigravity--Mobile/app/src/main/java/dev/srimi/antigravitymobile/BuildWorkerClient.kt:95:26 'fun <T : Parcelable!> getParcelable(p0: String?): T?' is deprecated. Deprecated in Java.
+
+> Task :app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:kaptGenerateStubsDebugUnitTestKotlin
+> Task :app:kaptDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest
+
+BUILD SUCCESSFUL in 13s
+46 actionable tasks: 27 executed, 19 up-to-date
+
+Captured log: handoff-compile-final-20260930.log
+SHA-256: 410862cd57d04c8baa69b68a32c3c0a426d7b1f7a0c45ea90b4e6c9ae7d58fd6
+
+> Task :build-worker:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :build-worker:compilejava_launcher UP-TO-DATE
+> Task :build-worker:compilejdk_paths UP-TO-DATE
+> Task :build-worker:preBuild UP-TO-DATE
+> Task :build-worker:preDebugBuild UP-TO-DATE
+> Task :build-worker:checkDebugAarMetadata UP-TO-DATE
+> Task :build-worker:generateDebugResValues UP-TO-DATE
+> Task :build-worker:mapDebugSourceSetPaths UP-TO-DATE
+> Task :build-worker:generateDebugResources UP-TO-DATE
+> Task :build-worker:mergeDebugResources UP-TO-DATE
+> Task :build-worker:packageDebugResources UP-TO-DATE
+> Task :build-worker:parseDebugLocalResources UP-TO-DATE
+> Task :build-worker:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :build-worker:extractDeepLinksDebug UP-TO-DATE
+> Task :build-worker:processDebugMainManifest UP-TO-DATE
+> Task :build-worker:processDebugManifest UP-TO-DATE
+> Task :build-worker:processDebugManifestForPackage UP-TO-DATE
+> Task :build-worker:processDebugResources UP-TO-DATE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:bundleSample UP-TO-DATE
+> Task :app:bundleWebsite UP-TO-DATE
+> Task :app:compileNativeProbe UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:kaptGenerateStubsDebugKotlin UP-TO-DATE
+> Task :app:kaptDebugKotlin UP-TO-DATE
+> Task :app:compileDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :app:bundleDebugClassesToRuntimeJar UP-TO-DATE
+> Task :app:bundleDebugClassesToCompileJar UP-TO-DATE
+> Task :app:kaptGenerateStubsDebugUnitTestKotlin UP-TO-DATE
+> Task :app:kaptDebugUnitTestKotlin UP-TO-DATE
+> Task :app:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest UP-TO-DATE
+> Task :build-worker:compileDebugKotlin
+
+BUILD SUCCESSFUL in 1s
+46 actionable tasks: 1 executed, 45 up-to-date

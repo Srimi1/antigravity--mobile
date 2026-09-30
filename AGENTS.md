@@ -11,7 +11,7 @@ These files describe the state saved on 30 September 2026. Verify the current ch
 
 ## User's current objective
 
-Build a **full native Android app** with Projects, Agent chat, Changes, Build and Accounts screens. The latest user-reported target is OnePlus 7 Pro, 12 GB RAM, 256 GB storage (earlier records said 7T Pro); verify the physical model and Android version. The source is 0.3.0 (unreleased), with a bundled companion build worker. The 0.2.0 real-toolchain/emulator results are historical. Read the latest checkpoint and integration evidence for exact current outcomes. Physical-phone/live-account acceptance and the earlier first-upgrade ANR remain unresolved.
+Build a **full native Android app** with Projects, Agent chat, Changes, Build and Accounts screens. The latest user-reported target is OnePlus 7 Pro, 12 GB RAM, 256 GB storage (earlier records said 7T Pro); verify the physical model and Android version. Current source is **0.4.0 (unfinished website groundwork)**; last complete validated milestone is **0.3.0** with a bundled companion build worker. Read [CONTINUE_WITH_ANY_AI.md](CONTINUE_WITH_ANY_AI.md) for the user-requested portable handoff and exact unfinished files. Main/worker debug Kotlin compilation and the existing 37 JVM tests passed; website UI, website-specific tests and 0.4.0 APK/device validation are not done. Earlier real-toolchain/emulator results are historical. Physical-phone/live-account acceptance and the earlier first-upgrade ANR remain unresolved.
 
 Continue from there. Keep unresolved capabilities clearly marked. The request for a full app does not make the mandatory dependencies available.
 
@@ -61,13 +61,14 @@ Build execution paths:
 Other important paths:
 
 - `app/src/main/cpp/execution_probe.c`: genuine Android/Bionic test executable, not a compiler.
-- `samples/HelloPhone/`: complete Compose sample, used as the "Compose app" project template. Host compilation passed; phone compilation did not.
-- `app/src/test/`: 37 JVM tests and 16 instrumentation tests passed with the real toolchain/Android 12 ARM64 emulator, including migrations and worker isolation/cancellation/recovery; see `docs/build-worker-qa-2026-09-30.md`.
+- `samples/HelloPhone/`: complete Compose template; integrated Android-native emulator build/install/launch passed for 0.3.0. Physical phone remains untested.
+- `samples/HelloWeb/`, shared `WebFiles`, worker `WebPreviewStore`/`WebPreviewActivity`: unfinished 0.4.0 website groundwork. No Projects/Editor creation, approval, launch or website export UI; safeguards and functionality unvalidated on Android. Current client requires matching worker code 2.
+- `app/src/test/`: existing 37 JVM tests passed for current source. The 16 instrumentation tests passed for 0.3.0 with the real toolchain/Android 12 ARM64 emulator, including migrations and worker isolation/cancellation/recovery; see `docs/build-worker-qa-2026-09-30.md`. They were not rerun for 0.4.0.
 - `tools/android-runtime-lab/`: separate credential-free Android-native build validation. Five device tests passed and a Java Android APK built/installed/launched on the emulator; a later full Compose build/install/launch and Count interaction passed. Not integrated into the main app. Read `docs/native-runtime-qa-2026-09-30.md` before continuing.
 - `tools/jvm-harness/`: compile/test fallback for sandboxes without Google Maven. Not a substitute for the real build.
 - `assets/branding/`: finished original app icon, repository cover and generation prompts.
 - `assets/screenshots/`: actual Android 12 ARM64 captures of 0.1.2 and 0.2.0 QA evidence in `qa-20260930/`.
-- `release/`: published 0.1.2 metadata, notes and APK checksum; binary copies are ignored by Git. Do not edit it for unreleased 0.3.0.
+- `release/`: published 0.1.2 metadata, notes and APK checksum; binary copies are ignored by Git. Do not edit it for unreleased 0.3.0/0.4.0 work.
 
 ## Where to continue
 
@@ -88,7 +89,7 @@ The complete product remains unaccepted until all mandatory subscriptions perfor
 - Instrumentation uses a debug signer. A personally signed release on the same test device can cause `INSTALL_FAILED_UPDATE_INCOMPATIBLE`; use a separate test emulator or preserve the device's data before changing installations. Never uninstall the user's phone app just to make tests pass.
 - Keep generated output outside iCloud. Root Gradle configuration uses `~/.cache/antigravity-mobile-build`; generate native libraries/assets using `layout.buildDirectory`, not hard-coded old `app/build` paths.
 - Source archive: `python3 tools/package_source.py`. It excludes build caches, APKs/ZIPs and private signing keys. Published v0.1.2 archives are immutable snapshots; new source work needs its own later release.
-- Application ID is `dev.srimi.antigravitymobile.probe`; changing it breaks the update path. Version code 3 (0.1.2) is published; source is version code 5 (0.3.0), unreleased. Future main/worker upgrades must synchronize required worker version and preserve matching signers. Increment version code/name and synchronize build packaging and release metadata for a new APK.
+- Application ID is `dev.srimi.antigravitymobile.probe`; changing it breaks the update path. Version code 3 (0.1.2) is published; source is version code 6 (0.4.0), unfinished/unreleased. Worker source code 2 is required by the client; last validated worker code is 1 (0.3.0-tools). Synchronize required worker version and preserve matching signers. Increment version code/name and synchronize build packaging and release metadata for a new APK.
 - Preserve `.signing/personal.p12` locally. Do not commit, upload or print the key. A checkout on another computer does not contain the original signer; do not claim a newly generated key can update the published APK.
 - Preserve the completed artwork and existing release. Do not recreate the icon, re-upload unchanged APKs or repeat completed Drive replacement work.
 - Consult the checkpoint for the current GitHub release and Drive URL. Verify a replacement before deleting an old file, and use the human user's authorization for publishing or deletion.

@@ -1,0 +1,7 @@
+:root { color-scheme: dark; font: 18px/1.6 system-ui, sans-serif; background: #101b2c; color: #f3f7ff; }
+body { margin: 0; }
+main { max-width: 680px; margin: 0 auto; padding: 48px 24px; }
+.eyebrow { color: #69e2c0; letter-spacing: .12em; font-size: .7rem; }
+h1 { font-size: clamp(2.2rem, 9vw, 3.8rem); line-height: 1.1; }
+button { font: inherit; padding: 12px 24px; background: #69e2c0; border: 0; border-radius: 12px; color: #101b2c; cursor: pointer; }
+a { color: #9dbfff; }

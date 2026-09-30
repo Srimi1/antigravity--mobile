@@ -1,0 +1,60 @@
+{
+  "saved_utc": "2026-09-30T16:30:03.687254+00:00",
+  "purpose": "User-requested portable AI handoff; unfinished work is preserved, not accepted.",
+  "continuation_prompt": "CONTINUE_WITH_ANY_AI.md",
+  "goal": "Create apps, websites and do coding on the phone with the full native Antigravity app; user requests desktop-equivalent capabilities.",
+  "target_reported": {
+    "model": "OnePlus 7 Pro",
+    "ram_gb": 12,
+    "storage_gb": 256,
+    "physical_device_verified": false
+  },
+  "validated_source_baseline": "29d0d11e68b367cfad3ccaf36dc4b0e1b0545e9c",
+  "local_recovery_ref": "refs/checkpoints/before-web-workflow-20260930",
+  "current_source": {
+    "main_version": "0.4.0",
+    "main_code": 6,
+    "worker_version": "0.4.0-tools",
+    "worker_code": 2,
+    "room_version": 3,
+    "status": "unfinished website groundwork"
+  },
+  "current_validation": {
+    "debug_kotlin_main_and_worker": "passed",
+    "existing_jvm_suite": {
+      "tests": 37,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "new_website_tests": "not run",
+    "android_tests": "not rerun",
+    "main_apk": "not assembled",
+    "release_lint": "not run"
+  },
+  "last_complete_milestone": {
+    "version": "0.3.0",
+    "jvm_tests": 37,
+    "device_tests": 16,
+    "emulator": "Android 12 ARM64 API31, 3 GB",
+    "compose_build_install_launch": "passed",
+    "private_main_apk": "dist/antigravity-mobile-0.3.0.apk",
+    "apk_bytes": 286454547,
+    "apk_sha256": "c0e4e74efe40c2915a3220796c2dc76d3621d4616ba0107e92f7c6778807a771"
+  },
+  "public_release": "0.1.2-probe/code3, unchanged",
+  "provider_acceptance": {
+    "ChatGPT": "unverified live account",
+    "Claude": "blocked supported approved route",
+    "Google": "blocked supported route"
+  },
+  "device_snapshot": {
+    "serial": "emulator-5556",
+    "connected": true,
+    "main_package_listed": false,
+    "worker_installed_version": "0.3.0-tools/code1",
+    "installs_or_uninstalls_this_handoff": false
+  },
+  "full_product_ready": false,
+  "credentials_and_signing_key_in_source_archive": false
+}
