@@ -1,10 +1,23 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **30 September 2026** (portable AI handoff; unfinished 0.4.0 website groundwork preserved).
+Last updated **1 October 2026** (0.4.0 static-website workflow implemented and emulator-validated; full app still not accepted).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## Latest: user-requested complete AI handoff — 30 September 2026
+## Latest: static website workflow validated on emulators — 1 October 2026
+
+See [website QA](website-qa-2026-10-01.md) and `assets/screenshots/web-20261001/`. Baseline `f3e8592d3bdc5e1123c2616e68d9705e5a2285f6` = fetched `origin/main`; the previous session's uncommitted website wiring was preserved and completed.
+
+- **Implemented (0.4.0/code 6, worker 0.4.0-tools/code 2, Room v3 unchanged):** Projects **Website** template; editor **Preview saved HTML** (blocked while unsaved); **Website** tab with folder/entry selection (e.g. `dist` + `index.html`); `WebsiteService` durable one-use approvals (hash, file list, claim once, decline, startup `INTERRUPTED` without replay); preview in the worker UID with Reload (approved copy only), Console and Close (extracted copy deleted, ID cannot reopen); **Export website ZIP** (chosen folder at ZIP root) via the document picker.
+- **Defects found/fixed:** preview refused to start on WebView 91 (no `DOCUMENT_START_SCRIPT`) → `WebGuard` injected into served HTML after doctype (plus document-start when supported); console line numbers shifted → one-line guard. Preview activity now survives rotation (`configChanges`).
+- **Tests:** `./tools/build.sh` passed — **56 JVM tests**, main release lint, signed release (`dist/antigravity-mobile-0.4.0.apk`, 286,709,857 bytes, SHA-256 `58e23228d32e30085f1c9dfc99e29e0c458e804b2753f7066d31b8dd735c8200`, original certificate `791980ed…10b5`, private/unpublished). Worker `lintRelease` passed. **20/20 device tests** on `AntigravityMobileQA_API36` (Android 16, WebView 133); `WebsiteDeviceTest` **4/4** on `AntigravityMobileQA_API31` (Android 12, WebView 91).
+- **Manual emulator QA (API 36):** create Hello Web → edit/save → approve → preview (local JSON, CSS, Count 0→1, local navigation, reload) → `dist/index.html` created in app → folder `dist` preview → console shows warning and uncaught `ReferenceError` → exported ZIP pulled, one root `index.html`, SHA-256 equal to approved copy.
+- **Honest limits:** HTTP/file/content/POST/service-worker denial is enforced; WebRTC removal is JavaScript defense in depth only — on WebView 91 a `srcdoc` frame still exposed `RTCPeerConnection` and the worker UID has `INTERNET`. Proper fix: preview package without `INTERNET`. Static sites only (no Node/npm, backend, external APIs, deployment). Preview/approval marker records are not pruned.
+- Embedded companion **fresh** install through the Build tab was captured by the previous session on API 36 (`prior-api36-*`); the UI **update** path (code 1→2) and personally signed release upgrade/data preservation remain unvalidated. The QA AVDs were stopped after testing; `AntigravityMobileProbe_API31` (release emulator) was not touched. No physical phone, live account, publish or deletion of user/public artifacts. One stale ddmlib upload copy (`/data/local/tmp/app-debug.apk`, SHA-256 identical to the host build output) was removed from the disposable QA AVD to free space.
+
+**Next:** (1) validate embedded companion update 1→2 and signed 0.3.0→0.4.0 in-place upgrade with data preservation on `AntigravityMobileProbe_API31`, tracing the first-upgrade ANR; (2) move preview into a no-`INTERNET` package or otherwise close the WebRTC gap; (3) foreground service for agent tasks + persisted tool history; (4) approved agent build/test tools; (5) storage/cache pruning with preservation. Physical OnePlus 7 Pro and live subscriptions (ChatGPT unverified; Claude/Google blocked) still gate full acceptance. **Full app is not ready.**
+
+## Earlier: user-requested complete AI handoff — 30 September 2026
 
 Read [CONTINUE_WITH_ANY_AI.md](../CONTINUE_WITH_ANY_AI.md) for the complete copyable goal, constraints, verified progress, architecture, evidence, artifacts, remaining work and continuation instructions. The user asked to save the full context and current work in this folder so another AI can continue.
 

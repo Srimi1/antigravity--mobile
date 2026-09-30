@@ -36,7 +36,7 @@ My latest reported phone is **OnePlus 7 Pro, 12 GB RAM, 256 GB storage**. Older 
 
 ## Current answer about readiness
 
-**No, the complete app is not ready.** A real Compose sample was built, installed and run through the integrated Antigravity emulator workflow. Basic file editing and local Git have evidence. Websites, wider languages/repositories, physical-phone acceptance, complete live subscription access, runtime distribution acceptance and some durability/performance issues remain unfinished.
+**No, the complete app is not ready.** A real Compose sample was built, installed and run through the integrated Antigravity emulator workflow. Basic file editing and local Git have evidence. A static-website workflow (create, edit, approve, preview, console, export) passed emulator QA on 1 October 2026. Node/backend website work, wider languages/repositories, physical-phone acceptance, complete live subscription access, runtime distribution acceptance and some durability/performance issues remain unfinished.
 
 Do not promise that everything possible on Linux, Windows or macOS can already run on this phone.
 
@@ -47,7 +47,7 @@ Do not promise that everything possible on Linux, Windows or macOS can already r
 | **0.1.2-probe / Android code 3** | Publicly released diagnostic prototype. Original signer, artwork, release assets and Drive APK are preserved. Not the full app. |
 | **0.2.0 / code 4** | Five-screen implementation; real host build, lint, 34 JVM + 12 emulator tests and data-preserving release upgrade passed. An initial upgrade ANR remains unresolved. Historical APK is private. |
 | **0.3.0 / code 5** | Last complete validated implementation milestone. Integrated separate native build worker, Room v3, 37 JVM + 16 emulator tests, signed host release build and a real Compose build/install/launch through the app. Unpublished. |
-| **0.4.0 / code 6** | Current source version: unfinished website preview groundwork, added during this handoff session. Debug Kotlin compilation and the existing 37 JVM tests passed. No 0.4.0 main APK, release lint, installation, website UI flow or new Android tests were validated in this session. |
+| **0.4.0 / code 6** | Current source. Static-website workflow implemented; on 1 Oct 2026 `./tools/build.sh` (56 JVM tests, release lint, signed release), worker release lint, 20/20 device tests on API 36 emulator, website device tests on API 31 and manual emulator QA passed (`docs/website-qa-2026-10-01.md`). Unpublished; no physical-phone/live-provider acceptance; embedded companion UI update and signed upgrade unvalidated. |
 
 Main application ID stays **`dev.srimi.antigravitymobile.probe`**. Last validated companion is **`dev.srimi.antigravitymobile.worker`**, 0.3.0-tools/code 1. Current companion source is **0.4.0-tools/code 2**. Current main client requires worker code 2 or later with a matching signature; the old worker will need an update before current-source operations can run.
 
@@ -131,7 +131,10 @@ No live account credentials were used in the development/QA run. No provider app
 
 Primary sources recorded in the project include Google's Antigravity downloads/pricing/SDK pages, OpenAI's `developers.openai.com/siwc/token-sharing-open-source` documentation and Claude's `code.claude.com/docs/en/agent-sdk/overview`. A login screen, model catalog, OAuth callback, unit test or mock model is not subscription inference evidence.
 
-## Unfinished 0.4.0 website work — exact handoff point
+## 0.4.0 website work
+
+**Update 1 October 2026:** the items listed as missing below were implemented and emulator-validated; see `docs/website-qa-2026-10-01.md` and the checkpoint. Remaining website gaps: WebRTC only JavaScript-guarded (bypass via `srcdoc` on WebView 91; worker holds `INTERNET`), no Node/package builds, backend, external APIs or deployment, no pruning of preview records, no physical-phone run. The text below is the original 30 September handoff, kept for history.
+
 
 The user requested this handoff while the website workflow was being implemented. The following source is saved; it is **not a completed website feature**:
 
@@ -155,7 +158,7 @@ Node/package-manager/frontend build pipelines, backend servers, external APIs an
 
 ## Remaining acceptance work
 
-1. Finish and test the website workflow above without claiming Node/backend support.
+1. ~~Finish and test the static website workflow~~ (done on emulators, 1 Oct 2026). Close the WebRTC gap (preview package without `INTERNET`) and add Node/frontend build support later without overclaiming.
 2. Validate the embedded companion install/update and personally signed release upgrade/data preservation on the preserved test release emulator. Never substitute an uninstall on the physical phone.
 3. Investigate the initial upgrade ANR, capturing a trace before launch and controlling host contention.
 4. Keep long agent tasks alive with an appropriate foreground service; persist tool history and recover interruption honestly.

@@ -1,6 +1,6 @@
 {
-  "saved_utc": "2026-09-30T16:30:03.687254+00:00",
-  "purpose": "User-requested portable AI handoff; unfinished work is preserved, not accepted.",
+  "saved_utc": "2026-09-30T19:10:00+00:00",
+  "purpose": "Portable AI handoff. 0.4.0 static-website workflow emulator-validated; full product not accepted.",
   "continuation_prompt": "CONTINUE_WITH_ANY_AI.md",
   "goal": "Create apps, websites and do coding on the phone with the full native Antigravity app; user requests desktop-equivalent capabilities.",
   "target_reported": {
@@ -9,7 +9,7 @@
     "storage_gb": 256,
     "physical_device_verified": false
   },
-  "validated_source_baseline": "29d0d11e68b367cfad3ccaf36dc4b0e1b0545e9c",
+  "validated_source_baseline": "f3e8592d3bdc5e1123c2616e68d9705e5a2285f6 plus website completion commit (see git log)",
   "local_recovery_ref": "refs/checkpoints/before-web-workflow-20260930",
   "current_source": {
     "main_version": "0.4.0",
@@ -17,20 +17,43 @@
     "worker_version": "0.4.0-tools",
     "worker_code": 2,
     "room_version": 3,
-    "status": "unfinished website groundwork"
+    "status": "static-website workflow implemented and emulator-validated; unpublished"
   },
   "current_validation": {
-    "debug_kotlin_main_and_worker": "passed",
-    "existing_jvm_suite": {
-      "tests": 37,
+    "date": "2026-10-01",
+    "jvm_suite": {
+      "tests": 56,
       "failures": 0,
       "errors": 0,
       "skipped": 0
     },
-    "new_website_tests": "not run",
-    "android_tests": "not rerun",
-    "main_apk": "not assembled",
-    "release_lint": "not run"
+    "main_release_lint": "passed",
+    "worker_release_lint": "passed",
+    "main_release_apk": {
+      "path": "dist/antigravity-mobile-0.4.0.apk",
+      "bytes": 286709857,
+      "sha256": "58e23228d32e30085f1c9dfc99e29e0c458e804b2753f7066d31b8dd735c8200",
+      "private": true
+    },
+    "android_tests_api36": {
+      "avd": "AntigravityMobileQA_API36",
+      "webview": "133.0.6943.137",
+      "tests": 20,
+      "failures": 0
+    },
+    "website_tests_api31": {
+      "avd": "AntigravityMobileQA_API31",
+      "webview": "91.0.4472.114",
+      "tests": 4,
+      "failures": 0
+    },
+    "manual_emulator_qa": "docs/website-qa-2026-10-01.md",
+    "known_gaps": [
+      "WebRTC reachable from srcdoc frames on WebView 91",
+      "static sites only",
+      "embedded companion UI update 1->2 unvalidated",
+      "signed release upgrade unvalidated"
+    ]
   },
   "last_complete_milestone": {
     "version": "0.3.0",
@@ -49,11 +72,13 @@
     "Google": "blocked supported route"
   },
   "device_snapshot": {
-    "serial": "emulator-5556",
-    "connected": true,
-    "main_package_listed": false,
-    "worker_installed_version": "0.3.0-tools/code1",
-    "installs_or_uninstalls_this_handoff": false
+    "emulators_used": [
+      "emulator-5558 (API36)",
+      "emulator-5556 (API31)"
+    ],
+    "stopped_after_qa": true,
+    "release_emulator_AntigravityMobileProbe_API31_touched": false,
+    "physical_phone": false
   },
   "full_product_ready": false,
   "credentials_and_signing_key_in_source_archive": false

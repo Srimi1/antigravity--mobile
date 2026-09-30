@@ -39,9 +39,15 @@ class WebPreviewStore(context: Context) {
     fun load(id: String): Pair<File, String> {
         P.validateId(id)
         val session = File(previews, id)
+        check(!File(session, "opened").exists()) { "Preview already opened; approve a new copy in Projects" }
         val record = JSONObject(File(session, "ready.json").readText())
         val entry = record.getString("entry"); val root = File(session, "site")
         check(WebFiles.resolve(root, entry).isFile) { "Website copy unavailable" }
+        check(File(session, "opened").createNewFile()) { "Preview already opened; approve a new copy in Projects" }
         return root to entry
+    }
+    fun close(id: String) {
+        P.validateId(id)
+        File(previews, "$id/site").deleteRecursively()
     }
 }

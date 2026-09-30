@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-private enum class ProjectDialog { CREATE, TEMPLATE, CLONE, NEW_FILE, NEW_FOLDER, COMMIT, RENAME }
+private enum class ProjectDialog { CREATE, TEMPLATE, WEBSITE, CLONE, NEW_FILE, NEW_FOLDER, COMMIT, RENAME }
 
 @Composable fun ProjectsScreen(model: ProjectsViewModel, notify: (String) -> Unit) {
     val state by model.state.collectAsStateWithLifecycle()
@@ -32,6 +32,7 @@ private enum class ProjectDialog { CREATE, TEMPLATE, CLONE, NEW_FILE, NEW_FOLDER
     var includeGit by remember { mutableStateOf(true) }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> if (uri != null) model.importFolder(uri) }
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> if (uri != null) model.export(uri, includeGit) }
+    val websiteExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> if (uri != null) model.exportWebsite(uri) }
 
     Column(Modifier.fillMaxSize()) {
         state.busy?.let { BusyRow(it, state.progress, onCancel = model::cancel) }
@@ -40,10 +41,11 @@ private enum class ProjectDialog { CREATE, TEMPLATE, CLONE, NEW_FILE, NEW_FOLDER
         when {
             project == null -> ProjectList(state, model, onCreate = { dialog = ProjectDialog.CREATE },
                 onTemplate = { dialog = ProjectDialog.TEMPLATE }, onClone = { dialog = ProjectDialog.CLONE },
-                onImport = { importer.launch(null) })
-            editor != null -> Editor(editor, model)
+                onWebsite = { dialog = ProjectDialog.WEBSITE }, onImport = { importer.launch(null) })
+            editor != null -> Editor(editor, model, state.busy != null)
             else -> ProjectDetail(state, project, model, onDialog = { dialog = it },
-                onExport = { git -> includeGit = git; exporter.launch("${project.name}.zip") })
+                onExport = { git -> includeGit = git; exporter.launch("${project.name}.zip") },
+                onWebsiteExport = { websiteExporter.launch("${project.name}-website.zip") })
         }
     }
 
@@ -53,6 +55,9 @@ private enum class ProjectDialog { CREATE, TEMPLATE, CLONE, NEW_FILE, NEW_FOLDER
         }
         ProjectDialog.TEMPLATE -> TextPromptDialog("New Compose app", "Name", "Create", initial = "Hello Phone", onDismiss = { dialog = null }) { name, _ ->
             dialog = null; model.createFromTemplate(name)
+        }
+        ProjectDialog.WEBSITE -> TextPromptDialog("New website", "Name", "Create", initial = "Hello Web", onDismiss = { dialog = null }) { name, _ ->
+            dialog = null; model.createWebsite(name)
         }
         ProjectDialog.CLONE -> TextPromptDialog("Clone repository", "HTTPS URL", "Clone", secondLabel = "Project name (optional)",
             onDismiss = { dialog = null }) { url, name -> dialog = null; model.clone(url, name) }
@@ -69,10 +74,11 @@ private enum class ProjectDialog { CREATE, TEMPLATE, CLONE, NEW_FILE, NEW_FOLDER
             onDismiss = { dialog = null }) { name, _ -> dialog = null; model.rename(name) }
         null -> Unit
     }
+    state.websiteApproval?.let { copy -> WebsiteApproval(copy, model::approveWebsite, model::declineWebsite) }
 }
 
 @Composable private fun ProjectList(state: ProjectsState, model: ProjectsViewModel, onCreate: () -> Unit, onTemplate: () -> Unit,
-                                    onClone: () -> Unit, onImport: () -> Unit) {
+                                    onClone: () -> Unit, onWebsite: () -> Unit, onImport: () -> Unit) {
     var deleting by remember { mutableStateOf<ProjectRecord?>(null) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
@@ -90,6 +96,7 @@ private enum class ProjectDialog { CREATE, TEMPLATE, CLONE, NEW_FILE, NEW_FOLDER
                 OutlinedButton(onClick = onImport, enabled = state.busy == null, modifier = Modifier.weight(1f)) { Text("Import folder") }
                 OutlinedButton(onClick = onTemplate, enabled = state.busy == null, modifier = Modifier.weight(1f)) { Text("Compose app") }
             }
+            OutlinedButton(onClick = onWebsite, enabled = state.busy == null, modifier = Modifier.fillMaxWidth()) { Text("Website") }
         }
         if (state.projects.isEmpty()) item {
             EmptyState("No projects yet", "Create one, clone an HTTPS repository or import a folder to start.")
@@ -114,7 +121,7 @@ private enum class ProjectDialog { CREATE, TEMPLATE, CLONE, NEW_FILE, NEW_FOLDER
 }
 
 @Composable private fun ProjectDetail(state: ProjectsState, project: ProjectRecord, model: ProjectsViewModel,
-                                      onDialog: (ProjectDialog) -> Unit, onExport: (Boolean) -> Unit) {
+                                      onDialog: (ProjectDialog) -> Unit, onExport: (Boolean) -> Unit, onWebsiteExport: () -> Unit) {
     var tab by rememberSaveable { mutableStateOf(0) }
     var menu by remember { mutableStateOf(false) }
     BackHandler(enabled = state.directory.isNotEmpty()) { model.up() }
@@ -134,8 +141,13 @@ private enum class ProjectDialog { CREATE, TEMPLATE, CLONE, NEW_FILE, NEW_FOLDER
         TabRow(selectedTabIndex = tab) {
             Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Files") })
             Tab(selected = tab == 1, onClick = { tab = 1; model.refreshGit() }, text = { Text("Git") })
+            Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Website") })
         }
-        if (tab == 0) FileBrowser(state, model, onDialog) else GitPanelView(state, model, onDialog)
+        when (tab) {
+            0 -> FileBrowser(state, model, onDialog)
+            1 -> GitPanelView(state, model, onDialog)
+            else -> WebsitePanel(state, model, onWebsiteExport)
+        }
     }
 }
 
@@ -172,7 +184,7 @@ private enum class ProjectDialog { CREATE, TEMPLATE, CLONE, NEW_FILE, NEW_FOLDER
 
 private fun size(bytes: Long) = when { bytes < 1024 -> "$bytes B"; bytes < 1024 * 1024 -> "${bytes / 1024} KB"; else -> "${bytes / (1024 * 1024)} MB" }
 
-@Composable private fun Editor(editor: EditorState, model: ProjectsViewModel) {
+@Composable private fun Editor(editor: EditorState, model: ProjectsViewModel, busy: Boolean) {
     var confirmClose by remember { mutableStateOf(false) }
     BackHandler { if (editor.dirty) confirmClose = true else model.closeEditor() }
     Column(Modifier.fillMaxSize().padding(8.dp)) {
@@ -180,6 +192,12 @@ private fun size(bytes: Long) = when { bytes < 1024 -> "$bytes B"; bytes < 1024 
             IconButton(onClick = { if (editor.dirty) confirmClose = true else model.closeEditor() }) { Icon(Icons.Default.Close, contentDescription = "Close file") }
             Text(editor.path + if (editor.dirty) " •" else "", Modifier.weight(1f), fontFamily = FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Button(onClick = model::saveFile, enabled = editor.dirty) { Text("Save") }
+        }
+        if (!editor.readOnly && editor.path.substringAfterLast('.').lowercase() in setOf("html", "htm")) {
+            OutlinedButton(onClick = { model.previewHtml(editor.path) }, enabled = !editor.dirty && !busy) {
+                Text("Preview saved HTML")
+            }
+            if (editor.dirty) Text("Save your edits before previewing.", style = MaterialTheme.typography.bodySmall)
         }
         if (editor.note != null) Text(editor.note, Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         else OutlinedTextField(value = editor.text, onValueChange = model::edit, readOnly = editor.readOnly,

@@ -33,6 +33,7 @@ class AppContainer(context: Context) {
     val git = GitService(File(app.noBackupFilesDir, "git-home"))
     val chatgpt = ChatGptProbeAdapter(app)
     val builds = BuildCoordinator(app, database.builds(), projects, scope)
+    val websites = WebsiteService(File(app.filesDir, "website-copies"))
     private val checkpointRoot = File(app.filesDir, "checkpoints")
     private val gitCredentialStore = CredentialStore(app, "git.credentials")
 
@@ -58,6 +59,7 @@ class AppContainer(context: Context) {
                 conversations.interruptRunning()
                 conversations.interruptActions()
                 changes.recoverInterrupted()
+                websites.recover()
                 builds.recover()
                 ready.complete(Unit)
             } catch (error: Exception) { ready.completeExceptionally(error) }

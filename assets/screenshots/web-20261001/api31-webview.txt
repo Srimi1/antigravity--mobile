@@ -1,0 +1,3 @@
+Current WebView Update Service state
+  Multiprocess enabled: true
+  Current WebView package (name, version): (com.google.android.webview, 91.0.4472.114)

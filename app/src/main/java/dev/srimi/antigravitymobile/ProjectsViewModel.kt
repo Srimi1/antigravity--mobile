@@ -1,10 +1,13 @@
 package dev.srimi.antigravitymobile
 
 import android.app.Application
+import android.content.ComponentName
+import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dev.srimi.antigravitymobile.runtime.BuildProtocol as P
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.io.File
@@ -23,6 +26,9 @@ data class ProjectsState(
     val busy: String? = null,
     val progress: String = "",
     val message: String? = null,
+    val websiteRoot: String = "",
+    val websiteEntry: String = "index.html",
+    val websiteApproval: WebsiteCopy? = null,
 )
 
 class ProjectsViewModel(application: Application) : AndroidViewModel(application) {
@@ -39,7 +45,9 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
             services.selectedProjectId.collect { id ->
                 val project = id?.let { services.projects.find(it) }
                 if (id != null && project == null) services.selectProject(null)
-                mutable.update { it.copy(selected = project, directory = "", editor = null, git = null) }
+                mutable.update { it.copy(selected = project, directory = "", editor = null, git = null,
+                    websiteRoot = services.prefs.getString("webRoot.$id", "").orEmpty(),
+                    websiteEntry = services.prefs.getString("webEntry.$id", "index.html") ?: "index.html", websiteApproval = null) }
                 if (project != null) { refreshFiles(); refreshGit() }
             }
         }
@@ -84,6 +92,86 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
         }
         open(project)
         "Created ${project.name} from the Compose template. Open Build to review a local build with the installed tools."
+    }
+    fun createWebsite(name: String) = operation("Create website") {
+        val project = services.projects.create(name) { dir ->
+            getApplication<Application>().assets.open("hello-web.zip").use { Archives.extract(it, dir) }
+            services.git.init(dir)
+        }
+        open(project)
+        "Created ${project.name}. Open the Website tab to preview or export saved files."
+    }
+
+    fun websiteRoot(value: String) {
+        mutable.update { it.copy(websiteRoot = value) }
+        state.value.selected?.let { services.prefs.edit().putString("webRoot.${it.id}", value).apply() }
+    }
+    fun websiteEntry(value: String) {
+        mutable.update { it.copy(websiteEntry = value) }
+        state.value.selected?.let { services.prefs.edit().putString("webEntry.${it.id}", value).apply() }
+    }
+    fun previewHtml(path: String) {
+        websiteRoot(path.substringBeforeLast('/', "")); websiteEntry(path.substringAfterLast('/')); prepareWebsite()
+    }
+    fun prepareWebsite() {
+        val current = state.value
+        val project = current.selected ?: return
+        operation("Prepare website preview") {
+            services.ready.await()
+            check(current.editor?.dirty != true) { "Save or discard the editor changes before previewing" }
+            check(services.builds.client.installed()) { "Install or update the matching tools on the Build tab first" }
+            val copy = runInterruptible { services.websites.prepare(project.id, services.projects.directory(project),
+                current.websiteRoot.trim(), current.websiteEntry.trim()) }
+            mutable.update { it.copy(websiteApproval = copy) }
+            null
+        }
+    }
+    fun declineWebsite() {
+        val copy = state.value.websiteApproval ?: return
+        if (state.value.busy != null) return
+        mutable.update { it.copy(websiteApproval = null) }
+        operation("Decline preview") { services.websites.decline(copy.id); "Preview was not opened" }
+    }
+    fun approveWebsite() {
+        val copy = state.value.websiteApproval ?: return
+        if (state.value.busy != null) return
+        mutable.update { it.copy(websiteApproval = null) }
+        operation("Open website preview") {
+            val approved = services.websites.claim(copy.id)
+            try {
+                services.builds.client.preparePreview(approved.id, services.websites.archive(approved.id), approved.hash, approved.entry)
+                services.websites.finish(approved.id, "READY")
+                withContext(Dispatchers.Main) {
+                    getApplication<Application>().startActivity(Intent().setComponent(ComponentName(P.WORKER, P.PREVIEW_ACTIVITY))
+                        .putExtra("id", approved.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+                }
+                "Opened the approved website copy. Reload uses that copy; saved edits need a new preview."
+            } finally {
+                withContext(NonCancellable) {
+                    if (services.websites.find(approved.id).status == "DISPATCHING") services.websites.finish(approved.id, "INTERRUPTED")
+                }
+            }
+        }
+    }
+    fun exportWebsite(target: Uri) {
+        val current = state.value
+        val project = current.selected ?: return
+        operation("Export website") {
+            services.ready.await()
+            check(current.editor?.dirty != true) { "Save or discard the editor changes before exporting" }
+            val copy = runInterruptible { services.websites.prepare(project.id, services.projects.directory(project),
+                current.websiteRoot.trim(), current.websiteEntry.trim()) }
+            services.websites.claim(copy.id)
+            try {
+                getApplication<Application>().contentResolver.openOutputStream(target, "wt")!!.use { output ->
+                    services.websites.archive(copy.id).inputStream().use { it.copyTo(output) }
+                }
+                services.websites.finish(copy.id, "EXPORTED")
+                "Exported ${copy.files.size} website files. The selected HTML entry is ${copy.entry}."
+            } finally {
+                if (services.websites.find(copy.id).status == "DISPATCHING") services.websites.finish(copy.id, "INTERRUPTED")
+            }
+        }
     }
     fun clone(url: String, name: String) = operation("Clone") {
         val clean = url.trim()
@@ -166,7 +254,7 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
         services.projects.touch(project)
         services.selectProject(project.id)
     }
-    fun select(project: ProjectRecord) { viewModelScope.launch { open(project) } }
+    fun select(project: ProjectRecord) { if (state.value.busy == null) viewModelScope.launch { open(project) } }
     fun closeProject() = services.selectProject(null)
 
     fun refreshFiles() {

@@ -13,7 +13,7 @@ object WebFiles {
     const val MAX_BYTES = 64L * 1024 * 1024
     const val MAX_FILES = 10000
     fun relative(path: String): String {
-        require(path.isNotEmpty() && !path.startsWith('/') && '\\' !in path && '\u0000' !in path && ':' !in path) { "Use a relative website path" }
+        require(path.isNotEmpty() && !path.startsWith('/') && '\\' !in path && path.none { it.code < 32 || it.code == 127 } && ':' !in path) { "Use a relative website path" }
         require(path.split('/').none { it.isEmpty() || it == "." || it == ".." || it.startsWith('.') || it == "node_modules" }) { "Hidden files, dependencies and traversal are not website content" }
         return path
     }
@@ -47,6 +47,7 @@ object WebFiles {
                 zip.putNextEntry(ZipEntry(path).apply { time = 0 })
                 val digest = MessageDigest.getInstance("SHA-256")
                 file.inputStream().use { input -> val buffer = ByteArray(65536); while (true) {
+                    if (Thread.currentThread().isInterrupted) throw java.io.InterruptedIOException("Website copy stopped")
                     val n = input.read(buffer); if (n < 0) break
                     total += n; check(total <= MAX_BYTES) { "Website exceeds 64 MB" }; digest.update(buffer, 0, n); zip.write(buffer, 0, n)
                 } }

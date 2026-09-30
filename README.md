@@ -10,7 +10,7 @@ For agents continuing this project, read [AGENTS.md](AGENTS.md) and the [saved c
 
 A native Kotlin/Compose coding app for one Android phone: open or clone a repository, ask an agent for changes, review every edit, and commit locally.
 
-**Status:** Current **0.4.0 source is unfinished website groundwork**, with main/worker debug Kotlin compilation and the existing 37 JVM tests passing; website UI and device validation are not done. The last complete validated milestone is **unreleased 0.3.0**: its integrated Android-native worker built a Compose project on an ARM64 emulator; Antigravity transferred, installed and launched it; **37 JVM and 16 device tests passed**. See the [complete continuation prompt](CONTINUE_WITH_ANY_AI.md), [integration evidence](docs/build-worker-qa-2026-09-30.md) and [checkpoint](docs/PROJECT_CHECKPOINT.md). Live subscriptions, physical OnePlus, websites/wider development and the earlier upgrade ANR remain unaccepted. The public download is still 0.1.2.
+**Status:** Current **0.4.0 source** adds a static-website workflow (create from template, edit, approve a one-use copy, preview in the separate tools app with console, export ZIP). It passed 56 JVM tests, release lint, a signed release build and **20 device tests on an Android 16 ARM64 emulator** plus website tests on Android 12 ([website QA](docs/website-qa-2026-10-01.md)). The integrated Android-native worker built, installed and launched a Compose project on an ARM64 emulator in 0.3.0. See the [complete continuation prompt](CONTINUE_WITH_ANY_AI.md) and [checkpoint](docs/PROJECT_CHECKPOINT.md). Live subscriptions, physical OnePlus, Node/backend websites, wider development and the earlier upgrade ANR remain unaccepted. The public download is still 0.1.2.
 
 Version 0.1.2 includes the original adaptive launcher icon, round launcher support and an Android 13+ themed-icon silhouette. The repository artwork and icon sources are in [assets/branding](assets/branding/README.md).
 
@@ -21,6 +21,7 @@ Version 0.1.2 includes the original adaptive launcher icon, round launcher suppo
 - **Projects:** create, clone over HTTPS, import a folder (as a copy), start from a Compose template, export as ZIP. Browse and edit files. Git status, commit, history, pull and push (JGit, no `git` binary needed).
 - **Agent:** persistent conversations with streaming replies. The agent can list, read and search files and propose writes or deletes. Each edit needs your approval, shows a diff, and is recorded. Stop works at any point; interrupted tasks are never replayed.
 - **Changes:** every agent task becomes a change set with diffs. Keep it, revert it (refused if you edited the file afterwards), and commit only accepted files.
+- **Websites:** start from the Hello Web template, edit and save, choose a folder and HTML entry (for example `dist/index.html`), approve a one-use copy, preview it with reload and console in the separate tools app (HTTP, file and content requests blocked), and export the folder as a ZIP. Static sites only.
 - **Build:** installs a bundled companion toolchain, prepares a source snapshot for approval, runs Gradle locally in a separate foreground worker, tracks cancellation/recovery and transfers built APKs to Android’s installer. Device diagnostics remain available.
 - **Accounts:** ChatGPT sign-in, test request, renewal, model choice and disconnect. Git commit author and an encrypted HTTPS token for private repos and push.
 
@@ -28,7 +29,7 @@ Version 0.1.2 includes the original adaptive launcher icon, round launcher suppo
 
 - **Claude and Google subscriptions.** Supported, approved integration routes have not been established for this app, so both show as blocked. There is no API-key fallback.
 - **ChatGPT** uses OpenAI's documented Sign in with ChatGPT flow, but has not been tested against a live account.
-- **Physical phone and wider projects.** The experimental ARM64 toolchain is now integrated through a separate Android UID. The [separate Kotlin/Compose proof](docs/native-compose-qa-2026-09-30.md) succeeded; see the checkpoint for integration QA. Physical OnePlus, websites, other languages and general desktop capabilities are not accepted. Native compatibility and redistribution requirements remain open.
+- **Physical phone and wider projects.** The experimental ARM64 toolchain is now integrated through a separate Android UID. The [separate Kotlin/Compose proof](docs/native-compose-qa-2026-09-30.md) succeeded; see the checkpoint for integration QA. Physical OnePlus, Node/backend websites, other languages and general desktop capabilities are not accepted. Native compatibility and redistribution requirements remain open.
 - **No shell.** The agent cannot run commands, builds or tests.
 
 ## Build

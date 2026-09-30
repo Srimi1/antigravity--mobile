@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="dev.srimi.antigravitymobile.BuildWorkerDeviceTest" tests="20" failures="0" errors="0" skipped="0" time="24.861" timestamp="2026-09-30T19:04:24" hostname="localhost">
+  <properties>
+    <property name="device" value="AntigravityMobileQA_API36(AVD) - 16" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="cancellingForegroundBuildTerminatesItsTask" classname="dev.srimi.antigravitymobile.BuildWorkerDeviceTest" time="7.863" />
+  <testcase name="approvalUsesImmutableSnapshotAndWorkerCannotReadMainPrivateFile" classname="dev.srimi.antigravitymobile.BuildWorkerDeviceTest" time="4.086" />
+  <testcase name="workerDeathIsInterruptedAndAnOldBuildIdCannotRunAgain" classname="dev.srimi.antigravitymobile.BuildWorkerDeviceTest" time="7.259" />
+  <testcase name="generatedProjectHasExecutableWrapperAndReportReflectsResult" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.039" />
+  <testcase name="cancellationStopsProcessWithinThreeSeconds" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.002" />
+  <testcase name="launcherIconUsesAdaptiveArtwork" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.001" />
+  <testcase name="packagedArm64ExecutableRunsAndReturnsNonzeroExit" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.001" />
+  <testcase name="coroutineCancellationReleasesExecutionSlot" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.001" />
+  <testcase name="interruptedRunsAreRecoveredWithoutReplay" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.0" />
+  <testcase name="encryptedCredentialStorageRoundTrip" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.035" />
+  <testcase name="apkContainsCompleteComposeSourceArchive" classname="dev.srimi.antigravitymobile.DeviceProbeTest" time="0.002" />
+  <testcase name="changeLedgerRevertsThroughRoomAndRefusesLaterEdit" classname="dev.srimi.antigravitymobile.FullAppDeviceTest" time="0.001" />
+  <testcase name="migrationFromVersion1KeepsCheckHistory" classname="dev.srimi.antigravitymobile.FullAppDeviceTest" time="0.038" />
+  <testcase name="jgitInitCommitStatusAndLogRunOnDevice" classname="dev.srimi.antigravitymobile.FullAppDeviceTest" time="0.038" />
+  <testcase name="composeTemplateExtractsIntoProjectWithExecutableWrapper" classname="dev.srimi.antigravitymobile.FullAppDeviceTest" time="0.001" />
+  <testcase name="migrationFromVersion2PreservesProjectAndConversation" classname="dev.srimi.antigravitymobile.FullAppDeviceTest" time="0.031" />
+  <testcase name="websiteTemplateIsPackagedAndHasRealLocalAssets" classname="dev.srimi.antigravitymobile.WebsiteDeviceTest" time="0.002" />
+  <testcase name="eachNewPreviewHasEmptyStorageAndFailedIdsCannotBeReused" classname="dev.srimi.antigravitymobile.WebsiteDeviceTest" time="0.9" />
+  <testcase name="actualWebViewRunsModulesCssJsonAndReloadsOnlyTheApprovedCopy" classname="dev.srimi.antigravitymobile.WebsiteDeviceTest" time="1.482" />
+  <testcase name="browserDeniesExternalFileContentPostWorkersAndPeerConnections" classname="dev.srimi.antigravitymobile.WebsiteDeviceTest" time="1.22" />
+</testsuite>

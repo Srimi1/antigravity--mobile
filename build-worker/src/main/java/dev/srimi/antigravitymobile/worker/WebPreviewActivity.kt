@@ -11,7 +11,10 @@ import android.widget.*
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import dev.srimi.antigravitymobile.runtime.WebFiles
+import dev.srimi.antigravitymobile.runtime.WebGuard
 import java.io.ByteArrayInputStream
 import java.io.File
 
@@ -20,8 +23,8 @@ class WebPreviewActivity : Activity() {
     private var web: WebView? = null
     private lateinit var console: TextView
     private val lines = ArrayDeque<String>()
-    private val domain = WebViewAssetLoader.DEFAULT_DOMAIN
-    private val policy = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'none'; object-src 'none'; frame-src 'self'; base-uri 'self'; form-action 'none'"
+    private var previewId: String? = null
+    private val policy = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'"
     private fun response(status: Int, text: String) = WebResourceResponse("text/plain", "UTF-8", status,
         if (status == 403) "Forbidden" else "Not Found", mapOf("Content-Security-Policy" to policy, "Cache-Control" to "no-store"), ByteArrayInputStream(text.toByteArray()))
     private fun note(text: String) {
@@ -42,15 +45,18 @@ class WebPreviewActivity : Activity() {
         val consoleButton = Button(this).apply { text = "Console" }
         header.addView(consoleButton)
         layout.addView(header)
-        layout.addView(TextView(this).apply { text = "Website preview · network blocked\nReturn to Projects to preview saved changes."; setPadding(16, 4, 16, 8); setTextColor(Color.DKGRAY) })
+        layout.addView(TextView(this).apply { text = "Website preview · HTTP network blocked\nReturn to Projects to preview saved changes."; setPadding(16, 4, 16, 8); setTextColor(Color.DKGRAY) })
         console = TextView(this).apply { text = "No console messages"; setTextColor(Color.DKGRAY); textSize = 12f; setPadding(16, 8, 16, 8) }
         val scroll = ScrollView(this).apply { addView(console); visibility = View.GONE }
         layout.addView(scroll, LinearLayout.LayoutParams(-1, (180 * resources.displayMetrics.density).toInt()))
         consoleButton.setOnClickListener { scroll.visibility = if (scroll.visibility == View.VISIBLE) View.GONE else View.VISIBLE }
         if (savedInstanceState != null) { note("Preview interrupted. Close and approve a new copy in Projects."); scroll.visibility = View.VISIBLE; return }
         try {
-            val (root, entry) = WebPreviewStore(this).load(intent.getStringExtra("id").orEmpty())
-            val loader = WebViewAssetLoader.Builder().addPathHandler("/") { path ->
+            val id = intent.getStringExtra("id").orEmpty()
+            val (root, entry) = WebPreviewStore(this).load(id)
+            previewId = id
+            val domain = "$id.preview.antigravity.invalid"
+            val loader = WebViewAssetLoader.Builder().setDomain(domain).addPathHandler("/") { path ->
                 try {
                     val relative = if (path.isEmpty()) entry else if (path.endsWith('/')) path + "index.html" else path
                     val file = WebFiles.resolve(root, relative)
@@ -60,8 +66,9 @@ class WebPreviewActivity : Activity() {
                             "json" -> "application/json"; "svg" -> "image/svg+xml"; "wasm" -> "application/wasm"
                             else -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase()) ?: "application/octet-stream"
                         }
+                        val body = if (mime == "text/html") ByteArrayInputStream(WebGuard.inject(file.readBytes())) else file.inputStream()
                         WebResourceResponse(mime, if (mime.startsWith("text/") || mime.contains("javascript") || mime.contains("json")) "UTF-8" else null,
-                            200, "OK", mapOf("Content-Security-Policy" to policy, "Cache-Control" to "no-store", "X-Content-Type-Options" to "nosniff"), file.inputStream())
+                            200, "OK", mapOf("Content-Security-Policy" to policy, "Cache-Control" to "no-store", "X-Content-Type-Options" to "nosniff"), body)
                     }
                 } catch (_: Exception) { response(403, "Website path blocked") }
             }.build()
@@ -69,6 +76,11 @@ class WebPreviewActivity : Activity() {
             CookieManager.getInstance().setAcceptCookie(false)
             WebStorage.getInstance().deleteAllData()
             val browser = WebView(this); web = browser
+            // Best-effort API removal, not the network boundary (request interception is). Older WebView
+            // versions lack document-start scripts, so served HTML also starts with the same guard.
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                WebViewCompat.addDocumentStartJavaScript(browser, WebGuard.SCRIPT, setOf("*"))
+            } else note("Older Android System WebView: using the page-level WebRTC guard")
             browser.clearCache(true)
             browser.settings.apply {
                 javaScriptEnabled = true; domStorageEnabled = true
@@ -117,6 +129,7 @@ class WebPreviewActivity : Activity() {
     }
     override fun onDestroy() {
         web?.apply { stopLoading(); (parent as? android.view.ViewGroup)?.removeView(this); destroy() }; web = null
+        previewId?.let { WebPreviewStore(this).close(it) }
         super.onDestroy()
     }
 }
