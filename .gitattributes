@@ -1,2 +1,9 @@
+* text=auto
+*.bat text eol=crlf
+*.sh text eol=lf
+gradlew text eol=lf
+*.png binary
+*.jar binary
+
 # Preserve raw device/test evidence, including log padding and CR progress lines.
 assets/screenshots/integration-20260930/** -text -whitespace
