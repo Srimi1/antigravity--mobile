@@ -89,3 +89,9 @@ The complete product remains unaccepted until all mandatory subscriptions perfor
 ## Handoff discipline
 
 Keep `docs/PROJECT_CHECKPOINT.md` current with what changed, what was tested, what is still blocked, exact artifacts and the next actionable step. Distinguish implementation from live acceptance. Do not mark the full app complete just because the UI or a signed APK exists.
+
+## Repository synchronization
+
+The user wants this Mac folder and `Srimi1/antigravity--mobile` on GitHub to reflect the same development progress. Before editing, check the working tree, fetch `origin`, and compare local history with the current remote branch. Reconcile newer remote work before continuing; preserve unrelated local edits and never force-push to resolve divergence.
+
+When completing user-authorized repository synchronization, commit and push only the intended changes and verify the final local and GitHub commit IDs match with a clean working tree. Report any remaining divergence. Keep signing keys, credentials, local configuration and ignored build/release binaries private; source synchronization does not change the published APK or release archives.
