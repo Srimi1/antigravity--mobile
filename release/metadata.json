@@ -1,0 +1,19 @@
+{
+  "version": "0.1.2-probe",
+  "versionCode": 3,
+  "apk": "antigravity-mobile-probe-0.1.2.apk",
+  "sha256": "aebaab349a3fd70ab913de3b2b34e1cf1d9a7626263b7350ee4897497169b39e",
+  "minAndroidApi": 29,
+  "abis": [
+    "arm64-v8a"
+  ],
+  "signingCertificateSha256": "791980edfce3d623dfe1ba2e3209a506b01c4be7da74065805d400a5051210b5",
+  "validation": {
+    "jvmTestsPassed": 11,
+    "androidTestsPassed": 8,
+    "emulator": "Android 12 ARM64",
+    "physicalOnePlusTested": false,
+    "liveSubscriptionsTested": false
+  },
+  "fullProductGate": "BLOCKED"
+}
