@@ -10,7 +10,7 @@ For agents continuing this project, read [AGENTS.md](AGENTS.md) and the [saved c
 
 A native Kotlin/Compose coding app for one Android phone: open or clone a repository, ask an agent for changes, review every edit, and commit locally.
 
-**Status:** the source is at **0.2.0**, the first full-app version. It has not been built with the Android toolchain or run on a device yet, and no 0.2.0 APK is published. The download link above is still the 0.1.2 diagnostic prototype. See the [checkpoint](docs/PROJECT_CHECKPOINT.md) for exactly what was verified.
+**Status:** **0.2.0** builds with the real Android toolchain; 34 JVM and 12 emulator tests pass. Manual QA found an unresolved first-upgrade ANR, followed by three cold starts without recurrence. The signed APK remains unpublished; the download above is still 0.1.2. See [QA evidence](docs/emulator-qa-2026-09-30.md) and the [checkpoint](docs/PROJECT_CHECKPOINT.md). Live subscriptions, physical OnePlus and phone-only builds remain unverified or blocked.
 
 Version 0.1.2 includes the original adaptive launcher icon, round launcher support and an Android 13+ themed-icon silhouette. The repository artwork and icon sources are in [assets/branding](assets/branding/README.md).
 

@@ -1,0 +1,171 @@
+--------- beginning of system
+09-30 15:41:37.393   525  2821 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity} from uid 2000
+09-30 15:41:37.400   525  2821 W ActivityTaskManager: Can't find TaskDisplayArea to determine support for multi window. Task id=23 attached=false
+09-30 15:41:37.860   525   556 W ActivityManager: Slow operation: 249ms so far, now at startProcess: returned from zygote!
+09-30 15:41:37.860   525   556 W ActivityManager: Slow operation: 249ms so far, now at startProcess: done updating battery stats
+09-30 15:41:37.861   525   556 W ActivityManager: Slow operation: 249ms so far, now at startProcess: building log message
+09-30 15:41:37.862   525   556 I ActivityManager: Start proc 4807:dev.srimi.antigravitymobile.probe/u0a158 for pre-top-activity {dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity}
+09-30 15:41:37.862   525   556 W ActivityManager: Slow operation: 251ms so far, now at startProcess: starting to update pids map
+09-30 15:41:37.862   525   556 W ActivityManager: Slow operation: 251ms so far, now at startProcess: done updating pids map
+09-30 15:41:38.627   525  1960 W ActivityManager: Unable to start service Intent { act=android.service.smartspace.SmartspaceService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiSmartspaceService } U=0: not found
+09-30 15:41:38.659   525   525 W ActivityManager: Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@f6ff139
+--------- beginning of main
+09-30 15:41:40.299   525   544 I ActivityTaskManager: Displayed dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity: +2s885ms
+09-30 15:41:53.806   525   614 W InputDispatcher: Window f08198a dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity (server) is unresponsive: f08198a dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity (server) is not responding. Waited 10410ms for FocusEvent(hasFocus=true)
+09-30 15:41:53.806   525   614 W InputDispatcher: Canceling events for f08198a dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity (server) because it is unresponsive
+09-30 15:41:53.948   525   614 I WindowManager: ANR in dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity. Reason:f08198a dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity (server) is not responding. Waited 10410ms for FocusEvent(hasFocus=true)
+09-30 15:41:54.366   525   614 I InputDispatcher: f08198a dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity (server) spent 11486ms processing FocusEvent(hasFocus=true)
+09-30 15:41:56.231   525  4855 I ActivityManager: dumpStackTraces pids={694=true, 884=true, 927=true, 1022=true, 1079=true, 1252=true, 1333=true, 1359=true, 1366=true, 1397=true, 1442=true, 1457=true, 1497=true, 1769=true, 1984=true, 2727=true, 2989=true, 3307=true, 3558=true, 3603=true, 3666=true, 3687=true, 3896=true, 4016=true, 4237=true, 4400=true, 4730=true} nativepids=[188, 201, 318, 319, 357, 361, 403, 410, 414, 417, 418, 433, 694]
+09-30 15:41:58.349   525  4855 I ActivityManager: Skipping next CPU consuming process, not a java proc: 337
+09-30 15:41:58.349   525  4855 I ActivityManager: Skipping next CPU consuming process, not a java proc: 525
+09-30 15:41:58.349   525  4855 I ActivityManager: Skipping next CPU consuming process, not a java proc: 4843
+09-30 15:41:58.349   525  4855 I ActivityManager: Skipping next CPU consuming process, not a java proc: 116
+09-30 15:41:58.349   525  4855 I ActivityManager: Skipping next CPU consuming process, not a java proc: 361
+09-30 15:41:58.349   525  4855 I ActivityManager: Skipping next CPU consuming process, not a java proc: 4807
+09-30 15:41:58.349   525  4855 I ActivityManager: Skipping next CPU consuming process, not a java proc: 182
+09-30 15:41:58.349   525  4855 I ActivityManager: Skipping next CPU consuming process, not a java proc: 711
+09-30 15:41:58.349   525  4855 I ActivityManager: Skipping next CPU consuming process, not a java proc: 831
+09-30 15:41:58.567   525  4855 I ActivityManager: Dumping to /data/anr/anr_2026-09-30-15-41-58-561
+09-30 15:41:58.568   525  4855 I ActivityManager: Collecting stacks for pid 4807
+09-30 15:41:58.915   525  4855 I ActivityManager: Collecting stacks for pid 525
+09-30 15:41:59.250   525  4855 I ActivityManager: Collecting stacks for pid 1423
+09-30 15:41:59.432   525  4855 I ActivityManager: Collecting stacks for pid 831
+09-30 15:41:59.870   525  4855 I ActivityManager: Collecting stacks for pid 828
+09-30 15:41:59.942   525  4855 I ActivityManager: Collecting stacks for pid 790
+09-30 15:42:00.018   525  4855 I ActivityManager: Collecting stacks for pid 711
+09-30 15:42:00.376   525  4855 I ActivityManager: Collecting stacks for native pid 188
+09-30 15:42:00.431   525  4855 I ActivityManager: Collecting stacks for native pid 201
+09-30 15:42:00.466   525  4855 I ActivityManager: Collecting stacks for native pid 318
+09-30 15:42:00.499   525  4855 I ActivityManager: Collecting stacks for native pid 319
+09-30 15:42:00.542   525  4855 I ActivityManager: Collecting stacks for native pid 357
+09-30 15:42:00.617   525  4855 I ActivityManager: Collecting stacks for native pid 361
+09-30 15:42:00.708   525  4855 I ActivityManager: Collecting stacks for native pid 403
+09-30 15:42:00.743   525  4855 I ActivityManager: Collecting stacks for native pid 410
+09-30 15:42:00.775   525  4855 I ActivityManager: Collecting stacks for native pid 414
+09-30 15:42:00.912   525  4855 I ActivityManager: Collecting stacks for native pid 417
+09-30 15:42:00.959   525  4855 I ActivityManager: Collecting stacks for native pid 418
+09-30 15:42:00.996   525  4855 I ActivityManager: Collecting stacks for native pid 433
+09-30 15:42:01.074   525  4855 I ActivityManager: Collecting stacks for native pid 694
+09-30 15:42:01.295   525  3897 D ActivityManager: freezer override set to true
+09-30 15:42:01.302   525  3897 D ActivityManager: freezer override set to false
+09-30 15:42:01.396   525  4855 I ActivityManager: Collecting stacks for extra pid 3603
+09-30 15:42:01.442   525  4855 I ActivityManager: Collecting stacks for extra pid 1497
+09-30 15:42:01.642   525  4855 I ActivityManager: Collecting stacks for extra pid 1333
+09-30 15:42:01.734   525  4855 I ActivityManager: Collecting stacks for extra pid 3666
+09-30 15:42:01.787   525  4855 I ActivityManager: Collecting stacks for extra pid 1079
+09-30 15:42:02.087   525  4855 I ActivityManager: Done dumping
+09-30 15:42:02.108   525  4855 E ActivityManager: ANR in dev.srimi.antigravitymobile.probe (dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity)
+09-30 15:42:02.108   525  4855 E ActivityManager: PID: 4807
+09-30 15:42:02.108   525  4855 E ActivityManager: Reason: Input dispatching timed out (f08198a dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity (server) is not responding. Waited 10410ms for FocusEvent(hasFocus=true))
+09-30 15:42:02.108   525  4855 E ActivityManager: Parent: dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity
+09-30 15:42:02.108   525  4855 E ActivityManager: ErrorId: 7b6721aa-53fd-4753-90f3-ca8b2978d29c
+09-30 15:42:02.108   525  4855 E ActivityManager: Frozen: false
+09-30 15:42:02.108   525  4855 E ActivityManager: Load: 8.06 / 2.87 / 1.18
+09-30 15:42:02.108   525  4855 E ActivityManager: ----- Output from /proc/pressure/memory -----
+09-30 15:42:02.108   525  4855 E ActivityManager: some avg10=0.44 avg60=0.52 avg300=0.24 total=1744607
+09-30 15:42:02.108   525  4855 E ActivityManager: full avg10=0.05 avg60=0.06 avg300=0.01 total=469067
+09-30 15:42:02.108   525  4855 E ActivityManager: ----- End output from /proc/pressure/memory -----
+09-30 15:42:02.108   525  4855 E ActivityManager:
+09-30 15:42:02.108   525  4855 E ActivityManager: CPU usage from 0ms to 7648ms later (2026-09-30 15:41:54.439 to 2026-09-30 15:42:02.087):
+09-30 15:42:02.108   525  4855 E ActivityManager:   45% 337/android.hardware.graphics.composer@2.3-service: 1.1% user + 44% kernel / faults: 46 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   20% 525/system_server: 6% user + 14% kernel / faults: 5123 minor 74 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   15% 116/kswapd0: 0% user + 15% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   5.6% 711/com.android.systemui: 3.9% user + 1.7% kernel / faults: 3033 minor 15 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   5.2% 1079/com.google.android.gms.persistent: 3.9% user + 1.3% kernel / faults: 3212 minor 151 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   4.9% 4807/dev.srimi.antigravitymobile.probe: 0.1% user + 4.8% kernel / faults: 3523 minor 61 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   4.4% 3666/com.google.android.gms.ui: 3.1% user + 1.3% kernel / faults: 4110 minor 10 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   3.6% 1497/com.google.android.googlequicksearchbox:search: 3% user + 0.6% kernel / faults: 5171 minor 95 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   1.8% 1333/com.google.android.inputmethod.latin: 0.9% user + 0.9% kernel / faults: 1685 minor 8 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   1.8% 3603/com.google.android.permissioncontroller: 1.4% user + 0.3% kernel / faults: 1419 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   1.4% 361/surfaceflinger: 0.6% user + 0.7% kernel / faults: 773 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0% 414/media.extractor: 0% user + 0% kernel / faults: 1165 minor 7 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   1.1% 831/com.android.phone: 0.6% user + 0.5% kernel / faults: 1818 minor 8 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   1.1% 1442/com.google.android.gms: 0.7% user + 0.3% kernel / faults: 804 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   1% 346/android.hardware.sensors@2.1-service.multihal: 0.1% user + 0.9% kernel / faults: 17 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.9% 183/lmkd: 0.1% user + 0.7% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.9% 400/adbd: 0.3% user + 0.5% kernel / faults: 952 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.7% 182/logd: 0.1% user + 0.6% kernel / faults: 34 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.5% 408/logcat: 0.2% user + 0.2% kernel / faults: 8 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0% 433/media.swcodec: 0% user + 0% kernel / faults: 2113 minor 20 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.5% 1423/com.android.emulator.multidisplay: 0.2% user + 0.2% kernel / faults: 1553 minor 4 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.3% 694/com.android.bluetooth: 0% user + 0.3% kernel / faults: 144 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0% 828/com.android.se: 0% user + 0% kernel / faults: 1627 minor 1 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.2% 9/kworker/u8:1: 0% user + 0.2% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   0% 229/tombstoned: 0% user + 0% kernel / faults: 7 minor 3 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.2% 271/loop21: 0% user + 0.2% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.2% 790/com.android.networkstack.process: 0.1% user + 0.1% kernel / faults: 1243 minor 1 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.2% 1174/kworker/u8:2-phy0: 0% user + 0.2% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.2% 4016/com.android.dialer: 0% user + 0.2% kernel / faults: 132 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 12/ksoftirqd/0: 0% user + 0.1% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 33/ksoftirqd/3: 0% user + 0.1% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 186/psimon: 0% user + 0.1% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 188/vold: 0.1% user + 0% kernel / faults: 40 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 195/kworker/0:2-virtio_vsock: 0% user + 0.1% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 223/jbd2/dm-4-8: 0% user + 0.1% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 314/dhcpclient: 0% user + 0.1% kernel / faults: 3 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 318/statsd: 0.1% user + 0% kernel / faults: 80 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 319/netd: 0% user + 0.1% kernel / faults: 130 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 410/cameraserver: 0.1% user + 0% kernel / faults: 53 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0% 418/mediaserver: 0% user + 0% kernel / faults: 158 minor 3 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 428/libgoldfish-rild: 0% user + 0.1% kernel / faults: 25 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 1022/com.google.android.apps.nexuslauncher: 0.1% user + 0% kernel / faults: 99 minor 1 major
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.1% 2989/com.google.android.apps.photos: 0% user + 0.1% kernel / faults: 16 minor
+09-30 15:42:02.108   525  4855 E ActivityManager: 52% TOTAL: 17% user + 27% kernel + 1% iowait + 6.2% irq + 1.2% softirq
+09-30 15:42:02.108   525  4855 E ActivityManager: CPU usage from 1792ms to 2617ms later (2026-09-30 15:41:56.231 to 2026-09-30 15:41:57.056):
+09-30 15:42:02.108   525  4855 E ActivityManager:   54% 337/android.hardware.graphics.composer@2.3-service: 1.3% user + 53% kernel / faults: 29 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:     53% 394/HwBinder:337_2: 1.3% user + 52% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:     0.6% 385/: 0% user + 0.6% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   52% 525/system_server: 18% user + 33% kernel / faults: 528 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:     27% 4855/AnrConsumer: 5.7% user + 22% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:     20% 525/system_server: 11% user + 9.3% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:     0.7% 545/android.ui: 0.7% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:     0.7% 555/ActivityManager: 0.7% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:     0.7% 560/OomAdjuster: 0% user + 0.7% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:     0.7% 599/SensorService: 0% user + 0.7% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:     0.7% 2821/Binder:525_18: 0.7% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   41% 4843/uiautomator: 20% user + 20% kernel / faults: 1324 minor 4 major
+09-30 15:42:02.108   525  4855 E ActivityManager:     41% 4843/main: 19% user + 22% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4857/Jit thread pool: 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4858/Runtime worker : 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4859/Runtime worker : 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4860/Runtime worker : 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4861/Runtime worker : 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4862/Signal Catcher: 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4863/perfetto_hprof_: 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4864/HeapTaskDaemon: 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4865/ReferenceQueueD: 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4866/FinalizerDaemon: 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4867/FinalizerWatchd: 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4868/Binder:4843_1: 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4869/Binder:4843_2: 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4870/UiAutomatorHand: 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4871/UiAutomation: 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   11% 116/kswapd0: 0% user + 11% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   6.6% 3603/com.google.android.permissioncontroller: 4.6% user + 2% kernel / faults: 334 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:     5.3% 3615/HeapTaskDaemon: 4% user + 1.3% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   5.3% 1497/com.google.android.googlequicksearchbox:search: 5.3% user + 0% kernel / faults: 999 minor 2 major
+09-30 15:42:02.108   525  4855 E ActivityManager:     2.6% 1509/HeapTaskDaemon: 2.6% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:     1.9% 1497/earchbox:search: 1.3% user + 0.6% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:     0.6% 1508/Jit thread pool: 0.6% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   1.3% 361/surfaceflinger: 0% user + 1.3% kernel / faults: 163 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:     1.3% 361/surfaceflinger: 0.6% user + 0.6% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   1.3% 1333/com.google.android.inputmethod.latin: 0.6% user + 0.6% kernel / faults: 10 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:     1.3% 1352/Binder:1333_3: 0.6% user + 0.6% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   1.3% 3666/com.google.android.gms.ui: 1.3% user + 0% kernel / faults: 1881 minor 6 major
+09-30 15:42:02.108   525  4855 E ActivityManager:     1.3% 4854/lowpool[3]: 1.3% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   1.3% 4807/dev.srimi.antigravitymobile.probe: 0.6% user + 0.6% kernel / faults: 346 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:     0.6% 4807/itymobile.probe: 0% user + 0.6% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.8% 182/logd: 0% user + 0.8% kernel / faults: 18 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.7% 711/com.android.systemui: 0.7% user + 0% kernel / faults: 16 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:     0.7% 1282/Binder:711_9: 0.7% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.7% 831/com.android.phone: 0.7% user + 0% kernel / faults: 227 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.7% 1079/com.google.android.gms.persistent: 0.7% user + 0% kernel / faults: 401 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:     0.7% 1172/highpool[3]: 0.7% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:    +0% 4872/peration loader: 0% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:   0.6% 1442/com.google.android.gms: 0.6% user + 0% kernel / faults: 76 minor
+09-30 15:42:02.108   525  4855 E ActivityManager:     0.6% 1442/gle.android.gms: 0.6% user + 0% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager:     0.6% 3641/Binder:1442_F: 0% user + 0.6% kernel
+09-30 15:42:02.108   525  4855 E ActivityManager: 83% TOTAL: 21% user + 54% kernel + 4.5% irq + 1.9% softirq
+09-30 15:42:02.126   525  4855 D ActivityManager: Completed ANR of dev.srimi.antigravitymobile.probe in 7759ms, latency 2ms
+09-30 15:43:01.482   525  3897 I ActivityManager: Killing 1769:com.google.process.gapps/u0a101 (adj 965): empty #17
+09-30 15:43:01.514   525  4000 I ActivityManager: Killing 2727:com.android.providers.calendar/u0a64 (adj 985): empty #17

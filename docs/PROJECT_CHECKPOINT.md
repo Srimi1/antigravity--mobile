@@ -1,8 +1,25 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **30 September 2026** (0.2.0 full-app source, unreleased).
+Last updated **30 September 2026** (0.2.0 real-toolchain/emulator QA, unreleased).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
+
+## Latest: real Android build and emulator QA — 30 September 2026
+
+See [the evidence report](emulator-qa-2026-09-30.md) and `assets/screenshots/qa-20260930/`. This supersedes the initial 0.2.0 validation limits below.
+
+- Tested baseline `0f43adfb9e4dfb7452a1112e506ce2a5ff74b4bb`, after fetch and clean local/remote equality. Recovery ref: `refs/checkpoints/before-emulator-qa-20260930`.
+- `./tools/build.sh` passed AGP, Room kapt, **34 JVM tests**, release lint and signed release assembly. A stale Gradle transform reference initially failed; restarting its daemon recovered the build. No app source changes were needed.
+- **12 instrumentation tests passed** on a separate Android 12 ARM64 emulator, including v1→v2 migration, JGit on ART, ledger and template. Debug signing did not disturb the release emulator.
+- Release upgraded 0.1.2 without uninstall/data clear; exact old check retained. Project creation, editor save/restart, Git status, five tabs and Compose-template creation checked manually.
+- **Unresolved ANR:** first launch after upgrade waited 10,410 ms for focus and showed “isn't responding.” Wait recovered it; three controlled cold starts (796/749/705 ms) did not repeat it. Screenshot, UI XML, logs and ANR stacks saved. Root cause unknown; build/test concurrency and emulator memory are confounders, not proven causes.
+- Performance: 62 frames with conflicting jank counters; 54,028 KB PSS; two raw Perfetto traces captured but not analyzed.
+- Local unpublished APK: `dist/antigravity-mobile-0.2.0.apk`, SHA-256 `d0c488f7b597f27b649b678bead6d457ef7a1775355cd37c3009ed9d54688a9a`. Signer unchanged. Local evidence ZIP: `dist/antigravity-mobile-emulator-qa-20260930.zip`; raw artifacts: `~/.cache/antigravity-mobile-qa/20260930-first-full-app/`.
+- Latest user-reported target: **OnePlus 7 Pro, 12 GB RAM, 256 GB storage**, superseding earlier 7T Pro wording. Exact physical model/current Android/free storage unverified.
+- No live account/provider request or phone testing. Published 0.1.2, Drive file, key and release archives preserved. Full-product blockers unchanged.
+- Both QA emulators were stopped after capture. The upgraded release AVD retains the scratch projects and migrated check for later review.
+
+**Next:** trace before launch and diagnose repeated focus/first-render delays, comparing a lone emulator against controlled host load; then data-preserving physical-phone validation. Minor observations: stale file-size display until refresh after save, two empty `.kotlin/` template directories. Live ChatGPT testing still needs consent; Claude/Google and Android-host tools remain unresolved.
 
 ## Repository and local folder synchronization — 30 September 2026
 
@@ -15,7 +32,7 @@ The user requested that the Mac folder and GitHub reflect the same development p
 
 Before future work, fetch GitHub and reconcile its progress with this folder. Complete user-authorized synchronization by committing and pushing the intended changes, then verify a clean working tree and matching local/remote commits. Preserve unrelated work and report any unresolved divergence.
 
-## 0.2.0 full-app source (unreleased, not yet built as an APK)
+## Initial 0.2.0 full-app source record (historical; see latest QA above)
 
 The user asked to make the app "fully developed". The implementation from branch `ccr-ab1e41fd-3zdy6l` was merged into `main` by PR #1 and replaces the single diagnostic screen with the five-screen app. Version code **4**, version name **0.2.0**, same application ID.
 

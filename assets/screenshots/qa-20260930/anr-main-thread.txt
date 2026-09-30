@@ -1,0 +1,18 @@
+"main" prio=5 tid=1 Native
+  | group="main" sCount=1 ucsCount=0 flags=1 obj=0x72ad1a18 self=0xb400007291e57010
+  | sysTid=4807 nice=-10 cgrp=top-app sched=0/0 handle=0x73cfe424f8
+  | state=S schedstat=( 1581473923 3096858030 240 ) utm=119 stm=38 core=1 HZ=100
+  | stack=0x7fe0fbb000-0x7fe0fbd000 stackSize=8188KB
+  | held mutexes=
+  native: #00 pc 000000000009e598  /apex/com.android.runtime/lib64/bionic/libc.so (__epoll_pwait+8)
+  native: #01 pc 0000000000016640  /system/lib64/libutils.so (android::Looper::pollInner(int)+180)
+  native: #02 pc 0000000000016524  /system/lib64/libutils.so (android::Looper::pollOnce(int, int*, int*, void**)+112)
+  native: #03 pc 000000000014ae0c  /system/lib64/libandroid_runtime.so (android::android_os_MessageQueue_nativePollOnce(_JNIEnv*, _jobject*, long, int)+44)
+  at android.os.MessageQueue.nativePollOnce(Native method)
+  at android.os.MessageQueue.next(MessageQueue.java:335)
+  at android.os.Looper.loopOnce(Looper.java:161)
+  at android.os.Looper.loop(Looper.java:288)
+  at android.app.ActivityThread.main(ActivityThread.java:7839)
+  at java.lang.reflect.Method.invoke(Native method)
+  at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:548)
+  at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1003)

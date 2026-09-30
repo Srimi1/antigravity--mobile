@@ -1,8 +1,14 @@
 # Compatibility report
 
-Status: **0.2.0 FULL-APP SOURCE (unbuilt). Full-product gate BLOCKED**. The gates below were written for 0.1.2; see the 0.2.0 section at the end.
+Status: **0.2.0 BUILT AND EMULATOR-TESTED, UNRELEASED; first-upgrade ANR unresolved. Full-product gate BLOCKED**. See [current QA evidence](emulator-qa-2026-09-30.md). Historical results are retained below.
 
-Target: OnePlus 7T Pro. Its current Android version, RAM and free storage have not been inspected. No physical device was connected during initial development. Android 10+ and `arm64-v8a` are the prototype requirements.
+Latest user-reported target: OnePlus 7 Pro, 12 GB RAM, 256 GB storage (earlier records said 7T Pro). Physical model, current Android and free storage remain uninspected. No physical device was used in QA. Android 10+ and `arm64-v8a` remain the app requirements.
+
+## Current 0.2.0 validation — 30 September 2026
+
+Real AGP build, Room kapt, 34 JVM tests, release lint and signed APK passed on the Mac. All 12 instrumentation tests passed on a separate Android 12 ARM64 emulator, including the four previously unrun full-app tests. Release upgraded 0.1.2 and retained its exact check record. Manual project creation, save/restart, Git status, five tabs and Compose-template generation passed after recovery.
+
+The first release launch after upgrade produced an ANR with a 10,410 ms focus timeout. Wait recovered it; three controlled cold launches did not repeat it. Root cause unresolved. Screenshots, UI state, logs and performance limitations are in the QA report. Physical OnePlus, live subscriptions and phone-only compilation remain unverified or blocked.
 
 ## Gates
 
@@ -16,7 +22,7 @@ Target: OnePlus 7T Pro. Its current Android version, RAM and free storage have n
 | Native sample generation | Implemented; not an APK compilation result |
 | On-phone Kotlin/Compose compilation | BLOCKED: JDK/Gradle/Android-host build tools not bundled |
 | APK installer and launch on OnePlus | UNVERIFIED until performed on the target phone |
-| Full repo maintenance / autonomous agent loop | Deferred by the requested gate |
+| Full repo maintenance / autonomous agent loop | Local Git passed on ART; full existing-repo workflow and live agent acceptance unverified |
 
 The downloaded desktop Android SDK/NDK is used to cross-compile the probe, not claimed as a phone runtime. The embedded native program proves Android executable packaging only. It is neither a compiler nor a terminal toolchain.
 
@@ -67,7 +73,7 @@ The APK in `release/` and the GitHub release is `antigravity-mobile-probe-0.1.2.
 
 The new icon was visually inspected in the emulator launcher with a circular mask. Launcher and prototype screenshots are included in `assets/screenshots`.
 
-## Full-app source: 0.2.0 (unreleased)
+## Initial full-app source: 0.2.0 (historical, superseded by current QA above)
 
 The five-screen app, local projects, JGit, the agent tool loop, durable change review and account states are implemented in source. Validation so far is limited to a JVM harness in a cloud container that could not reach Google Maven:
 

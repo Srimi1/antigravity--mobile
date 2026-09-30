@@ -1,0 +1,36 @@
+{"time": 1790763021.110454, "serial": "emulator-5554", "tag": "baseline-history-visible", "command": "swipe", "bounds": "[0,145][1080,2072]"}
+{"time": 1790763100.3195782, "serial": "emulator-5554", "tag": "full-app-startup", "command": "capture"}
+{"time": 1790763165.335689, "serial": "emulator-5554", "tag": "current-state", "command": "capture"}
+{"time": 1790763219.438174, "serial": "emulator-5554", "tag": "after-anr-wait", "command": "tap", "label": "Wait", "bounds": "[72,1244][1008,1376]", "xy": ["540", "1310"]}
+{"time": 1790763229.292085, "serial": "emulator-5554", "tag": "new-project-dialog-2", "command": "tap", "label": "New", "bounds": "[44,393][529,525]", "xy": ["286", "459"]}
+{"time": 1790763237.8030221, "serial": "emulator-5554", "tag": "project-name-2", "command": "type", "field": 0, "bounds": "[166,1055][914,1231]", "value": "QA-Scratch"}
+{"time": 1790763258.302689, "serial": "emulator-5554", "tag": "project-dialog-state", "command": "capture"}
+{"time": 1790763283.503797, "serial": "emulator-5554", "tag": "settled-project-name", "command": "capture"}
+{"time": 1790763297.888303, "serial": "emulator-5554", "tag": "project-name-corrected", "command": "type", "field": 0, "bounds": "[166,707][914,883]", "value": "QAScratch"}
+{"time": 1790763315.061595, "serial": "emulator-5554", "tag": "project-created", "command": "tap", "label": "Create", "bounds": "[734,949][914,1081]", "xy": ["824", "1015"]}
+{"time": 1790763359.554095, "serial": "emulator-5554", "tag": "readme-opened", "command": "tap", "label": "README.md", "bounds": "[0,706][1080,904]", "xy": ["540", "805"]}
+{"time": 1790763372.800873, "serial": "emulator-5554", "tag": "readme-edited", "command": "type", "field": 0, "bounds": "[22,299][1058,1966]", "value": "QA-saved-content"}
+{"time": 1790763384.915392, "serial": "emulator-5554", "tag": "readme-saved", "command": "tap", "label": "Save", "bounds": "[842,167][1058,299]", "xy": ["950", "233"]}
+{"time": 1790763394.520365, "serial": "emulator-5554", "tag": "keyboard-hidden", "command": "key", "key": "4"}
+{"time": 1790763399.7518091, "serial": "emulator-5554", "tag": "editor-closed", "command": "tap", "label": "Close file", "bounds": "[22,167][154,299]", "xy": ["88", "233"]}
+{"time": 1790763404.955198, "serial": "emulator-5554", "tag": "git-status", "command": "tap", "label": "Git", "bounds": "[540,288][1080,420]", "xy": ["810", "354"]}
+{"time": 1790763418.37775, "serial": "emulator-5554", "tag": "agent-screen", "command": "tap", "label": "Agent", "bounds": "[221,1988][420,2072]", "xy": ["320", "2030"]}
+{"time": 1790763423.744525, "serial": "emulator-5554", "tag": "changes-screen", "command": "tap", "label": "Changes", "bounds": "[442,1988][640,2072]", "xy": ["541", "2030"]}
+{"time": 1790763428.9660091, "serial": "emulator-5554", "tag": "build-screen", "command": "tap", "label": "Build", "bounds": "[662,1988][860,2072]", "xy": ["761", "2030"]}
+{"time": 1790763455.1165109, "serial": "emulator-5554", "tag": "build-diagnostics", "command": "swipe", "bounds": "[0,145][1080,1988]"}
+{"time": 1790763460.776412, "serial": "emulator-5554", "tag": "migrated-history", "command": "swipe", "bounds": "[0,145][1080,1988]"}
+{"time": 1790763466.414695, "serial": "emulator-5554", "tag": "accounts-screen", "command": "tap", "label": "Accounts", "bounds": "[882,1988][1080,2072]", "xy": ["981", "2030"]}
+{"time": 1790763503.01911, "serial": "emulator-5554", "tag": "cold-start-1-ui", "command": "capture"}
+{"time": 1790763507.1778922, "serial": "emulator-5554", "tag": "cold-start-2-ui", "command": "capture"}
+{"time": 1790763511.3384051, "serial": "emulator-5554", "tag": "cold-start-3-ui", "command": "capture"}
+{"time": 1790763527.37479, "serial": "emulator-5554", "tag": "persisted-readme", "command": "tap", "label": "README.md", "bounds": "[0,706][1080,904]", "xy": ["540", "805"]}
+{"time": 1790763548.098351, "serial": "emulator-5554", "tag": "perf-editor-closed", "command": "tap", "label": "Close file", "bounds": "[22,167][154,299]", "xy": ["88", "233"]}
+{"time": 1790763553.328432, "serial": "emulator-5554", "tag": "perf-git-status", "command": "tap", "label": "Git", "bounds": "[540,288][1080,420]", "xy": ["810", "354"]}
+{"time": 1790763558.529217, "serial": "emulator-5554", "tag": "perf-files", "command": "tap", "label": "Files", "bounds": "[0,288][540,420]", "xy": ["270", "354"]}
+{"time": 1790763583.396811, "serial": "emulator-5554", "tag": "all-projects", "command": "tap", "label": "All projects", "bounds": "[11,156][143,288]", "xy": ["77", "222"]}
+{"time": 1790763588.635582, "serial": "emulator-5554", "tag": "template-dialog", "command": "tap", "label": "Compose app", "bounds": "[551,547][1036,679]", "xy": ["793", "613"]}
+{"time": 1790763602.641439, "serial": "emulator-5554", "tag": "compose-created", "command": "tap", "label": "Create", "bounds": "[734,1297][914,1429]", "xy": ["824", "1363"]}
+{"time": 1790763610.753372, "serial": "emulator-5554", "tag": "compose-build-screen", "command": "tap", "label": "Build", "bounds": "[662,1988][860,2072]", "xy": ["761", "2030"]}
+{"time": 1790763647.977626, "serial": "emulator-5554", "tag": "compose-build-diagnostics", "command": "swipe", "bounds": "[0,145][1080,1988]"}
+{"time": 1790764332.3846002, "serial": "emulator-5554", "tag": "history-detail-1", "command": "swipe", "bounds": "[0,145][1080,1988]"}
+{"time": 1790764338.203327, "serial": "emulator-5554", "tag": "history-detail-2", "command": "swipe", "bounds": "[0,145][1080,1988]"}

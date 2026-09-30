@@ -1,0 +1,20 @@
+[
+  {
+    "run": 1,
+    "start": 1790763501.136377,
+    "launch": "Starting: Intent { cmp=dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity\nTotalTime: 796\nWaitTime: 796\nComplete\n",
+    "pid": "6215"
+  },
+  {
+    "run": 2,
+    "start": 1790763505.3311129,
+    "launch": "Starting: Intent { cmp=dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity\nTotalTime: 749\nWaitTime: 754\nComplete\n",
+    "pid": "6293"
+  },
+  {
+    "run": 3,
+    "start": 1790763509.501107,
+    "launch": "Starting: Intent { cmp=dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: dev.srimi.antigravitymobile.probe/dev.srimi.antigravitymobile.MainActivity\nTotalTime: 705\nWaitTime: 721\nComplete\n",
+    "pid": "6373"
+  }
+]

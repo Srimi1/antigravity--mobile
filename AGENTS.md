@@ -11,7 +11,7 @@ These files describe the state saved on 30 September 2026. Verify the current ch
 
 ## User's current objective
 
-Build a **full native Android app** for the user's OnePlus 7T Pro, with Projects, Agent chat, Changes, Build and Accounts screens. The first full-app implementation (0.2.0, unreleased) is in the source now. It compiled and its JVM tests passed only in the `tools/jvm-harness` fallback; it has **not** been built with AGP, run on a device or tested against a live account. See the 0.2.0 section of the checkpoint for exactly what was and wasn't verified.
+Build a **full native Android app** with Projects, Agent chat, Changes, Build and Accounts screens. The latest user-reported target is OnePlus 7 Pro, 12 GB RAM, 256 GB storage (earlier records said 7T Pro); verify the physical model and Android version. The 0.2.0 app is unreleased but now builds with AGP; 34 JVM and 12 Android 12 ARM64 instrumentation tests passed. Manual QA recorded an **unresolved first-upgrade ANR**, then recovery and three cold starts without recurrence. Physical-phone and live-account testing remain unverified. See the latest checkpoint and `docs/emulator-qa-2026-09-30.md`.
 
 Continue from there. Keep unresolved capabilities clearly marked. The request for a full app does not make the mandatory dependencies available.
 
@@ -38,7 +38,7 @@ All Kotlin implementation paths below are under `app/src/main/java/dev/srimi/ant
 | `AntigravityApp.kt` | Application + `AppContainer`: single Room instance, services, selected project, startup recovery (interrupt, never replay), Git author/token settings. |
 | `MainActivity.kt` | Five-tab navigation. Screens: `ProjectsScreen.kt`, `AgentScreen.kt`, `ChangesScreen.kt`, `BuildScreen.kt`, `AccountsScreen.kt`; shared widgets in `UiParts.kt`. |
 | `ProjectsViewModel.kt`, `ProjectRepository.kt` | Project records, create/template/clone/SAF import/ZIP export/delete, file browser and editor, Git panel. `Archives` guards traversal and symlinks. `BuildInspector` reports build readiness honestly (BLOCKED). |
-| `GitService.kt` | JGit 5.13.5: init, clone, status, commit (all or paths), log, pull, push, unified diffs. `GitRuntime` isolates JGit config and disables auto-gc (uses `java.lang.management`, missing on Android). Validated on the JVM only. |
+| `GitService.kt` | JGit 5.13.5: init, clone, status, commit (all or paths), log, pull, push, unified diffs. `GitRuntime` isolates config and disables auto-gc (`java.lang.management` is missing on Android). Init/commit/status/log passed on ART; device networking/pull/push remain unverified. |
 | `ChangeService.kt` | Durable change sets with before/after snapshots on disk, conflict-aware revert, accept, commit marking, interrupted-set recovery. |
 | `AgentLoop.kt`, `AgentViewModel.kt` | Provider-neutral tool loop, project-bounded tools, approvals with diff previews, persistent conversations/actions, Stop. No shell or build tool is offered to the model. |
 | `ChatGptProbeAdapter.kt`, `ResponsesStream.kt` | Documented Sign in with ChatGPT OAuth plus Responses API streaming with function tools (`store:false`). No live account validation yet. |
@@ -46,7 +46,7 @@ All Kotlin implementation paths below are under `app/src/main/java/dev/srimi/ant
 | `ReviewViewModels.kt` | Changes, Accounts and Build view models. |
 | `ProbeViewModel.kt`, `NativeExecutionService.kt` | Device diagnostics on the Build tab. Still runs only `version`, `exit-7` and `wait` on the packaged childless probe; not a shell. |
 | `CredentialStore.kt`, `OidcVerifier.kt` | Keystore-backed encrypted storage (ChatGPT and Git token records) and signed ID-token validation. Preserve the security boundaries. |
-| `SessionStore.kt` | Room schema **version 2** with `MIGRATION_1_2` (hand-written SQL; proven only by the pending device test). Any further table change needs a v3 migration. |
+| `SessionStore.kt` | Room schema **version 2** with `MIGRATION_1_2`; real instrumentation migration test and in-place release upgrade passed. Any further table change needs a v3 migration. |
 | `WorkspaceService.kt` | Relative-path bounds, reads/writes, listing, symlink-safe delete, legacy checkpoint API. |
 | `Contracts.kt` | `AgentItem`, `AgentModel`, `ProviderEvent` and the older probe contracts. |
 
@@ -54,21 +54,21 @@ Other important paths:
 
 - `app/src/main/cpp/execution_probe.c`: genuine Android/Bionic test executable, not a compiler.
 - `samples/HelloPhone/`: complete Compose sample, used as the "Compose app" project template. Host compilation passed; phone compilation did not.
-- `app/src/test/`: 34 JVM tests (passed in the harness). `app/src/androidTest/`: 12 instrumentation tests (8 passed for 0.1.2; the 4 in `FullAppDeviceTest` have never run).
+- `app/src/test/`: 34 JVM tests (passed in the harness and real AGP build). `app/src/androidTest/`: all 12 instrumentation tests passed on Android 12 ARM64, including `FullAppDeviceTest`.
 - `tools/jvm-harness/`: compile/test fallback for sandboxes without Google Maven. Not a substitute for the real build.
 - `assets/branding/`: finished original app icon, repository cover and generation prompts.
-- `assets/screenshots/`: actual Android 12 ARM64 emulator captures of 0.1.2.
+- `assets/screenshots/`: actual Android 12 ARM64 captures of 0.1.2 and 0.2.0 QA evidence in `qa-20260930/`.
 - `release/`: published 0.1.2 metadata, notes and APK checksum; binary copies are ignored by Git. Do not edit it for unreleased 0.2.0.
 
 ## Where to continue
 
-1. **Validate 0.2.0 with the real toolchain.** Run `./tools/build.sh` and the instrumentation tests on the emulator; fix what AGP, kapt, Room schema validation and lint report. Install 0.2.0 over 0.1.2 on the emulator to confirm the in-place migration before touching the phone.
+1. **Diagnose the first-upgrade ANR.** Real build, lint, all 46 tests and in-place migration now passed. Start tracing before launch and compare a lone emulator against controlled host contention; the observed 10,410 ms focus timeout remains unresolved. See the QA report. Preserve phone data before physical validation.
 2. **Live ChatGPT agent task.** With the user's consent, sign in, run "Test request", then a small agent edit on a scratch project. Record outcome only (no tokens or prompts) in `docs/provider-evidence.md`.
 3. **Durability gaps.** Agent tasks run in the ViewModel; a background kill ends them (recorded as interrupted). A foreground service would keep long tasks alive. In-flight tool history is not persisted between app restarts; only user/assistant text is replayed.
 4. **Build toolchain.** Still unresolved: an Android-host JDK/Kotlin/Gradle/aapt2/d8 distribution packaged as native libraries. Do not assume ordinary Linux ARM64 binaries or the desktop SDK run on Android.
 5. **Claude and Google.** Remain BLOCKED until a supported, approved subscription route exists. Do not add API-key fallbacks or token lifting.
 
-JGit and Android-host tool distribution were only investigated earlier; JGit is now integrated but unvalidated on ART. Do not add a Termux launcher or a desktop-remote wrapper as a substitute for the requested native app.
+JGit is integrated; init/commit/status/log passed on ART, while device clone/pull/push remain unverified. Android-host tool distribution remains unresolved. Do not add a Termux launcher or desktop-remote wrapper as a substitute for the requested native app.
 
 The complete product remains unaccepted until all mandatory subscriptions perform real coding tasks and the phone alone can edit/review/test/commit an existing repository and generate/build/install/launch a Compose app, with cancellation and recoverable failure states.
 
