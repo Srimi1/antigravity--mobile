@@ -2,7 +2,7 @@
 
 This dedicated validation APK proves parts of the toolchain needed for Antigravity's local build workflow. Its package is `dev.srimi.antigravityruntime.lab`, with no account credentials. Generated data, binaries, build output and evidence live in `~/.cache/antigravity-mobile-runtime/`.
 
-The [evidence report](../../docs/native-runtime-qa-2026-09-30.md) records actual outcomes. The main Antigravity APK remains at 0.2.0; this runtime has not been integrated into its Build screen.
+The [Compose investigation](../../docs/native-compose-qa-2026-09-30.md) records cache/SDK fixes, six regressions and a successful full Compose build/install/launch with interaction. The [evidence report](../../docs/native-runtime-qa-2026-09-30.md) records actual outcomes. The main Antigravity APK remains at 0.2.0; this runtime has not been integrated into its Build screen.
 
 ## Inputs and assembly
 
@@ -33,9 +33,12 @@ Install the two generated APKs from `~/.cache/antigravity-mobile-runtime/build/a
 
 ```bash
 adb -s emulator-5556 shell am instrument -w -r \
+  -e runtimeTaskId compose-your-fresh-run-id \
   -e class dev.srimi.antigravityruntime.AndroidRuntimeTest \
   dev.srimi.antigravityruntime.lab.test/androidx.test.runner.AndroidJUnitRunner
 ```
+
+The Compose method requires `-e runtimeTaskId compose-<fresh-id>` and a new project/cache. Use `capture.py --adb /path/to/adb --serial emulator-5556 --task-id compose-<fresh-id> --output /path/outside/repo/new-directory` for a traced run. Existing output directories and incomplete action records are refused.
 
 Individual methods can be selected with `-e class 'dev.srimi.antigravityruntime.AndroidRuntimeTest#methodName'`. Read the instrumentation result: `adb`'s exit code alone does not prove a test passed.
 

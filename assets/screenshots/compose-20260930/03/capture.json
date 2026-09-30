@@ -1,0 +1,12 @@
+{
+  "taskId": "compose-trace-20260930-03",
+  "serial": "emulator-5556",
+  "uid": "10146",
+  "startedAt": 1790775266.570059,
+  "deviceTracePid": 7102,
+  "deviceTracePath": "/data/misc/perfetto-traces/compose-trace-20260930-03.pftrace",
+  "hostBuildPid": 50822,
+  "adbExit": 0,
+  "finishedAt": 1790775493.114313,
+  "traceBytes": 54592675
+}

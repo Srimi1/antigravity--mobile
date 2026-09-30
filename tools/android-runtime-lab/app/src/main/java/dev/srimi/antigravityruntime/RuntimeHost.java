@@ -120,14 +120,31 @@ public final class RuntimeHost {
     }
 
     public List<String> gradle(String... args) {
-        List<String> command = java("-Xmx1200m", "-classpath", new File(gradle, "lib/gradle-gradle-cli-main-8.13.jar").getAbsolutePath(), "org.gradle.launcher.GradleMain");
-        Collections.addAll(command, "--no-daemon", "--console=plain", "--max-workers=2", "-Dorg.gradle.native=false",
+        List<String> command = java("-Xms32m", "-Xmx192m", "-classpath", new File(gradle, "lib/gradle-gradle-cli-main-8.13.jar").getAbsolutePath(), "org.gradle.launcher.GradleMain");
+        Collections.addAll(command, "--no-daemon", "--console=plain", "--max-workers=1", "-Dorg.gradle.native=false",
             "-Dorg.gradle.internal.instrumentation.agent=false", "-Dorg.gradle.vfs.watch=false",
             "-Pkotlin.compiler.execution.strategy=in-process");
         Collections.addAll(command, args); return command;
     }
 
     public Result run(String label, File directory, List<String> command, long timeoutSeconds) throws Exception {
+        if (!label.matches("[a-z0-9-]{1,80}")) throw new IOException("Invalid evidence label");
+        File begin = new File(evidence, label + ".begin.json");
+        File end = new File(evidence, label + ".json");
+        boolean uncertain = (begin.exists() || new File(evidence, label + ".log").exists()) && !end.exists();
+        if (begin.exists() && end.exists()) {
+            JSONObject previousBegin, previousEnd;
+            try (InputStream input = new FileInputStream(begin)) { previousBegin = new JSONObject(readText(input)); }
+            try (InputStream input = new FileInputStream(end)) { previousEnd = new JSONObject(readText(input)); }
+            uncertain = !previousBegin.getString("attemptId").equals(previousEnd.optString("attemptId"));
+        }
+        if (uncertain) {
+            throw new IOException("Previous action has no completion record; use a new explicit task, never replay " + label);
+        }
+        String attemptId = UUID.randomUUID().toString();
+        record(begin, new JSONObject().put("label", label).put("state", "RUNNING")
+            .put("attemptId", attemptId)
+            .put("startedAtMillis", System.currentTimeMillis()));
         Log.i("AntigravityRuntime", label + ": starting");
         long start = android.os.SystemClock.elapsedRealtime();
         ProcessBuilder builder = new ProcessBuilder(command).directory(directory).redirectErrorStream(true);
@@ -179,12 +196,24 @@ public final class RuntimeHost {
         long elapsed = android.os.SystemClock.elapsedRealtime() - start;
         int exit = process.isAlive() ? -1 : process.exitValue();
         JSONObject record = new JSONObject().put("label", label).put("exit", exit).put("elapsedMs", elapsed)
+            .put("attemptId", attemptId)
             .put("timedOut", !finished).put("nativeGroup", group.get());
-        writeText(new File(evidence, label + ".json"), record.toString(2));
+        record(end, record);
         Log.i("AntigravityRuntime", label + ": exit=" + exit + " elapsedMs=" + elapsed);
         String text; synchronized (output) { text = output.toString(); }
         if (!finished) throw new IOException(label + " timed out\n" + text);
         return new Result(exit, text, elapsed);
+    }
+
+    private static void record(File file, JSONObject record) throws Exception {
+        android.util.AtomicFile atomic = new android.util.AtomicFile(file);
+        FileOutputStream stream = atomic.startWrite();
+        try {
+            stream.write((record.toString(2) + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            atomic.finishWrite(stream);
+        } catch (Exception error) {
+            atomic.failWrite(stream); throw error;
+        }
     }
 
     private static void signal(int group, int signal) {

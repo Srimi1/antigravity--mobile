@@ -1,0 +1,7 @@
+Starting: Intent { cmp=dev.srimi.hellophone/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: dev.srimi.hellophone/.MainActivity
+TotalTime: 1323
+WaitTime: 1331
+Complete

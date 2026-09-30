@@ -149,7 +149,7 @@ def prepare(sdk, gradle, host_jdk):
     # These SDK jars/resources are platform data. None of the desktop tools run.
     for directory in (sdk / "platforms/android-36", sdk / "build-tools/36.0.0"):
         for path in directory.rglob("*"):
-            if path.is_file() and (path.suffix in {".jar", ".xml", ".properties", ".aidl", ".txt"} or path.name == "NOTICE.txt"):
+            if path.is_file() and (path.suffix in {".jar", ".xml", ".properties", ".prop", ".aidl", ".txt"} or path.name == "NOTICE.txt"):
                 data_files["sdk/" + path.relative_to(sdk).as_posix()] = path.read_bytes()
     for path in gradle.rglob("*"):
         if path.is_file() and (path.is_relative_to(gradle / "lib") or path.name in {"LICENSE", "NOTICE", "README"}):

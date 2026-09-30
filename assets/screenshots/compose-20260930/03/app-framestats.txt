@@ -1,0 +1,86 @@
+Applications Graphics Acceleration Info:
+Uptime: 3933652 Realtime: 3933652
+
+** Graphics info for pid 7705 [dev.srimi.hellophone] **
+
+Stats since: 3896806993269ns
+Total frames rendered: 4
+Janky frames: 0 (0.00%)
+Janky frames (legacy): 2 (50.00%)
+50th percentile: 32ms
+90th percentile: 400ms
+95th percentile: 400ms
+99th percentile: 400ms
+Number Missed Vsync: 0
+Number High input latency: 1
+Number Slow UI thread: 0
+Number Slow bitmap uploads: 0
+Number Slow issue draw commands: 0
+Number Frame deadline missed: 0
+Number Frame deadline missed (legacy): 2
+HISTOGRAM: 5ms=0 6ms=0 7ms=0 8ms=0 9ms=0 10ms=0 11ms=0 12ms=0 13ms=1 14ms=1 15ms=0 16ms=0 17ms=0 18ms=0 19ms=0 20ms=0 21ms=0 22ms=0 23ms=0 24ms=0 25ms=0 26ms=0 27ms=0 28ms=0 29ms=0 30ms=0 31ms=0 32ms=1 34ms=0 36ms=0 38ms=0 40ms=0 42ms=0 44ms=0 46ms=0 48ms=0 53ms=0 57ms=0 61ms=0 65ms=0 69ms=0 73ms=0 77ms=0 81ms=0 85ms=0 89ms=0 93ms=0 97ms=0 101ms=0 105ms=0 109ms=0 113ms=0 117ms=0 121ms=0 125ms=0 129ms=0 133ms=0 150ms=0 200ms=0 250ms=0 300ms=0 350ms=0 400ms=1 450ms=0 500ms=0 550ms=0 600ms=0 650ms=0 700ms=0 750ms=0 800ms=0 850ms=0 900ms=0 950ms=0 1000ms=0 1050ms=0 1100ms=0 1150ms=0 1200ms=0 1250ms=0 1300ms=0 1350ms=0 1400ms=0 1450ms=0 1500ms=0 1550ms=0 1600ms=0 1650ms=0 1700ms=0 1750ms=0 1800ms=0 1850ms=0 1900ms=0 1950ms=0 2000ms=0 2050ms=0 2100ms=0 2150ms=0 2200ms=0 2250ms=0 2300ms=0 2350ms=0 2400ms=0 2450ms=0 2500ms=0 2550ms=0 2600ms=0 2650ms=0 2700ms=0 2750ms=0 2800ms=0 2850ms=0 2900ms=0 2950ms=0 3000ms=0 3050ms=0 3100ms=0 3150ms=0 3200ms=0 3250ms=0 3300ms=0 3350ms=0 3400ms=0 3450ms=0 3500ms=0 3550ms=0 3600ms=0 3650ms=0 3700ms=0 3750ms=0 3800ms=0 3850ms=0 3900ms=0 3950ms=0 4000ms=0 4050ms=0 4100ms=0 4150ms=0 4200ms=0 4250ms=0 4300ms=0 4350ms=0 4400ms=0 4450ms=0 4500ms=0 4550ms=0 4600ms=0 4650ms=0 4700ms=0 4750ms=0 4800ms=0 4850ms=0 4900ms=0 4950ms=0
+50th gpu percentile: 4950ms
+90th gpu percentile: 4950ms
+95th gpu percentile: 4950ms
+99th gpu percentile: 4950ms
+GPU HISTOGRAM: 1ms=0 2ms=0 3ms=0 4ms=0 5ms=0 6ms=0 7ms=0 8ms=0 9ms=0 10ms=0 11ms=0 12ms=0 13ms=0 14ms=0 15ms=0 16ms=0 17ms=0 18ms=0 19ms=0 20ms=0 21ms=0 22ms=0 23ms=0 24ms=0 25ms=0 4950ms=0
+Pipeline=Skia (OpenGL)
+CPU Caches:
+  Glyph Cache: 31.22 KB (1 entry)
+  Glyph Count: 7
+Total CPU memory usage:
+  31969 bytes, 31.22 KB (0.00 bytes is purgeable)
+GPU Caches:
+  Other:
+    Other: 1.55 KB (1 entry)
+  Scratch:
+    Buffer Object: 112.00 KB (3 entries)
+    Texture: 2.00 MB (1 entry)
+Total GPU memory usage:
+  2213424 bytes, 2.11 MB (64.00 KB is purgeable)
+
+Profile data in ms:
+
+	dev.srimi.hellophone/dev.srimi.hellophone.MainActivity/android.view.ViewRootImpl@9086ecc (visibility=0)
+Window: dev.srimi.hellophone/dev.srimi.hellophone.MainActivity
+Stats since: 3896943263519ns
+Total frames rendered: 4
+Janky frames: 0 (0.00%)
+Janky frames (legacy): 2 (50.00%)
+50th percentile: 32ms
+90th percentile: 400ms
+95th percentile: 400ms
+99th percentile: 400ms
+Number Missed Vsync: 0
+Number High input latency: 1
+Number Slow UI thread: 0
+Number Slow bitmap uploads: 0
+Number Slow issue draw commands: 0
+Number Frame deadline missed: 0
+Number Frame deadline missed (legacy): 2
+HISTOGRAM: 5ms=0 6ms=0 7ms=0 8ms=0 9ms=0 10ms=0 11ms=0 12ms=0 13ms=1 14ms=1 15ms=0 16ms=0 17ms=0 18ms=0 19ms=0 20ms=0 21ms=0 22ms=0 23ms=0 24ms=0 25ms=0 26ms=0 27ms=0 28ms=0 29ms=0 30ms=0 31ms=0 32ms=1 34ms=0 36ms=0 38ms=0 40ms=0 42ms=0 44ms=0 46ms=0 48ms=0 53ms=0 57ms=0 61ms=0 65ms=0 69ms=0 73ms=0 77ms=0 81ms=0 85ms=0 89ms=0 93ms=0 97ms=0 101ms=0 105ms=0 109ms=0 113ms=0 117ms=0 121ms=0 125ms=0 129ms=0 133ms=0 150ms=0 200ms=0 250ms=0 300ms=0 350ms=0 400ms=1 450ms=0 500ms=0 550ms=0 600ms=0 650ms=0 700ms=0 750ms=0 800ms=0 850ms=0 900ms=0 950ms=0 1000ms=0 1050ms=0 1100ms=0 1150ms=0 1200ms=0 1250ms=0 1300ms=0 1350ms=0 1400ms=0 1450ms=0 1500ms=0 1550ms=0 1600ms=0 1650ms=0 1700ms=0 1750ms=0 1800ms=0 1850ms=0 1900ms=0 1950ms=0 2000ms=0 2050ms=0 2100ms=0 2150ms=0 2200ms=0 2250ms=0 2300ms=0 2350ms=0 2400ms=0 2450ms=0 2500ms=0 2550ms=0 2600ms=0 2650ms=0 2700ms=0 2750ms=0 2800ms=0 2850ms=0 2900ms=0 2950ms=0 3000ms=0 3050ms=0 3100ms=0 3150ms=0 3200ms=0 3250ms=0 3300ms=0 3350ms=0 3400ms=0 3450ms=0 3500ms=0 3550ms=0 3600ms=0 3650ms=0 3700ms=0 3750ms=0 3800ms=0 3850ms=0 3900ms=0 3950ms=0 4000ms=0 4050ms=0 4100ms=0 4150ms=0 4200ms=0 4250ms=0 4300ms=0 4350ms=0 4400ms=0 4450ms=0 4500ms=0 4550ms=0 4600ms=0 4650ms=0 4700ms=0 4750ms=0 4800ms=0 4850ms=0 4900ms=0 4950ms=0
+50th gpu percentile: 4950ms
+90th gpu percentile: 4950ms
+95th gpu percentile: 4950ms
+99th gpu percentile: 4950ms
+GPU HISTOGRAM: 1ms=0 2ms=0 3ms=0 4ms=0 5ms=0 6ms=0 7ms=0 8ms=0 9ms=0 10ms=0 11ms=0 12ms=0 13ms=0 14ms=0 15ms=0 16ms=0 17ms=0 18ms=0 19ms=0 20ms=0 21ms=0 22ms=0 23ms=0 24ms=0 25ms=0 4950ms=0
+
+
+---PROFILEDATA---
+Flags,FrameTimelineVsyncId,IntendedVsync,Vsync,InputEventId,HandleInputStart,AnimationStart,PerformTraversalsStart,DrawStart,FrameDeadline,FrameInterval,FrameStartTime,SyncQueued,SyncStart,IssueDrawCommandsStart,SwapBuffers,FrameCompleted,DequeueBufferDuration,QueueBufferDuration,GpuCompleted,SwapBuffersCompleted,DisplayPresentTime,
+1,3794,3896814604083,3896931270745,0,3896946205311,3896946206519,3896946254727,3897169825686,3896831270749,3896946194227,16666666,3897171991061,3897173011311,3897173254936,3897183423644,3897257659644,2958,739833,-1,3897257659644,0,
+0,3859,3897647937383,3897647937383,0,3897650645019,3897650646061,3897650647269,3897650735353,3897664604049,3897650637394,16666666,3897670710519,3897670808228,3897670853061,3897673029269,3897680821936,2416,517958,-1,3897680821936,0,
+0,3862,3897664604049,3897664604049,0,3897670982061,3897670982603,3897670983728,3897671044769,3897681270715,3897670979478,16666666,3897671135769,3897680829728,3897680858353,3897681215686,3897688817644,161375,680625,-1,3897688817644,0,
+0,3895,3932681269315,3932681269315,0,3932682206036,3932682210119,3932682211744,3932683291703,3932697935981,3932682183078,16666666,3932683704369,3932683814036,3932683864703,3932684692078,3932694795703,3167,401000,-1,3932694795703,0,
+---PROFILEDATA---
+
+
+View hierarchy:
+
+  dev.srimi.hellophone/dev.srimi.hellophone.MainActivity/android.view.ViewRootImpl@9086ecc
+  9 views, 17.20 kB of render nodes
+
+
+Total ViewRootImpl   : 1
+Total attached Views : 9
+Total RenderNode     : 17.20 kB (used) / 56.75 kB (capacity)

@@ -85,7 +85,10 @@ public final class AndroidRuntimeTest {
     }
 
     @Test public void gradleBuildsComposeSampleOnAndroid() throws Exception {
-        RuntimeHost host = host(); File project = host.project("compose");
+        String task = InstrumentationRegistry.getArguments().getString("runtimeTaskId");
+        if (task == null || !task.matches("compose-[a-z0-9-]{1,64}"))
+            throw new IOException("Provide a fresh explicit runtimeTaskId for each Compose build");
+        RuntimeHost host = host(); File project = host.project(task);
         try (InputStream input = context().getAssets().open("hello-phone.zip")) { RuntimeHost.extract(input, project); }
         RuntimeHost.writeText(new File(project, "local.properties"), "sdk.dir=" + host.sdk.getAbsolutePath() + "\n");
         RuntimeHost.writeText(new File(project, "gradle.properties"),
@@ -93,8 +96,26 @@ public final class AndroidRuntimeTest {
             "org.gradle.daemon=false\norg.gradle.parallel=false\norg.gradle.vfs.watch=false\n" +
             "android.aapt2FromMavenOverride=" + new File(host.sdk, "build-tools/36.0.0/aapt2").getAbsolutePath() + "\n" +
             "kotlin.compiler.execution.strategy=in-process\n");
-        success(host, "compose-gradle", project, host.gradle(":app:assembleDebug", "--stacktrace"), 1200);
+        success(host, task + "-gradle", project, host.gradle("--gradle-user-home",
+            new File(host.root, "gradle-home-" + task).getAbsolutePath(), ":app:assembleDebug", "--stacktrace"), 1200);
         assertTrue(new File(project, "app/build/outputs/apk/debug/app-debug.apk").length() > 0);
+    }
+
+    @Test public void incompleteActionIsNeverReplayed() throws Exception {
+        RuntimeHost host = host(); File project = host.project("interruption-guard");
+        String label = "interruption-guard";
+        RuntimeHost.writeText(new File(host.evidence, label + ".begin.json"),
+            "{\"attemptId\":\"new-interrupted-attempt\",\"state\":\"RUNNING\"}");
+        // An older successful record must not hide an interrupted later attempt.
+        RuntimeHost.writeText(new File(host.evidence, label + ".json"),
+            "{\"attemptId\":\"older-completed-attempt\",\"exit\":0}");
+        try {
+            host.run(label, project, host.java("--version"), 10);
+            fail("Uncertain action was replayed");
+        } catch (IOException expected) {
+            assertTrue(expected.getMessage(), expected.getMessage().contains("never replay"));
+        }
+        assertFalse(new File(host.evidence, label + ".log").exists());
     }
 
     @Test public void cancellationKillsTheJvmAndItsChild() throws Exception {

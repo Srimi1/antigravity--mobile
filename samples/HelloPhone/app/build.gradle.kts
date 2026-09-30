@@ -6,6 +6,7 @@ plugins {
 android {
     namespace = "dev.srimi.hellophone"
     compileSdk = 36
+    buildToolsVersion = "36.0.0"
     defaultConfig {
         applicationId = "dev.srimi.hellophone"
         minSdk = 29

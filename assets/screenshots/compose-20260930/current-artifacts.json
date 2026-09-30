@@ -1,0 +1,11 @@
+{
+  "lab": {
+    "bytes": 259860065,
+    "sha256": "28de20c972ba83010b0c15198f2dcfe84b178a1b31140cd3855c827dc2827095"
+  },
+  "tests": {
+    "bytes": 4488521,
+    "sha256": "d382c652418e838d548060377b5a19c9aa333771305b619be86a5ba463e2be86"
+  },
+  "runtimeDataSha256": "09f3565da7ca1a462856ed667c27af741fd0aeb551f25c2e916518502a446c86"
+}

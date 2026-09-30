@@ -1,0 +1,11 @@
+"name","min(c.value)","max(c.value)","count(*)"
+"MemAvailable",27557888.000000,1807437824.000000,228
+"MemTotal",3113246720.000000,3113246720.000000,228
+
+"pid","name","peak_rss_bytes"
+7140,"<pre-initialized>",369467392.000000
+7167,"/data/user/0/dev.srimi.antigravityruntime.lab/files/runtime/jdk/bin/java",94789632.000000
+7193,"/data/data/dev.srimi.antigravityruntime.lab/files/runtime/jdk/bin/java",1610240000.000000
+7527,"/data/user/0/dev.srimi.antigravityruntime.lab/files/runtime/sdk/build-tools/36.0.0/aapt2",16449536.000000
+
+"name","value"

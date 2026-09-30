@@ -28,7 +28,7 @@ Version 0.1.2 includes the original adaptive launcher icon, round launcher suppo
 
 - **Claude and Google subscriptions.** Supported, approved integration routes have not been established for this app, so both show as blocked. There is no API-key fallback.
 - **ChatGPT** uses OpenAI's documented Sign in with ChatGPT flow, but has not been tested against a live account.
-- **Building apps on the phone.** The main APK has no build toolchain. A [separate Android-native lab](tools/android-runtime-lab/README.md) passed five tests and built/installed/launched a small Java APK on the emulator. Full Kotlin/Compose compilation was interrupted, and production integration/physical validation remain pending. See [runtime evidence](docs/native-runtime-qa-2026-09-30.md).
+- **Building apps on the phone.** The main APK has no build toolchain. A [separate Android-native lab](tools/android-runtime-lab/README.md) passed five tests and built/installed/launched a small Java APK on the emulator. A later [full Kotlin/Compose build, install and launch passed on Android](docs/native-compose-qa-2026-09-30.md); production integration and physical validation remain pending. See [runtime evidence](docs/native-runtime-qa-2026-09-30.md).
 - **No shell.** The agent cannot run commands, builds or tests.
 
 ## Build

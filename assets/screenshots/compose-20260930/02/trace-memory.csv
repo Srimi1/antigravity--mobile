@@ -1,0 +1,8 @@
+"name","min(c.value)","max(c.value)","count(*)"
+"MemAvailable",557662208.000000,1689411584.000000,130
+"MemTotal",3113246720.000000,3113246720.000000,130
+
+"pid","name","peak_rss_bytes"
+6697,"dev.srimi.antigravityruntime.lab",116592640.000000
+6716,"/data/user/0/dev.srimi.antigravityruntime.lab/files/runtime/jdk/bin/java",96874496.000000
+6743,"/data/data/dev.srimi.antigravityruntime.lab/files/runtime/jdk/bin/java",999292928.000000

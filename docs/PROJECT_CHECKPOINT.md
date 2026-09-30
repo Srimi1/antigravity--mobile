@@ -4,7 +4,21 @@ Last updated **30 September 2026** (0.2.0 emulator QA plus separate native-runti
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## Latest: separate Android-native build foundation — 30 September 2026
+## Latest: Android-native Compose build succeeded — 30 September 2026
+
+See [Compose evidence](native-compose-qa-2026-09-30.md) and `assets/screenshots/compose-20260930/`. Baseline `b5dfa65f3af74f8d5c6ca2ec97d19769ef016a26`; recovery ref `refs/checkpoints/before-compose-trace-20260930`.
+
+- Reduced CLI heap/workers, added atomic attempt IDs/refusal to replay uncertain actions, per-task caches and a reproducible trace capture. Six lab regressions passed. No production foreground service or Room migration yet.
+- New runs 01/02 failed with durable records (corrupted cache, then SDK metadata/Build Tools 35 mismatch). Original cache preserved; no guest reboot. Fixed omitted `build.prop` and pinned HelloPhone Build Tools 36. Lab assembly/test APK/lint passed.
+- **Full Kotlin/Compose run 03 PASSED on Android 12 ARM64**: 35 Gradle tasks executed in 3m 37s; instrumentation `OK (1 test)`; matching begin/end IDs, exit 0. APK compiled/signed inside Android, installed/launched by the ADB harness, and Count changed 0→1. No desktop/cloud compiler built that project APK.
+- Private APK `~/.cache/antigravity-mobile-runtime/compose-android-built.apk`, 23,669,266 bytes, SHA-256 `3d1b2cd085d2b31a7c5f040b6339fd41de47d76797fcdc0501a221bcb7531a0a`. Full 54.6 MB trace remains outside Git; curated screenshots/XML/logs/trace metrics saved.
+- Tight 3 GB emulator memory: sampled minimum available 27,557,888 bytes; daemon peak RSS 1,610,240,000 bytes. Not a phone/larger-repository resource guarantee. No root, fake licence acceptance or live account used.
+- Main 0.2.0/code 4 APK/Build UI unchanged; sample metadata source changed and main APK must be rebuilt before distribution. Published 0.1.2/key/artwork/Drive unchanged. Experimental heap-tagging/runtime/SDK-mix and licensing gates remain. Physical OnePlus, mandatory subscriptions and original ANR unverified/unresolved.
+- QA emulator `emulator-5556` left running with lab and Compose fixture. No build in flight. Raw logs under `~/.cache/antigravity-mobile-runtime/evidence/compose-trace-20260930-03/`.
+
+**Next:** integrate the native pipeline into approved, credential-isolated, durable foreground build execution and phone installer UI; validate wider repositories/languages, physical phone and live subscriptions. This milestone is not full-app acceptance.
+
+## Earlier: separate Android-native build foundation — 30 September 2026
 
 See [native runtime evidence](native-runtime-qa-2026-09-30.md), [lab source](../tools/android-runtime-lab/README.md) and `assets/screenshots/runtime-20260930/`.
 

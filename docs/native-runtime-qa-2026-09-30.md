@@ -1,6 +1,6 @@
 # Android-native runtime evidence — 30 September 2026
 
-**Partial toolchain validation; full Antigravity product remains BLOCKED.** A separate credential-free lab APK compiled, signed and verified a small Java Android APK entirely on an Android 12 ARM64 emulator. That generated APK installed and launched. The toolchain is not integrated into the main app. Full Kotlin/Compose compilation was interrupted by an unexpected emulator guest reboot; it has no success result or generated APK. No physical OnePlus or live account was used.
+**Earlier partial toolchain validation; superseded by [successful Compose evidence](native-compose-qa-2026-09-30.md). Full product remains BLOCKED.** A separate credential-free lab APK compiled, signed and verified a small Java Android APK entirely on an Android 12 ARM64 emulator. That generated APK installed and launched. The toolchain is not integrated into the main app. Full Kotlin/Compose compilation was interrupted by an unexpected emulator guest reboot; it has no success result or generated APK. No physical OnePlus or live account was used.
 
 ## Scope and source
 
@@ -80,7 +80,9 @@ Compatibility fixes validated during development:
 3. The port truncated tagged native pointers and aborted. The lab uses Android's legacy heap-tagging setting plus public NDK `mallopt` compatibility in worker processes. This reduces that protection and does not establish native memory correctness or MTE compatibility. See [Android tagged pointers](https://source.android.com/docs/security/test/tagged-pointers). Native remediation/current-runtime maintenance and broader Android testing are required before shipping.
 4. A launcher-owned process group enables the tested JVM/child cancellation. This is not a general command sandbox or a foreground execution service.
 
-## Local artifacts (not published)
+## Earlier local artifacts (not published)
+
+These hashes describe the first capture. Lab build output filenames are reused by later builds; see the Compose report for current artifact hashes. The Java proof APK remains preserved.
 
 - Lab debug APK: `~/.cache/antigravity-mobile-runtime/build/app/outputs/apk/debug/app-debug.apk`, 259,860,065 bytes, SHA-256 `7f14a2014e5087269c408f13802f096272ee573d2eca4974c45f6bdb8c6cb610`.
 - Lab test APK: same build tree under `outputs/apk/androidTest/debug/`, SHA-256 `134f342635469b3578de10d1ae025b8b92a02480c2d8952b095e00ffce7fc5b1`.

@@ -1,0 +1,11 @@
+{
+  "taskId": "compose-trace-20260930-01",
+  "serial": "emulator-5556",
+  "uid": "10146",
+  "startedAt": 1790774795.2799401,
+  "hostTracePid": 49438,
+  "hostBuildPid": 49443,
+  "adbExit": 0,
+  "finishedAt": 1790774807.55965,
+  "traceBytes": 0
+}

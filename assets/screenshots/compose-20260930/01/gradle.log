@@ -1,0 +1,67 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build
+cache fileHashes.bin (/data/data/dev.srimi.antigravityruntime.lab/files/runtime/gradle-home/caches/8.13/fileHashes/fileHashes.bin) is corrupt. Discarding.
+cache resourceHashesCache.bin (/data/data/dev.srimi.antigravityruntime.lab/files/runtime/gradle-home/caches/8.13/fileHashes/resourceHashesCache.bin) is corrupt. Discarding.
+Failed to execute org.gradle.cache.internal.AsyncCacheAccessDecoratedCache$$Lambda$446/0x000000010053e820@5c783ff.
+org.gradle.api.UncheckedIOException: Could not add entry '/data/data/dev.srimi.antigravityruntime.lab/files/runtime/gradle-home/caches/8.13/kotlin-dsl/scripts/d9dd89cc2c491de2736d566aff33de6e' to cache file-access.bin (/data/data/dev.srimi.antigravityruntime.lab/files/runtime/gradle-home/caches/journal-1/file-access.bin).
+	at org.gradle.cache.internal.btree.BTreePersistentIndexedCache.put(BTreePersistentIndexedCache.java:162)
+	at org.gradle.cache.internal.DefaultMultiProcessSafeIndexedCache.lambda$put$1(DefaultMultiProcessSafeIndexedCache.java:67)
+	at org.gradle.cache.internal.DefaultFileLockManager$DefaultFileLock.doWriteAction(DefaultFileLockManager.java:231)
+	at org.gradle.cache.internal.DefaultFileLockManager$DefaultFileLock.writeFile(DefaultFileLockManager.java:221)
+	at org.gradle.cache.internal.DefaultCacheCoordinator$UnitOfWorkFileAccess.writeFile(DefaultCacheCoordinator.java:475)
+	at org.gradle.cache.internal.DefaultMultiProcessSafeIndexedCache.put(DefaultMultiProcessSafeIndexedCache.java:67)
+	at org.gradle.cache.internal.AsyncCacheAccessDecoratedCache.lambda$putLater$1(AsyncCacheAccessDecoratedCache.java:56)
+	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+	at org.gradle.cache.internal.ExclusiveCacheAccessingWorker$1.run(ExclusiveCacheAccessingWorker.java:179)
+	at org.gradle.cache.internal.DefaultCacheCoordinator.lambda$toSupplier$2(DefaultCacheCoordinator.java:228)
+	at org.gradle.cache.internal.DefaultCacheCoordinator.useCache(DefaultCacheCoordinator.java:249)
+	at org.gradle.cache.internal.DefaultCacheCoordinator.useCache(DefaultCacheCoordinator.java:223)
+	at org.gradle.cache.internal.ExclusiveCacheAccessingWorker.flushOperations(ExclusiveCacheAccessingWorker.java:169)
+	at org.gradle.cache.internal.ExclusiveCacheAccessingWorker.run(ExclusiveCacheAccessingWorker.java:139)
+	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:48)
+	at java.base@17.0.18-internal/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base@17.0.18-internal/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base@17.0.18-internal/java.lang.Thread.run(Thread.java:840)
+Caused by: org.gradle.cache.internal.btree.CorruptedCacheException: Corrupted IndexBlock 81174 found in cache '/data/data/dev.srimi.antigravityruntime.lab/files/runtime/gradle-home/caches/journal-1/file-access.bin'.
+	at org.gradle.cache.internal.btree.FileBackedBlockStore$BlockImpl.blockCorruptedException(FileBackedBlockStore.java:267)
+	at org.gradle.cache.internal.btree.FileBackedBlockStore$BlockImpl.read(FileBackedBlockStore.java:246)
+	at org.gradle.cache.internal.btree.FileBackedBlockStore.read(FileBackedBlockStore.java:123)
+	at org.gradle.cache.internal.btree.CachingBlockStore.read(CachingBlockStore.java:100)
+	at org.gradle.cache.internal.btree.FreeListBlockStore.read(FreeListBlockStore.java:86)
+	at org.gradle.cache.internal.btree.StateCheckBlockStore.read(StateCheckBlockStore.java:67)
+	at org.gradle.cache.internal.btree.BTreePersistentIndexedCache.load(BTreePersistentIndexedCache.java:182)
+	at org.gradle.cache.internal.btree.BTreePersistentIndexedCache.access$1200(BTreePersistentIndexedCache.java:50)
+	at org.gradle.cache.internal.btree.BTreePersistentIndexedCache$IndexBlock.find(BTreePersistentIndexedCache.java:496)
+	at org.gradle.cache.internal.btree.BTreePersistentIndexedCache$IndexBlock.access$600(BTreePersistentIndexedCache.java:366)
+	at org.gradle.cache.internal.btree.BTreePersistentIndexedCache.put(BTreePersistentIndexedCache.java:144)
+	... 18 more
+Failed to execute org.gradle.cache.internal.AsyncCacheAccessDecoratedCache$$Lambda$446/0x000000010053e820@7adf2b69.
+org.gradle.api.UncheckedIOException: Could not add entry '/data/data/dev.srimi.antigravityruntime.lab/files/runtime/gradle-home/caches/8.13/kotlin-dsl/accessors/81f157934c94f845cf960452730ef331-PS' to cache file-access.bin (/data/data/dev.srimi.antigravityruntime.lab/files/runtime/gradle-home/caches/journal-1/file-access.bin).
+	at org.gradle.cache.internal.btree.BTreePersistentIndexedCache.put(BTreePersistentIndexedCache.java:162)
+	at org.gradle.cache.internal.DefaultMultiProcessSafeIndexedCache.lambda$put$1(DefaultMultiProcessSafeIndexedCache.java:67)
+	at org.gradle.cache.internal.DefaultFileLockManager$DefaultFileLock.doWriteAction(DefaultFileLockManager.java:231)
+	at org.gradle.cache.internal.DefaultFileLockManager$DefaultFileLock.writeFile(DefaultFileLockManager.java:221)
+	at org.gradle.cache.internal.DefaultCacheCoordinator$UnitOfWorkFileAccess.writeFile(DefaultCacheCoordinator.java:475)
+	at org.gradle.cache.internal.DefaultMultiProcessSafeIndexedCache.put(DefaultMultiProcessSafeIndexedCache.java:67)
+	at org.gradle.cache.internal.AsyncCacheAccessDecoratedCache.lambda$putLater$1(AsyncCacheAccessDecoratedCache.java:56)
+	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+	at org.gradle.cache.internal.ExclusiveCacheAccessingWorker$1.run(ExclusiveCacheAccessingWorker.java:179)
+	at org.gradle.cache.internal.DefaultCacheCoordinator.lambda$toSupplier$2(DefaultCacheCoordinator.java:228)
+	at org.gradle.cache.internal.DefaultCacheCoordinator.useCache(DefaultCacheCoordinator.java:249)
+	at org.gradle.cache.internal.DefaultCacheCoordinator.useCache(DefaultCacheCoordinator.java:223)
+	at org.gradle.cache.internal.ExclusiveCacheAccessingWorker.flushOperations(ExclusiveCacheAccessingWorker.java:169)
+	at org.gradle.cache.internal.ExclusiveCacheAccessingWorker.run(ExclusiveCacheAccessingWorker.java:139)
+	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:48)
+	at java.base@17.0.18-internal/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base@17.0.18-internal/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base@17.0.18-internal/java.lang.Thread.run(Thread.java:840)
+Caused by: org.gradle.cache.internal.btree.CorruptedCacheException: Corrupted IndexBlock 81174 found in cache '/data/data/dev.srimi.antigravityruntime.lab/files/runtime/gradle-home/caches/journal-1/file-access.bin'.
+	at org.gradle.cache.internal.btree.FileBackedBlockStore$BlockImpl.blockCorruptedException(FileBackedBlockStore.java:267)
+	at org.gradle.cache.internal.btree.FileBackedBlockStore$BlockImpl.read(FileBackedBlockStore.java:246)
+	at org.gradle.cache.internal.btree.FileBackedBlockStore.read(FileBackedBlockStore.java:123)
+	at org.gradle.cache.internal.btree.CachingBlockStore.read(CachingBlockStore.java:100)
+	at org.gradle.cache.internal.btree.FreeListBlockStore.read(FreeListBlockStore.java:86)
+
+[Excerpt: full log retained privately outside Git.]
