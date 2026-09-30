@@ -18,7 +18,9 @@ if [[ ! -f .signing/personal.p12 ]]; then
 fi
 chmod 600 .signing/personal.p12
 ./gradlew --project-cache-dir "$HOME/.cache/antigravity-mobile-gradle" :app:testDebugUnitTest :app:lintRelease :app:assembleRelease --console=plain
+VERSION="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)"
+APK="dist/antigravity-mobile-$VERSION.apk"
 mkdir -p dist
-cp "$HOME/.cache/antigravity-mobile-build/app/outputs/apk/release/app-release.apk" dist/antigravity-mobile-probe-0.1.2.apk
-"$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs dist/antigravity-mobile-probe-0.1.2.apk
-shasum -a 256 dist/antigravity-mobile-probe-0.1.2.apk > dist/SHA256SUMS
+cp "$HOME/.cache/antigravity-mobile-build/app/outputs/apk/release/app-release.apk" "$APK"
+"$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK"
+shasum -a 256 "$APK" > dist/SHA256SUMS

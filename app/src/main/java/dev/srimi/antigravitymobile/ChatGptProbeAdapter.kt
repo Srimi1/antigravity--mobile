@@ -24,7 +24,8 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /** Experimental documented SIWC probe; live eligibility and inference remain unverified. */
-class ChatGptProbeAdapter(context: Context) : ProviderAdapter {
+class ChatGptProbeAdapter(context: Context) : ProviderAdapter, AgentModel {
+    override val providerId = ResponsesWire.PROVIDER
     private val credentials = CredentialStore(context)
     private val prefs = context.getSharedPreferences("host", Context.MODE_PRIVATE)
     private val hostId = prefs.getString("hostId", null) ?: "urn:uuid:${UUID.randomUUID()}".also {
@@ -35,8 +36,8 @@ class ChatGptProbeAdapter(context: Context) : ProviderAdapter {
     private val sessionLock = Mutex()
     @Volatile private var call: Call? = null
     @Volatile private var listener: ServerSocket? = null
-    override val capabilities = ProviderCapabilities(CheckStatus.UNVERIFIED, true, false,
-        "Documented sign-in probe. Subscription entitlement requires a completed live request.")
+    override val capabilities = ProviderCapabilities(CheckStatus.UNVERIFIED, true, true,
+        "Documented Sign in with ChatGPT route. Entitlement requires a completed live request.")
 
     private fun random(): String = Base64.getUrlEncoder().withoutPadding()
         .encodeToString(ByteArray(32).also { SecureRandom().nextBytes(it) })
@@ -76,7 +77,7 @@ class ChatGptProbeAdapter(context: Context) : ProviderAdapter {
                     "resource" to "https://api.openai.com/v1", "state" to state, "nonce" to nonce,
                     "code_challenge_method" to "S256", "code_challenge" to challenge
                 ).forEach { (k, v) -> builder.appendQueryParameter(k, v) }
-                if (old == null) builder.appendQueryParameter("agent_name_hint", "Antigravity Mobile Probe")
+                if (old == null) builder.appendQueryParameter("agent_name_hint", "Antigravity Mobile")
                 else old.optString("id_token").takeIf { it.isNotEmpty() }?.let {
                     builder.appendQueryParameter("id_token_hint", it)
                 }
@@ -92,7 +93,7 @@ class ChatGptProbeAdapter(context: Context) : ProviderAdapter {
                         val uri = Uri.parse("http://127.0.0.1$target")
                         val valid = request.startsWith("GET ") && uri.path == "/auth/callback" &&
                             MessageDigest.isEqual(uri.getQueryParameter("state").orEmpty().toByteArray(), state.toByteArray())
-                        val page = if (valid) "Return to Antigravity Mobile Probe to finish validation." else "Invalid callback."
+                        val page = if (valid) "Return to Antigravity Mobile to finish signing in." else "Invalid callback."
                         socket.getOutputStream().write(("HTTP/1.1 ${if (valid) "200 OK" else "400 Bad Request"}\r\n" +
                             "Content-Type: text/plain; charset=utf-8\r\nConnection: close\r\n" +
                             "Content-Length: ${page.toByteArray().size}\r\n\r\n$page").toByteArray())
@@ -144,55 +145,93 @@ class ChatGptProbeAdapter(context: Context) : ProviderAdapter {
     }
     override suspend fun renewCredentials() = sessionLock.withLock { withContext(Dispatchers.IO) { refresh() } }
 
-    override fun streamTurn(prompt: String): Flow<ProviderEvent> = flow {
+    private fun accessToken(): String {
+        var saved = credentials.read() ?: error("Connect your ChatGPT account first")
+        if (saved.optString("access_token").isEmpty()) error("Reconnect your ChatGPT account")
+        if (saved.getLong("expires_at") < System.currentTimeMillis() + 60_000) { refresh(); saved = credentials.read()!! }
+        return saved.getString("access_token")
+    }
+    private fun catalog(access: String): List<String> {
+        val catalog = json(Request.Builder().url("https://api.openai.com/v1/models").header("Authorization", "Bearer $access").build())
+        val models = catalog.getJSONArray("models")
+        return (0 until models.length()).map { models.getJSONObject(it) }
+            .filter { it.optString("visibility") == "list" }.map { it.getString("slug") }
+    }
+    /** Models the account's catalog lists for this client. Requires a connected account. */
+    suspend fun listModels(): List<String> = sessionLock.withLock {
+        withContext(Dispatchers.IO) { catalog(accessToken()).also { cachedModels = System.currentTimeMillis() to it } }
+    }
+    var preferredModel: String?
+        get() = prefs.getString("model", null)
+        set(value) { prefs.edit().apply { if (value == null) remove("model") else putString("model", value) }.apply() }
+
+    override fun streamTurn(prompt: String): Flow<ProviderEvent> =
+        streamAgentTurn(AgentRequest("", listOf(AgentItem.User(prompt)), emptyList()))
+
+    override fun streamAgentTurn(request: AgentRequest): Flow<ProviderEvent> = flow {
         sessionLock.withLock {
-            var saved = credentials.read() ?: error("Connect your ChatGPT account first")
-            if (saved.optString("access_token").isEmpty()) error("Reconnect your ChatGPT account")
-            if (saved.getLong("expires_at") < System.currentTimeMillis() + 60_000) { refresh(); saved = credentials.read()!! }
-            val access = saved.getString("access_token")
-            val catalog = json(Request.Builder().url("https://api.openai.com/v1/models").header("Authorization", "Bearer $access").build())
-            val models = catalog.getJSONArray("models")
-            val model = (0 until models.length()).map { models.getJSONObject(it) }
-                .firstOrNull { it.optString("visibility") == "list" }?.getString("slug")
+            val access = accessToken()
+            val listed = cachedModels?.takeIf { System.currentTimeMillis() - it.first < 10 * 60_000 }?.second
+                ?: catalog(access).also { cachedModels = System.currentTimeMillis() to it }
+            val model = preferredModel?.takeIf { it in listed } ?: listed.firstOrNull()
                 ?: error("No eligible model was returned for this account")
-            val body = JSONObject().put("model", model).put("store", false).put("stream", true)
-                .put("input", JSONArray().put(JSONObject().put("role", "user").put("content", prompt)))
-            val pending = http.newCall(Request.Builder().url("https://api.openai.com/v1/responses")
-                .header("Authorization", "Bearer $access")
-                .post(body.toString().toRequestBody("application/json".toMediaType())).build())
-            call = pending
+            var reasoning = model !in plainModels
+            var response = post(access, ResponsesWire.body(model, request, reasoning))
+            if (response.code == 400 && reasoning) {
+                // Some models reject encrypted reasoning state; retrying the rejected request has no side effects.
+                response.close()
+                plainModels += model
+                reasoning = false
+                response = post(access, ResponsesWire.body(model, request, reasoning))
+            }
             try {
-                pending.execute().use { response ->
-                    check(response.isSuccessful) { "Inference returned HTTP ${response.code}. No fallback was used." }
-                    check(response.header("Content-Type").orEmpty().startsWith("text/event-stream")) { "Expected a streaming response" }
-                    val reader = response.body?.charStream()?.buffered() ?: error("Empty inference stream")
-                    var completed = false
-                    val data = StringBuilder()
+                response.use {
+                    check(it.isSuccessful) { "Inference returned HTTP ${it.code}. No fallback was used." }
+                    check(it.header("Content-Type").orEmpty().startsWith("text/event-stream")) { "Expected a streaming response" }
+                    val reader = it.body?.charStream()?.buffered() ?: error("Empty inference stream")
+                    val parser = ResponsesStreamParser()
                     var line = reader.readLine()
                     while (line != null) {
-                        if (line.isEmpty() && data.isNotEmpty()) {
-                            val raw = data.toString().trimEnd()
-                            data.clear()
-                            if (raw != "[DONE]") {
-                                val event = JSONObject(raw)
-                                when (event.optString("type")) {
-                                    "response.output_text.delta" -> emit(ProviderEvent.Text(event.getString("delta")))
-                                    "response.completed" -> { completed = true; emit(ProviderEvent.Completed) }
-                                    "response.failed", "response.incomplete", "error" -> error("Inference did not complete. Check account access and usage limits.")
-                                }
-                            }
-                        } else if (line.startsWith("data:")) {
-                            check(data.length + line.length < 2_000_000) { "Provider event exceeded the probe size limit" }
-                            data.append(line.removePrefix("data:").trimStart()).append('\n')
-                        }
-                        if (completed) break
+                        parser.line(line).forEach { event -> emit(event) }
+                        if (parser.completed) break
                         line = reader.readLine()
                     }
-                    check(completed) { "Stream ended without response.completed" }
+                    if (!parser.completed) parser.finish().forEach { event -> emit(event) }
+                    check(parser.completed) { "Stream ended without response.completed" }
+                    prefs.edit().putLong("verifiedAt", System.currentTimeMillis()).apply()
                 }
             } finally { call = null }
         }
     }.flowOn(Dispatchers.IO)
+
+    @Volatile private var cachedModels: Pair<Long, List<String>>? = null
+    private val plainModels = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    private fun post(access: String, body: JSONObject): Response {
+        val pending = http.newCall(Request.Builder().url("https://api.openai.com/v1/responses")
+            .header("Authorization", "Bearer $access")
+            .post(body.toString().toRequestBody("application/json".toMediaType())).build())
+        call = pending
+        return pending.execute()
+    }
+
+    /** Local account state only; VERIFIED means a streamed response completed on this install. */
+    fun accountState(now: Long = System.currentTimeMillis()): AccountState {
+        val saved = try { credentials.read() } catch (_: Exception) {
+            return AccountState(ProviderId.CHATGPT, AccountStatus.DISCONNECTED, "Stored credentials could not be read. Reconnect.")
+        }
+        if (saved == null || saved.optString("access_token").isEmpty())
+            return AccountState(ProviderId.CHATGPT, AccountStatus.DISCONNECTED, "Not connected")
+        val expired = saved.optLong("expires_at") < now
+        val verifiedAt = prefs.getLong("verifiedAt", 0)
+        return when {
+            expired && saved.optString("refresh_token").isEmpty() ->
+                AccountState(ProviderId.CHATGPT, AccountStatus.EXPIRED, "Session expired. Reconnect.")
+            expired -> AccountState(ProviderId.CHATGPT, AccountStatus.EXPIRED, "Access expired; it renews automatically on the next request.")
+            verifiedAt > 0 -> AccountState(ProviderId.CHATGPT, AccountStatus.VERIFIED,
+                "A subscription response completed on this phone at ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(verifiedAt))}.")
+            else -> AccountState(ProviderId.CHATGPT, AccountStatus.CONNECTED, "Signed in. Plan access is unverified until a response completes.")
+        }
+    }
 
     override fun cancel() { call?.cancel(); listener?.close() }
     override suspend fun disconnect(): Boolean = sessionLock.withLock {
@@ -214,6 +253,8 @@ class ChatGptProbeAdapter(context: Context) : ProviderAdapter {
             // Preserve account/client mapping and host; erase every reusable credential.
             listOf("access_token", "refresh_token", "id_token").forEach { saved.remove(it) }
             credentials.save(saved)
+            prefs.edit().remove("verifiedAt").apply()
+            cachedModels = null
             revoked
         }
     }

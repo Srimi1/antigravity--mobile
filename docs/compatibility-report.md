@@ -1,6 +1,6 @@
 # Compatibility report
 
-Status: **VALIDATION PROTOTYPE — full-product gate BLOCKED**.
+Status: **0.2.0 FULL-APP SOURCE (unbuilt). Full-product gate BLOCKED**. The gates below were written for 0.1.2; see the 0.2.0 section at the end.
 
 Target: OnePlus 7T Pro. Its current Android version, RAM and free storage have not been inspected. No physical device was connected during initial development. Android 10+ and `arm64-v8a` are the prototype requirements.
 
@@ -66,3 +66,20 @@ All **19 tests passed**: 11 JVM and 8 Android instrumentation checks on the Andr
 The APK in `release/` and the GitHub release is `antigravity-mobile-probe-0.1.2.apk`. The full-product dependency gates above are unchanged.
 
 The new icon was visually inspected in the emulator launcher with a circular mask. Launcher and prototype screenshots are included in `assets/screenshots`.
+
+## Full-app source: 0.2.0 (unreleased)
+
+The five-screen app, local projects, JGit, the agent tool loop, durable change review and account states are implemented in source. Validation so far is limited to a JVM harness in a cloud container that could not reach Google Maven:
+
+| Item | Status |
+| --- | --- |
+| All app sources, including Compose UI, compile | PASSED in `tools/jvm-harness` (JetBrains Compose 1.8.0 + AndroidX signature stubs), not with AGP |
+| 34 JVM tests | PASSED in the harness |
+| JGit HTTPS clone and cancellation | PASSED once on the JVM (manual, network) |
+| AGP build, kapt/Room schema, lint, signed APK | NOT RUN |
+| 12 instrumentation tests (4 new: migration, JGit on ART, ledger, template) | COMPILE ONLY; NOT RUN |
+| Live ChatGPT agent task with function tools | UNVERIFIED |
+| Claude, Google subscription | BLOCKED (unchanged) |
+| On-phone Kotlin/Compose compilation | BLOCKED (unchanged) |
+
+Known risks to check first on the real toolchain: hand-written `MIGRATION_1_2` SQL versus Room's expected schema, JGit resource packaging, and lint `InvalidPackage` (downgraded to a warning; JGit's `java.lang.management` use is avoided by disabling auto-gc).

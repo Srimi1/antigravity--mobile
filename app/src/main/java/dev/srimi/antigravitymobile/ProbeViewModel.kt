@@ -6,7 +6,6 @@ import android.os.Build
 import android.os.StatFs
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.room.Room
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import org.json.JSONArray
@@ -25,12 +24,12 @@ data class ProbeUiState(
 )
 
 class ProbeViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = Room.databaseBuilder(application, SessionStore::class.java, "probe.db").build()
-    private val store = database.checks()
+    private val services = application.container
+    private val store = services.database.checks()
     private val root = File(application.filesDir, "workspaces/probe").apply { mkdirs() }
     private val workspace = WorkspaceService(root, File(application.filesDir, "checkpoints"))
     private val executor = NativeExecutionService(File(application.applicationInfo.nativeLibraryDir, "libexecution_probe.so"), root)
-    private val chatgpt = ChatGptProbeAdapter(application)
+    private val chatgpt = services.chatgpt
     private val mutable = MutableStateFlow(ProbeUiState())
     val state: StateFlow<ProbeUiState> = mutable.asStateFlow()
     private var task: Job? = null
@@ -135,6 +134,7 @@ class ProbeViewModel(application: Application) : AndroidViewModel(application) {
                 when (event) {
                     is ProviderEvent.Text -> mutable.update { it.copy(output = (it.output + event.delta).takeLast(16_384)) }
                     ProviderEvent.Completed -> completed = true
+                    is ProviderEvent.Item -> Unit
                 }
             }
         check(completed)
@@ -146,11 +146,16 @@ class ProbeViewModel(application: Application) : AndroidViewModel(application) {
         if (revoked) "Local credentials removed and remote revocation confirmed (or no renewable session existed)."
         else "Local credentials removed. Remote revocation UNVERIFIED; disconnect this app in ChatGPT Settings."
     }
-    fun cancel() { executor.cancel(); chatgpt.cancel(); task?.cancel() }
+    fun cancel() {
+        executor.cancel()
+        // The adapter is shared with the agent; only interrupt it for this screen's own ChatGPT checks.
+        if (state.value.active.startsWith("ChatGPT")) chatgpt.cancel()
+        task?.cancel()
+    }
     suspend fun report(): String = withContext(Dispatchers.IO) {
         val context = getApplication<Application>()
         val memory = ActivityManager.MemoryInfo().also { (context.getSystemService(Application.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(it) }
-        val result = JSONObject().put("schemaVersion", 1).put("stage", "VALIDATION_PROTOTYPE")
+        val result = JSONObject().put("schemaVersion", 1).put("stage", "FULL_APP_PREVIEW").put("appVersion", context.packageManager.getPackageInfo(context.packageName, 0).versionName)
             .put("generatedAt", java.time.Instant.now().toString()).put("fullProductGate", "BLOCKED")
             .put("device", JSONObject().put("manufacturer", Build.MANUFACTURER).put("model", Build.MODEL)
                 .put("android", Build.VERSION.RELEASE).put("api", Build.VERSION.SDK_INT)
@@ -159,15 +164,13 @@ class ProbeViewModel(application: Application) : AndroidViewModel(application) {
             .put("providers", JSONObject().put("google", "BLOCKED: no supported native subscription route established")
                 .put("claude", "BLOCKED: applicable subscription integration/approval not established")
                 .put("chatgpt", "UNVERIFIED until OAuth, completed inference, renewal and logout checks pass"))
+            .put("chatgptAccount", chatgpt.accountState().status.name)
             .put("onPhoneBuild", "BLOCKED: no Android-host JDK/Gradle/aapt2 toolchain bundled")
             .put("checks", JSONArray(store.all().map { record -> JSONObject()
                 .put("name", record.name).put("status", record.status).put("detail", record.detail)
                 .put("startedAt", record.startedAt).put("durationMs", record.durationMs) }))
         result.toString(2)
     }
-    override fun onCleared() {
-        cancel()
-        val current = task
-        if (current == null) database.close() else current.invokeOnCompletion { database.close() }
-    }
+    // The shared database belongs to AppContainer and stays open for the process lifetime.
+    override fun onCleared() { cancel() }
 }
