@@ -10,6 +10,10 @@ Real AGP build, Room kapt, 34 JVM tests, release lint and signed APK passed on t
 
 The first release launch after upgrade produced an ANR with a 10,410 ms focus timeout. Wait recovered it; three controlled cold launches did not repeat it. Root cause unresolved. Screenshots, UI state, logs and performance limitations are in the QA report. Physical OnePlus, live subscriptions and phone-only compilation remain unverified or blocked.
 
+## Separate Android-native toolchain lab — 30 September 2026
+
+Five lab instrumentation tests passed on Android 12 ARM64: real Java compilation/execution, child JVM, Gradle startup, Android Java APK build/sign/verify and cancellation. The generated fixture installed and launched. Full Kotlin/Compose build was interrupted by a guest reboot and remains unverified. This runtime is experimental and not integrated into Antigravity. See [native runtime evidence](native-runtime-qa-2026-09-30.md) for hashes, compatibility compromises and limits. No physical-phone or live-provider evidence was added.
+
 ## Gates
 
 | Acceptance item | Current status |
@@ -20,7 +24,7 @@ The first release launch after upgrade produced an ANR with a 10,410 ms focus ti
 | Workspace file edit and rollback | PASSED in JVM checks; physical OnePlus validation pending |
 | Packaged Android ARM64 command and cancellation | PASSED on Android 12 ARM64 emulator; physical OnePlus validation pending |
 | Native sample generation | Implemented; not an APK compilation result |
-| On-phone Kotlin/Compose compilation | BLOCKED: JDK/Gradle/Android-host build tools not bundled |
+| On-phone Kotlin/Compose compilation | BLOCKED in main app: separate Java APK lab passed; full Kotlin/Compose build interrupted and integration pending |
 | APK installer and launch on OnePlus | UNVERIFIED until performed on the target phone |
 | Full repo maintenance / autonomous agent loop | Local Git passed on ART; full existing-repo workflow and live agent acceptance unverified |
 

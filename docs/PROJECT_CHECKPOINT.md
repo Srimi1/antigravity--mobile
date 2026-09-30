@@ -1,10 +1,26 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **30 September 2026** (0.2.0 real-toolchain/emulator QA, unreleased).
+Last updated **30 September 2026** (0.2.0 emulator QA plus separate native-runtime validation, unreleased).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## Latest: real Android build and emulator QA — 30 September 2026
+## Latest: separate Android-native build foundation — 30 September 2026
+
+See [native runtime evidence](native-runtime-qa-2026-09-30.md), [lab source](../tools/android-runtime-lab/README.md) and `assets/screenshots/runtime-20260930/`.
+
+- Baseline `f9c37fc7efc3a3e212da94b681b887e66b612354`, equal to fetched `origin/main`; recovery ref `refs/checkpoints/before-native-runtime-20260930`.
+- Added a separate credential-free validation package, `dev.srimi.antigravityruntime.lab`. Main source remains 0.2.0/code 4; its Build screen still reports BLOCKED. This is not another published probe release or full-app acceptance.
+- Packaged genuine Android/Bionic ARM64 OpenJDK, Java-only compiler/tool classes, Gradle and Android-native resource tools. Inputs are hash-pinned; preparation/build output remains under `~/.cache/antigravity-mobile-runtime/`.
+- Real lab assembly, instrumentation APK and debug lint passed. **Five device tests passed**: Java compilation/execution, child JVM, Gradle 8.13 startup, Java Android APK build/sign/verify, parent/child cancellation. These are additional lab checks, not main-app/provider/physical-phone acceptance.
+- Android-generated fixture APK installed and launched, displaying “Built entirely on Android”. SHA-256 `731d24343bc309331976217313eebf5aeb888f932f3ced021dcce03bea15d2ee`; local file `~/.cache/antigravity-mobile-runtime/phone-built-proof.apk`. Screenshot, XML, logs and limited performance evidence retained.
+- Full Gradle Compose attempt **INTERRUPTED by a guest emulator reboot**. Partial configuration log, no end record or generated APK. Cause unknown; no automatic replay. This has not proven Kotlin/Compose compilation.
+- Experimental compatibility shim/legacy heap-tagging setting needed; MTE/native health, security maintenance, complete redistribution notices, physical Android compatibility and peak build resource use unresolved. Native resource tools 35.0.2/SDK data 36 are a mixed unaccepted profile.
+- No main-app integration, foreground execution or new Room migration yet. No live account or physical OnePlus testing. Google/Claude remain blocked, ChatGPT unverified. Published 0.1.2/key/artwork/Drive unchanged.
+- QA AVD `AntigravityMobileQA_API31` retains lab scratch projects and the installed proof APK. Native runtime raw evidence is local under `~/.cache/antigravity-mobile-runtime/evidence/`.
+
+**Next:** diagnose the guest reboot and start an explicitly new traced Compose scratch build. After a real build/install/launch, integrate approved durable execution into the main app with credential isolation. The first-upgrade ANR and all full-product acceptance gates remain open.
+
+## Earlier: real Android build and emulator QA — 30 September 2026
 
 See [the evidence report](emulator-qa-2026-09-30.md) and `assets/screenshots/qa-20260930/`. This supersedes the initial 0.2.0 validation limits below.
 

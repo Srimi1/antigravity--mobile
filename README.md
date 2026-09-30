@@ -26,9 +26,9 @@ Version 0.1.2 includes the original adaptive launcher icon, round launcher suppo
 
 ## What is still blocked
 
-- **Claude and Google subscriptions.** No supported or approved route for a third-party Android app exists, so both show as blocked. There is no API-key fallback.
+- **Claude and Google subscriptions.** Supported, approved integration routes have not been established for this app, so both show as blocked. There is no API-key fallback.
 - **ChatGPT** uses OpenAI's documented Sign in with ChatGPT flow, but has not been tested against a live account.
-- **Building apps on the phone.** No Android-host JDK, Gradle, aapt2 or d8 is bundled, and Android 10+ won't run downloaded binaries from app storage.
+- **Building apps on the phone.** The main APK has no build toolchain. A [separate Android-native lab](tools/android-runtime-lab/README.md) passed five tests and built/installed/launched a small Java APK on the emulator. Full Kotlin/Compose compilation was interrupted, and production integration/physical validation remain pending. See [runtime evidence](docs/native-runtime-qa-2026-09-30.md).
 - **No shell.** The agent cannot run commands, builds or tests.
 
 ## Build

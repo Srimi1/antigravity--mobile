@@ -12,3 +12,4 @@ release/*.zip
 *.p12
 .DS_Store
 .kotlin/
+*.hprof
