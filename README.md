@@ -1,5 +1,7 @@
 # Antigravity Mobile — personal validation prototype
 
+For agents continuing this project, read [AGENTS.md](AGENTS.md) and the [saved checkpoint](docs/PROJECT_CHECKPOINT.md) first.
+
 ![Antigravity Mobile artwork](assets/branding/repository-cover.png)
 
 <img src="assets/branding/app-icon.png" width="128" alt="Antigravity Mobile app icon" />
