@@ -44,4 +44,4 @@ Individual methods can be selected with `-e class 'dev.srimi.antigravityruntime.
 
 ## Required next work
 
-Diagnose the interrupted full Compose build and rerun it as an explicitly new scratch task with tracing. Integrate a verified toolchain into the Kotlin app with command approval, foreground execution, durable interruption records, bounded project operations and verified APK installation. Physical OnePlus testing, current-runtime security maintenance, supported subscription routes and live agent acceptance remain required.
+The full Compose scratch build/install/launch now passed; the earlier guest reboot remains unexplained. Integrate the verified toolchain into the Kotlin app with command approval, foreground execution, durable interruption records, bounded project operations and verified APK installation. Physical OnePlus testing, current-runtime security maintenance, supported subscription routes and live agent acceptance remain required.
