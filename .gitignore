@@ -11,3 +11,4 @@ release/*.apk
 release/*.zip
 *.p12
 .DS_Store
+.kotlin/

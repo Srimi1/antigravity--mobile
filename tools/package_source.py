@@ -5,7 +5,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 
 root = Path(__file__).resolve().parent.parent
 destination = root / "dist" / "antigravity-mobile-source.zip"
-excluded = {"build", ".gradle", ".signing", "dist", ".git", ".idea", "__pycache__"}
+excluded = {"build", ".gradle", ".kotlin", ".signing", "dist", ".git", ".idea", "__pycache__"}
 destination.parent.mkdir(exist_ok=True)
 with ZipFile(destination, "w", ZIP_DEFLATED) as archive:
     for file in sorted(root.rglob("*")):
