@@ -1,91 +1,156 @@
 package dev.srimi.antigravitymobile
 
+import dev.srimi.antigravitymobile.runtime.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
-data class ToolPreview(val summary: String, val detail: String = "")
+data class ToolPreview(val summary: String, val detail: String = "", val buildId: String? = null)
 
-/** Tools offered to a model. Anything that changes files must require approval. */
+/** Tools offered to a model. Approval categories must describe the actual side effect. */
 interface ToolHost {
     val specs: List<ToolSpec>
     fun requiresApproval(name: String): Boolean
+    fun approvalCategory(name: String): ApprovalCategory? = if (requiresApproval(name)) ApprovalCategory.Edit else null
     suspend fun describe(call: AgentItem.ToolCall): ToolPreview
-    suspend fun execute(call: AgentItem.ToolCall): String
-    /** Called when the user declines an approval, so prepared work can be released. */
-    suspend fun declined(call: AgentItem.ToolCall) {}
+    suspend fun execute(call: AgentItem.ToolCall): ToolOutcome
+    suspend fun resolve(call: AgentItem.ToolCall, decision: ApprovalDecision) {}
 }
 
-fun interface ApprovalGate { suspend fun approve(call: AgentItem.ToolCall, preview: ToolPreview): Boolean }
+fun interface ApprovalGate {
+    suspend fun decide(key: ApprovalKey, call: AgentItem.ToolCall, preview: ToolPreview): ApprovalDecision
+}
 
 interface AgentListener {
     suspend fun onTextDelta(delta: String) {}
     suspend fun onAssistantMessage(text: String) {}
-    suspend fun onToolFinished(call: AgentItem.ToolCall, preview: ToolPreview, status: String, output: String) {}
+    suspend fun onToolFinished(call: AgentItem.ToolCall, preview: ToolPreview, result: RecordedExecution) {}
     suspend fun onNotice(text: String) {}
 }
 
-/**
- * The provider-independent tool loop: stream a model turn, run the requested tools (after approval where
- * required), feed results back, and stop when the model answers without tool calls.
- * Nothing is retried automatically; a failure ends the task and is reported.
- */
+/** Complete turns and action results are checkpointed before the next operation. Partial streams never run tools. */
 class AgentOrchestrator(
     private val model: AgentModel,
     private val tools: ToolHost,
     private val approvals: ApprovalGate,
     private val listener: AgentListener,
     private val maxSteps: Int = 30,
+    private val journal: AgentJournal = TransientAgentJournal(),
 ) {
     suspend fun run(instructions: String, history: List<AgentItem>, prompt: String): List<AgentItem> {
+        val items = history + AgentItem.User(prompt)
+        journal.checkpoint(items, 0, LoopNext.Model)
+        return resume(instructions, items)
+    }
+
+    suspend fun resume(instructions: String, history: List<AgentItem>, completedSteps: Int = 0,
+        nextStep: LoopNext = LoopNext.Model): List<AgentItem> {
         val items = history.toMutableList()
-        items += AgentItem.User(prompt)
-        repeat(maxSteps) {
+        var steps = completedSteps
+        var next = nextStep
+        while (next != LoopNext.Done) {
+            currentCoroutineContext().ensureActive()
+            if (next == LoopNext.Tools) {
+                val resolved = items.filterIsInstance<AgentItem.ToolResult>().map { it.callId }.toSet()
+                val calls = items.filterIsInstance<AgentItem.ToolCall>().filter { it.callId !in resolved }
+                for ((index, call) in calls.withIndex()) {
+                    currentCoroutineContext().ensureActive()
+                    val result = runTool(call)
+                    items += AgentItem.ToolResult(call.callId, result.output)
+                    next = if (index == calls.lastIndex) LoopNext.Model else LoopNext.Tools
+                    journal.checkpoint(items, steps, next)
+                }
+                if (calls.isEmpty()) next = LoopNext.Model
+            }
+            if (steps >= maxSteps) {
+                listener.onNotice("Stopped after $maxSteps model steps. Send another message to continue.")
+                journal.checkpoint(items, steps, LoopNext.Done)
+                break
+            }
             val produced = mutableListOf<AgentItem>()
             var completed = false
-            model.streamAgentTurn(AgentRequest(instructions, items.toList(), tools.specs)).collect { event ->
-                when (event) {
-                    is ProviderEvent.Text -> listener.onTextDelta(event.delta)
-                    is ProviderEvent.Item -> {
-                        produced += event.item
-                        if (event.item is AgentItem.Assistant && event.item.text.isNotBlank()) listener.onAssistantMessage(event.item.text)
+            try {
+                model.streamAgentTurn(AgentRequest(instructions, items.toList(), tools.specs)).collect { event ->
+                    check(!completed) { "Provider sent events after completion" }
+                    when (event) {
+                        is ProviderEvent.Text -> listener.onTextDelta(event.delta)
+                        is ProviderEvent.Item -> {
+                            produced += event.item
+                            require(produced.size <= 1000) { "Provider turn has too many items" }
+                        }
+                        ProviderEvent.Completed -> completed = true
                     }
-                    ProviderEvent.Completed -> completed = true
                 }
-            }
-            check(completed) { "The provider stream ended before the turn completed" }
+                check(completed) { "The provider stream ended before the turn completed" }
+                val callIds = produced.filterIsInstance<AgentItem.ToolCall>().map { it.callId }
+                require(callIds.all { it.isNotBlank() } && callIds.distinct().size == callIds.size) { "Provider reused a tool call identity" }
+                require(items.filterIsInstance<AgentItem.ToolCall>().none { it.callId in callIds }) { "Provider reused a completed tool call identity" }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { throw ModelRequestFailure(error) }
+            steps++
+            next = if (produced.any { it is AgentItem.ToolCall }) LoopNext.Tools else LoopNext.Done
             items += produced
-            val calls = produced.filterIsInstance<AgentItem.ToolCall>()
-            if (calls.isEmpty()) return items
-            for (call in calls) {
-                currentCoroutineContext().ensureActive()
-                items += AgentItem.ToolResult(call.callId, runTool(call))
-            }
+            journal.checkpoint(items, steps, next)
+            produced.filterIsInstance<AgentItem.Assistant>().filter { it.text.isNotBlank() }.forEach { listener.onAssistantMessage(it.text) }
         }
-        listener.onNotice("Stopped after $maxSteps model steps. Send another message to continue.")
         return items
     }
 
-    private suspend fun runTool(call: AgentItem.ToolCall): String {
-        val preview = try { tools.describe(call) } catch (error: Exception) {
-            val output = "Error: ${error.message ?: error.javaClass.simpleName}"
-            listener.onToolFinished(call, ToolPreview("${call.name} (invalid request)"), "FAILED", output)
-            return output
+    private suspend fun runTool(call: AgentItem.ToolCall): RecordedExecution {
+        journal.restore(call)?.let { return it }
+        var key = journal.begin(call)
+        var preview = ToolPreview("${call.name} (invalid request)")
+        var claimed = false
+        suspend fun finish(result: RecordedExecution): RecordedExecution {
+            journal.finish(key, result)
+            listener.onToolFinished(call, preview, result)
+            return result
         }
-        if (tools.requiresApproval(call.name) && !approvals.approve(call, preview)) {
-            val output = "The user declined this action. Do not retry it unless the user asks."
-            tools.declined(call)
-            listener.onToolFinished(call, preview, "DECLINED", output)
-            return output
-        }
-        return try {
-            val output = tools.execute(call).let { if (it.length > MAX_OUTPUT) it.take(MAX_OUTPUT) + "\n[truncated]" else it }
-            listener.onToolFinished(call, preview, "COMPLETED", output)
-            output
-        } catch (error: kotlinx.coroutines.CancellationException) { throw error } catch (error: Exception) {
-            val output = "Error: ${error.message ?: error.javaClass.simpleName}"
-            listener.onToolFinished(call, preview, "FAILED", output)
-            output
+        try {
+            preview = tools.describe(call)
+            val category = tools.approvalCategory(call.name)
+            key = journal.prepared(key, preview, category)
+            if (category != null) {
+                val decision = approvals.decide(key, call, preview)
+                require(decision.key == key) { "Approval belongs to another action" }
+                when (decision) {
+                    is ApprovalDecision.Approved -> require(!decision.allEdits || category == ApprovalCategory.Edit) { "Approve all edits cannot approve builds or installations" }
+                    is ApprovalDecision.Declined -> {
+                        tools.resolve(call, decision)
+                        return finish(RecordedExecution(ToolOutcome.Cancelled,
+                            "The user explicitly declined this action. Do not retry it unless the user asks.", "DECLINED"))
+                    }
+                    is ApprovalDecision.Cancelled -> {
+                        tools.resolve(call, decision)
+                        finish(RecordedExecution(ToolOutcome.Cancelled))
+                        throw CancellationException("Task cancelled")
+                    }
+                    is ApprovalDecision.Interrupted -> {
+                        tools.resolve(call, decision)
+                        return finish(RecordedExecution(ToolOutcome.Interrupted))
+                    }
+                }
+            }
+            currentCoroutineContext().ensureActive()
+            if (!journal.claim(key)) return finish(RecordedExecution(ToolOutcome.Interrupted))
+            claimed = true
+            val outcome = tools.execute(call)
+            val result = RecordedExecution(outcome).let { if (it.output.length > MAX_OUTPUT) it.copy(output = it.output.take(MAX_OUTPUT) + "\n[truncated]") else it }
+            return finish(result)
+        } catch (cancelled: CancellationException) {
+            withContext(NonCancellable) {
+                tools.resolve(call, ApprovalDecision.Cancelled(key))
+                journal.finish(key, RecordedExecution(if (claimed) ToolOutcome.Interrupted else ToolOutcome.Cancelled))
+            }
+            throw cancelled
+        } catch (error: Exception) {
+            if (!claimed) withContext(NonCancellable) { tools.resolve(call, ApprovalDecision.Interrupted(key)) }
+            val outcome = if (error is RuntimeUnavailableException) ToolOutcome.RuntimeUnavailable(error.message.orEmpty())
+                else ToolOutcome.Failed(error.message ?: error.javaClass.simpleName)
+            return finish(RecordedExecution(outcome))
         }
     }
 
@@ -160,7 +225,9 @@ class WorkspaceTools(
         }
     }
 
-    override suspend fun execute(call: AgentItem.ToolCall): String {
+    override suspend fun execute(call: AgentItem.ToolCall): ToolOutcome = ToolOutcome.Success(executeText(call))
+
+    private suspend fun executeText(call: AgentItem.ToolCall): String {
         val args = args(call)
         return when (call.name) {
             "list_files" -> {

@@ -3,6 +3,7 @@ package dev.srimi.antigravitymobile
 import android.app.Application
 import android.content.Context
 import androidx.room.Room
+import dev.srimi.antigravitymobile.runtime.NativeAgentTaskRunner
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +26,7 @@ val Context.container: AppContainer get() = (applicationContext as AntigravityAp
 class AppContainer(context: Context) {
     private val app = context.applicationContext
     val database: SessionStore = Room.databaseBuilder(app, SessionStore::class.java, "probe.db")
-        .addMigrations(SessionStore.MIGRATION_1_2, SessionStore.MIGRATION_2_3).build()
+        .addMigrations(SessionStore.MIGRATION_1_2, SessionStore.MIGRATION_2_3, SessionStore.MIGRATION_3_4).build()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val prefs = app.getSharedPreferences("app", Context.MODE_PRIVATE)
     val projects = ProjectRepository(database.projects(), File(app.filesDir, "projects"))
@@ -43,6 +44,7 @@ class AppContainer(context: Context) {
     fun agentAccount(provider: ProviderId = agentProvider): AccountState = when (provider) {
         ProviderId.GEMINI -> gemini.accountState(); ProviderId.CLAUDE_KEY -> claude.accountState(); else -> chatgpt.accountState() }
     val builds = BuildCoordinator(app, database.builds(), projects, scope)
+    val tasks by lazy { NativeAgentTaskRunner(this, app) }
     val websites = WebsiteService(File(app.filesDir, "website-copies"))
     private val checkpointRoot = File(app.filesDir, "checkpoints")
     private val gitCredentialStore = CredentialStore(app, "git.credentials")
@@ -61,7 +63,7 @@ class AppContainer(context: Context) {
             try {
                 database.checks().interruptUnfinished()
                 val conversations = database.conversations()
-                conversations.running().forEach { conversation ->
+                conversations.running().filter { database.runtime().forConversation(it.id).isEmpty() }.forEach { conversation ->
                     conversations.saveMessage(MessageRecord(java.util.UUID.randomUUID().toString(), conversation.id, "notice",
                         "The app stopped while this task was running. It was not resumed; review Changes and send a new message to continue.",
                         System.currentTimeMillis()))
@@ -71,6 +73,7 @@ class AppContainer(context: Context) {
                 changes.recoverInterrupted()
                 websites.recover()
                 builds.recover()
+                tasks.recover()
                 ready.complete(Unit)
             } catch (error: Exception) { ready.completeExceptionally(error) }
         }

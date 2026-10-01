@@ -29,7 +29,7 @@ class FullAppDeviceTest {
             db.execSQL("INSERT INTO messages VALUES ('m','c','user','kept message',1)")
             db.version = 2
         }
-        val store=Room.databaseBuilder(context,SessionStore::class.java,name).addMigrations(SessionStore.MIGRATION_2_3).build()
+        val store=Room.databaseBuilder(context,SessionStore::class.java,name).addMigrations(SessionStore.MIGRATION_2_3, SessionStore.MIGRATION_3_4).build()
         try {
             assertEquals("kept project",store.projects().find("p")!!.name)
             val messages=store.conversations().messages("c")
@@ -51,7 +51,7 @@ class FullAppDeviceTest {
             db.execSQL("INSERT INTO checks VALUES ('old', 'Native command: version', 'PASSED', 'kept', 1, 2)")
             db.version = 1
         }
-        val store = Room.databaseBuilder(context, SessionStore::class.java, name).addMigrations(SessionStore.MIGRATION_1_2, SessionStore.MIGRATION_2_3).build()
+        val store = Room.databaseBuilder(context, SessionStore::class.java, name).addMigrations(SessionStore.MIGRATION_1_2, SessionStore.MIGRATION_2_3, SessionStore.MIGRATION_3_4).build()
         try {
             assertEquals("kept", store.checks().all().single().detail)
             store.projects().save(ProjectRecord("p", "Project", "dir", 1, 1))

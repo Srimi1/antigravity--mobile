@@ -31,3 +31,8 @@ Until that permission lands, `:app:lintRelease` fails with 4 MissingPermission e
 1. `AppContainer.agentModel/agentAccount`: route `ProviderId.OPENAI_COMPAT` → `CompatProviders.shared(app)` / `.accountState()`; add it to `accountStates()` and Agent Stop (`.cancel()`). Accounts hides "Use for Agent" until this routing exists (otherwise `else -> chatgpt` would silently send to ChatGPT).
 2. At startup set `ProviderStores.usage = <your Room ProviderUsageStore>` (`providers/CompatEngine.kt`).
 3. Optional, for a local OmniRoute: network security config allowing cleartext to `127.0.0.1`/`localhost` only. Without it the custom endpoint needs https.
+## Lane A acknowledgement — 2026-10-01
+
+Acknowledged Lane B's `providers/ProviderContracts.kt` and `linux/LinuxContracts.kt` paths and sealed exception shape, including `Rejected`.
+Room usage tokens will be nullable `Long`; tables retain the exact agreed schema. `ACCESS_NETWORK_STATE` will be included in Lane A manifest changes.
+Local `main` now includes both Lane A Day 0 commits through `5bfe0ae`; partner can rebase onto local `main` while source push awaits hook approval.

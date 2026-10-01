@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.srimi.antigravitymobile.runtime.*
 
 @Composable fun AgentScreen(model: AgentViewModel, onOpenProjects: () -> Unit, onOpenAccounts: () -> Unit) {
     val state by model.state.collectAsStateWithLifecycle()
@@ -72,6 +73,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
                 OutlinedButton(onClick = onOpenAccounts) { Text("Open Accounts") }
             }
         }
+        state.error?.let { Text(it, Modifier.padding(12.dp), color = MaterialTheme.colorScheme.error) }
+        state.task?.takeIf { it.status == TaskPhase.Paused.name }?.let { task ->
+            Card(Modifier.fillMaxWidth().padding(12.dp)) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(task.detail.removePrefix("Paused: ").let { "Paused: $it" })
+                    task.recoveryAction?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    Text("Recorded edits and tool outcomes are kept. Retry uses this task's original provider.", style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = model::retry) { Text("Retry this provider") }
+                        OutlinedButton(onClick = model::stop) { Text("Stop") }
+                    }
+                }
+            }
+        }
+        state.receipt?.let { Text(it, Modifier.padding(horizontal = 12.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (state.messages.isEmpty() && state.streaming.isEmpty()) item {
                 EmptyState("Ask for a change", "For example: \"Add a settings screen\" or \"Explain how MainActivity works\". " +
@@ -86,9 +102,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
             if (state.autoApprove) " · edits auto-approved for this task" else "", onCancel = model::stop)
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.Bottom) {
             OutlinedTextField(input, { input = it }, Modifier.weight(1f), placeholder = { Text("Message the agent") },
-                enabled = !state.running, maxLines = 6)
+                enabled = state.task == null && !state.running, maxLines = 6)
             Spacer(Modifier.width(8.dp))
-            if (state.running) FilledTonalButton(onClick = model::stop) { Text("Stop") }
+            if (state.task != null || state.running) FilledTonalButton(onClick = model::stop) { Text("Stop") }
             else IconButton(onClick = { model.send(input); input = "" }, enabled = usable && input.isNotBlank()) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
             }
@@ -100,18 +116,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
             text = {
                 Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(approval.summary, style = MaterialTheme.typography.titleSmall)
-                    Text("The change is recorded and can be reverted from Changes unless the file is edited again afterwards.",
+                    if (approval.category == ApprovalCategory.Edit) Text("The edit is recorded in Changes. Builds and installation require separate approval.",
+                        style = MaterialTheme.typography.bodySmall)
+                    Text("Action ${approval.key.actionId.take(8)}" + (approval.key.buildId?.let { " · build ${it.take(8)}" } ?: ""),
                         style = MaterialTheme.typography.bodySmall)
                     if (approval.detail.isNotEmpty()) DiffView(approval.detail, maxLines = 300)
                 }
             },
             confirmButton = {
                 Column(horizontalAlignment = Alignment.End) {
-                    TextButton(onClick = { model.answerApproval(true) }) { Text("Approve") }
-                    TextButton(onClick = { model.answerApproval(true, allForTask = true) }) { Text("Approve all edits in this task") }
+                    TextButton(onClick = { model.answerApproval(ApprovalDecision.Approved(approval.key)) }) { Text("Approve") }
+                    if (approval.category == ApprovalCategory.Edit) TextButton(onClick = {
+                        model.answerApproval(ApprovalDecision.Approved(approval.key, allEdits = true))
+                    }) { Text("Approve all edits in this task") }
                 }
             },
-            dismissButton = { TextButton(onClick = { model.answerApproval(false) }) { Text("Decline") } })
+            dismissButton = { TextButton(onClick = { model.answerApproval(ApprovalDecision.Declined(approval.key)) }) { Text("Decline") } })
     }
     deleting?.let { conversation ->
         ConfirmDialog("Delete conversation?", "\"${conversation.title}\" and its action log will be removed. File changes stay in Changes.",

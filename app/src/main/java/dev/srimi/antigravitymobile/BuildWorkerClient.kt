@@ -99,18 +99,21 @@ class BuildWorkerClient(private val context: Context) {
         val message = request(P.ARTIFACT) { putString("id", id); putInt("index", index) }
         val fd = message.getParcelable<ParcelFileDescriptor>("artifact") ?: error("Worker returned no artifact")
         destination.parentFile!!.mkdirs()
+        val temporary = File(destination.parentFile, "${destination.name}.partial")
         try {
             ParcelFileDescriptor.AutoCloseInputStream(fd).use { input ->
-                destination.outputStream().use { output ->
+                temporary.outputStream().use { output ->
                     val buffer = ByteArray(65536); var total = 0L
                     while (true) {
                         val n = input.read(buffer); if (n < 0) break
                         total += n; check(total <= 512L * 1024 * 1024) { "APK exceeds 512 MB" }
                         output.write(buffer,0,n)
                     }
+                    output.fd.sync()
                 }
             }
-            checkNotNull(context.packageManager.getPackageArchiveInfo(destination.path, 0)) { "Worker artifact is not an APK" }
-        } catch (error: Exception) { destination.delete(); throw error }
+            checkNotNull(context.packageManager.getPackageArchiveInfo(temporary.path, 0)) { "Worker artifact is not an APK" }
+            check(temporary.renameTo(destination)) { "Could not save verified APK" }
+        } catch (error: Exception) { temporary.delete(); throw error }
     }
 }

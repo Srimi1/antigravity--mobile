@@ -3,6 +3,7 @@ package dev.srimi.antigravitymobile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
+import dev.srimi.antigravitymobile.runtime.*
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -43,12 +44,12 @@ class AgentLoopTest {
         val finished = mutableListOf<String>()
         var approvals = 0
         val listener = object : AgentListener {
-            override suspend fun onToolFinished(call: AgentItem.ToolCall, preview: ToolPreview, status: String, output: String) {
-                finished += "${call.name}:$status"
+            override suspend fun onToolFinished(call: AgentItem.ToolCall, preview: ToolPreview, result: RecordedExecution) {
+                finished += "${call.name}:${result.status}"
             }
         }
-        val items = AgentOrchestrator(model, tools, { _, preview ->
-            approvals++; assertTrue(preview.detail.contains("+fun app() = 2")); true
+        val items = AgentOrchestrator(model, tools, { key, _, preview ->
+            approvals++; assertTrue(preview.detail.contains("+fun app() = 2")); ApprovalDecision.Approved(key)
         }, listener).run(AgentOrchestrator.INSTRUCTIONS, emptyList(), "Change app to return 2")
         assertEquals(listOf("read_file:COMPLETED", "write_file:COMPLETED"), finished)
         assertEquals(1, approvals)
@@ -65,7 +66,7 @@ class AgentLoopTest {
             listOf(call("c1", "delete_file", JSONObject().put("path", "A.kt")), ProviderEvent.Completed),
             listOf(ProviderEvent.Item(AgentItem.Assistant("OK")), ProviderEvent.Completed),
         ))
-        AgentOrchestrator(model, tools, { _, _ -> false }, object : AgentListener {}).run("", emptyList(), "delete A")
+        AgentOrchestrator(model, tools, { key, _, _ -> ApprovalDecision.Declined(key) }, object : AgentListener {}).run("", emptyList(), "delete A")
         assertEquals("keep", workspace.read("A.kt"))
         val result = model.requests[1].input.last() as AgentItem.ToolResult
         assertTrue(result.output.contains("declined"))
@@ -79,8 +80,8 @@ class AgentLoopTest {
             listOf(ProviderEvent.Item(AgentItem.Assistant("Sorry")), ProviderEvent.Completed),
         ))
         val statuses = mutableListOf<String>()
-        AgentOrchestrator(model, tools, { _, _ -> fail("must not ask approval for an invalid request"); true }, object : AgentListener {
-            override suspend fun onToolFinished(call: AgentItem.ToolCall, preview: ToolPreview, status: String, output: String) { statuses += status }
+        AgentOrchestrator(model, tools, { key, _, _ -> fail("must not ask approval for an invalid request"); ApprovalDecision.Approved(key) }, object : AgentListener {
+            override suspend fun onToolFinished(call: AgentItem.ToolCall, preview: ToolPreview, result: RecordedExecution) { statuses += result.status }
         }).run("", emptyList(), "bad paths")
         assertEquals(listOf("FAILED", "FAILED"), statuses)
         val outputs = model.requests[1].input.filterIsInstance<AgentItem.ToolResult>().map { it.output }
@@ -89,8 +90,8 @@ class AgentLoopTest {
 
     @Test fun incompleteStreamFailsTheTask() {
         val model = ScriptedModel(listOf(listOf(ProviderEvent.Text("partial"))))
-        assertThrows(IllegalStateException::class.java) {
-            runBlocking { AgentOrchestrator(model, tools, { _, _ -> true }, object : AgentListener {}).run("", emptyList(), "x") }
+        assertThrows(ModelRequestFailure::class.java) {
+            runBlocking { AgentOrchestrator(model, tools, { key, _, _ -> ApprovalDecision.Approved(key) }, object : AgentListener {}).run("", emptyList(), "x") }
         }
     }
 
@@ -98,9 +99,9 @@ class AgentLoopTest {
         workspace.write("src/A.kt", "val needle = 1\n")
         workspace.write(".git/HEAD", "needle")
         val list = tools.execute(AgentItem.ToolCall("1", "list_files", "{}"))
-        assertEquals("src/A.kt", list)
+        assertEquals("src/A.kt", (list as ToolOutcome.Success).data)
         val search = tools.execute(AgentItem.ToolCall("2", "search_text", JSONObject().put("query", "NEEDLE").toString()))
-        assertEquals("src/A.kt:1: val needle = 1", search)
+        assertEquals("src/A.kt:1: val needle = 1", (search as ToolOutcome.Success).data)
         val nested = runCatching { tools.describe(AgentItem.ToolCall("3", "write_file",
             JSONObject().put("path", "vendor/lib/.git/config").put("content", "x").toString())) }
         assertTrue(nested.exceptionOrNull() is IllegalArgumentException)
