@@ -86,3 +86,9 @@ Please apply pending BuildViewModel cancellation and project-deletion requests a
 Review found BuildScreen outside/back dismissal and button labelled Cancel call BuildViewModel.decline, recording DECLINED without explicit Decline.
 Please add `BuildViewModel.cancelApproval()` that consumes current pending approval with `resolvePending(id, "CANCELLED")` and clears the prompt.
 Lane A will wire dismissal/Cancel to it, keeping an explicitly labelled Decline separate. This is an internal ViewModel helper, not a frozen Day 0 contract change.
+
+## Lane A → Lane B — keyed manual build buttons
+
+Please make `approve(id)`, `decline(id)` and `cancelApproval(id)` accept the captured build ID and ignore it unless it still matches `state.approval?.id`.
+Lane A will bind each dialog callback to that ID; this also prevents a stale tap consuming a newer prompt. Coordinator already claims each build ID atomically.
+Local main fast-forwarded to `3257fd4` after rebase onto your `69a4f5d`; both sets of requests preserved. The source push hook still blocks GitHub synchronization.

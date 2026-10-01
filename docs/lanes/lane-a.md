@@ -36,3 +36,11 @@
 - Spec review also found manual Build dialog dismissal/Cancel calls decline. Lane B owns its ViewModel; requested a distinct cancellation helper, then Lane A will wire the dialog. This remains unresolved until that helper lands.
 - Lane B reports low disk space evicted shared iCloud Git objects. Lane A commits were backed up to `~/dev/agm-lane-a-backup.bundle` outside iCloud; 17 GiB currently free. No new large downloads. Local main is `cc2240d`; partner commits are not yet merged. Source push remains hook-blocked, physical phone absent, signing/publication unauthorized.
 - Next: real one-shot worker/build regressions, full JVM suite and lint, apply partner helpers, reconcile local main. Gate 0.6.0 and physical approved-but-declined trace remain pending; app/worker versions unchanged.
+
+## A1 real worker evidence — 2026-10-01
+
+- `BuildWorkerDeviceTest`: `OK (4 tests)`, 30.989 seconds on emulator-5554. Actual Android-native Gradle dispatch, duplicate approval/claim rejection, Agent-owned Build-tab rejection, cancellation and worker death/no old-ID replay passed. The one-shot marker appeared exactly once.
+- `AgentBuildDeviceTest`: `OK (1 test)`, 439.976 seconds. Real Compose debug APK built through `PhoneBuildRunner`; verified successful artifacts and `BUILD SUCCESSFUL`. A second snapshot with an undefined Kotlin symbol returned FAILED, the actual compiler log and no APK. This check did not install/launch the sample or use a live provider.
+- Read-only standards follow-up confirms the death-during-Stop and cancelled-cleanup fixes; no remaining concrete defect in those reviewed paths. Manual Build dismissal still awaits Lane B's keyed cancel helper.
+- Rebased onto Lane B's source through `69a4f5d`, producing Lane A checkpoint `3257fd4`; then successfully fast-forwarded local main to it. Both lanes' source preserved despite the earlier iCloud incident. GitHub remains unsynchronized; new lane notes/requests and code retain an external bundle backup.
+- CLI foundation started with mutual pairing proofs, direction-bound HMAC frames, replay/size/schema rejection. Four JVM security tests pass. No CLI process, sign-in or inference enabled; ARM64/sandbox phone checks and Gate 0.7.0 integration still pending.
