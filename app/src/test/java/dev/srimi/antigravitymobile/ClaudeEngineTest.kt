@@ -1,5 +1,6 @@
 package dev.srimi.antigravitymobile
 
+import dev.srimi.antigravitymobile.providers.ProviderFailure
 import com.anthropic.client.okhttp.AnthropicOkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer

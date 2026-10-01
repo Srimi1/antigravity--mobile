@@ -1,6 +1,11 @@
 package dev.srimi.antigravitymobile
 
 import android.content.Context
+import dev.srimi.antigravitymobile.network.AndroidNetworkDiagnostics
+import dev.srimi.antigravitymobile.providers.FailureClassifier
+import dev.srimi.antigravitymobile.providers.ProviderFailure
+import dev.srimi.antigravitymobile.providers.asProviderFailures
+import dev.srimi.antigravitymobile.providers.providerCall
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -27,10 +32,11 @@ class GeminiAdapter(context: Context) : AgentModel {
     private val http = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(180, TimeUnit.SECONDS).retryOnConnectionFailure(false).build()
     private val lock = Mutex()
+    private val diagnostics = AndroidNetworkDiagnostics.shared(context)
     @Volatile private var call: Call? = null
     @Volatile private var defaultModel: Pair<Long, String>? = null
 
-    private fun key(): String = credentials.read()?.optString("api_key").orEmpty().ifEmpty { error("Add your Google AI Studio API key in Accounts") }
+    private fun key(): String = credentials.read()?.optString("api_key").orEmpty().ifEmpty { throw ProviderFailure.AuthInvalid("Add your Google AI Studio API key in Accounts") }
     fun hasKey(): Boolean = runCatching { credentials.read()?.optString("api_key").orEmpty().isNotEmpty() }.getOrDefault(false)
 
     /** Validates the key with a model listing before saving it. */
@@ -38,7 +44,7 @@ class GeminiAdapter(context: Context) : AgentModel {
         withContext(Dispatchers.IO) {
             val value = raw.trim()
             require(value.length in 20..200 && value.none { it.isWhitespace() }) { "That does not look like an API key" }
-            val models = catalog(value)
+            val models = providerCall(GeminiWire.HOST, "Google", diagnostics) { catalog(value) }
             credentials.save(JSONObject().put("api_key", value))
             prefs.edit().remove("verifiedAt").apply()
             models
@@ -47,7 +53,7 @@ class GeminiAdapter(context: Context) : AgentModel {
     suspend fun removeKey() = withContext(Dispatchers.IO) {
         credentials.save(JSONObject()); prefs.edit().remove("verifiedAt").apply()
     }
-    suspend fun listModels(): List<String> = lock.withLock { withContext(Dispatchers.IO) { catalog(key()) } }
+    suspend fun listModels(): List<String> = lock.withLock { withContext(Dispatchers.IO) { providerCall(GeminiWire.HOST, "Google", diagnostics) { catalog(key()) } } }
     var preferredModel: String?
         get() = prefs.getString("model", null)
         set(value) { prefs.edit().apply { if (value == null) remove("model") else putString("model", value) }.apply() }
@@ -60,7 +66,7 @@ class GeminiAdapter(context: Context) : AgentModel {
                 .addQueryParameter("pageSize", "1000").apply { if (page.isNotEmpty()) addQueryParameter("pageToken", page) }.build()
             val json = execute(Request.Builder().url(url).header("x-goog-api-key", key).build()).use {
                 val body = it.body?.string().orEmpty()
-                if (!it.isSuccessful) throw ProviderFailure(GeminiWire.describe(it.code, body))
+                if (!it.isSuccessful) throw GeminiWire.failure(it.code, body, it.header("Retry-After"))
                 JSONObject(body)
             }
             names += GeminiWire.models(json)
@@ -81,7 +87,7 @@ class GeminiAdapter(context: Context) : AgentModel {
                 .post(GeminiWire.body(request).toString().toRequestBody("application/json".toMediaType())).build())
             try {
                 response.use {
-                    if (!it.isSuccessful) throw ProviderFailure(GeminiWire.describe(it.code, it.peekBody(65_536).string()))
+                    if (!it.isSuccessful) throw GeminiWire.failure(it.code, it.peekBody(65_536).string(), it.header("Retry-After"))
                     val reader = it.body?.charStream()?.buffered() ?: error("Empty Gemini stream")
                     val parser = GeminiStreamParser()
                     var line = reader.readLine()
@@ -91,7 +97,7 @@ class GeminiAdapter(context: Context) : AgentModel {
                 }
             } finally { call = null }
         }
-    }.flowOn(Dispatchers.IO)
+    }.asProviderFailures(GeminiWire.HOST, "Google", diagnostics).flowOn(Dispatchers.IO)
 
     override fun cancel() { call?.cancel() }
 
@@ -169,6 +175,27 @@ object GeminiWire {
             if (!item.callId.startsWith(LOCAL_ID)) put("id", item.callId)
         }
 
+    /**
+     * Typed failure. Google answers 429 RESOURCE_EXHAUSTED both for per-minute limits (with a RetryInfo delay)
+     * and for exhausted per-day free-tier quota (QuotaFailure ids containing "PerDay").
+     */
+    fun failure(status: Int, body: String, retryAfter: String? = null): ProviderFailure {
+        val error = runCatching { JSONObject(body.trim()).optJSONObject("error") }.getOrNull()
+        val details = error?.optJSONArray("details") ?: JSONArray()
+        var delay: Long? = FailureClassifier.retryAfter(retryAfter)
+        var daily = false
+        for (i in 0 until details.length()) {
+            val detail = details.optJSONObject(i) ?: continue
+            detail.optString("retryDelay").removeSuffix("s").toDoubleOrNull()?.let { delay = it.toLong().coerceAtLeast(1) }
+            val violations = detail.optJSONArray("violations") ?: continue
+            for (j in 0 until violations.length()) {
+                if (Regex("(?i)per ?day").containsMatchIn(violations.optJSONObject(j)?.optString("quotaId").orEmpty())) daily = true
+            }
+        }
+        val reason = error?.optString("status").orEmpty() + " " + details.toString().let { d -> Regex("\"reason\"\\s*:\\s*\"([A-Z_]+)\"").find(d)?.groupValues?.get(1).orEmpty() }
+        return FailureClassifier.http(status, describe(status, body), reason.trim(), delay, dailyQuota = daily)
+    }
+
     fun describe(status: Int, body: String): String {
         val error = runCatching { JSONObject(body.trim()).optJSONObject("error") }.getOrNull()
         val reason = error?.optString("status").orEmpty().takeIf { it.matches(Regex("[A-Z_]{1,40}")) }
@@ -195,7 +222,7 @@ class GeminiStreamParser {
     fun line(line: String): List<ProviderEvent> {
         if (line.isEmpty()) { if (data.isEmpty()) return emptyList(); val raw = data.toString(); data.clear(); return chunk(raw) }
         if (line.startsWith("data:")) {
-            if (data.length + line.length > 4_000_000) throw ProviderFailure("Gemini event exceeded the size limit")
+            if (data.length + line.length > 4_000_000) throw ProviderFailure.Unknown("Gemini event exceeded the size limit")
             data.append(line.removePrefix("data:").trimStart())
         }
         return emptyList()
@@ -203,9 +230,9 @@ class GeminiStreamParser {
 
     fun finish(): List<ProviderEvent> {
         val tail = line("")
-        if (finish.isEmpty()) throw ProviderFailure("The Gemini stream ended before the response finished")
+        if (finish.isEmpty()) throw ProviderFailure.StreamInterrupted("The Gemini stream ended before the response finished")
         if (finish !in setOf("STOP", "MAX_TOKENS") && calls.isEmpty())
-            throw ProviderFailure("Gemini stopped the response ($finish)")
+            throw ProviderFailure.Rejected("Gemini stopped the response ($finish)")
         val items = mutableListOf<ProviderEvent>()
         items += ProviderEvent.Item(AgentItem.Opaque(GeminiWire.PROVIDER, JSONObject().put("role", "model").put("parts", parts).toString()))
         if (text.isNotEmpty()) items += ProviderEvent.Item(AgentItem.Assistant(text.toString()))
@@ -215,9 +242,9 @@ class GeminiStreamParser {
 
     private fun chunk(raw: String): List<ProviderEvent> {
         val json = JSONObject(raw)
-        json.optJSONObject("error")?.let { throw ProviderFailure(GeminiWire.describe(it.optInt("code", 0), JSONObject().put("error", it).toString())) }
+        json.optJSONObject("error")?.let { throw GeminiWire.failure(it.optInt("code", 0), JSONObject().put("error", it).toString()) }
         json.optJSONObject("promptFeedback")?.optString("blockReason")?.takeIf { it.isNotEmpty() }?.let {
-            throw ProviderFailure("Gemini blocked the request ($it)")
+            throw ProviderFailure.Rejected("Gemini blocked the request ($it)")
         }
         val candidate = json.optJSONArray("candidates")?.optJSONObject(0) ?: return emptyList()
         val events = mutableListOf<ProviderEvent>()

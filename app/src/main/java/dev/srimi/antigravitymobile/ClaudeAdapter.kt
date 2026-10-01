@@ -14,6 +14,11 @@ import com.anthropic.models.beta.messages.BetaTool
 import com.anthropic.models.beta.messages.BetaToolResultBlockParam
 import com.anthropic.models.beta.messages.BetaToolUseBlockParam
 import com.anthropic.models.beta.messages.MessageCreateParams
+import dev.srimi.antigravitymobile.network.AndroidNetworkDiagnostics
+import dev.srimi.antigravitymobile.providers.FailureClassifier
+import dev.srimi.antigravitymobile.providers.ProviderFailure
+import dev.srimi.antigravitymobile.providers.asProviderFailures
+import dev.srimi.antigravitymobile.providers.providerCall
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -40,7 +45,8 @@ class ClaudeAdapter(context: Context) : AgentModel {
     private val credentials = CredentialStore(context, "claude.credentials")
     private val prefs = context.getSharedPreferences("claude", Context.MODE_PRIVATE)
     private val lock = Mutex()
-    private fun key(): String = credentials.read()?.optString("api_key").orEmpty().ifEmpty { error("Add your Anthropic API key in Accounts") }
+    private val diagnostics = AndroidNetworkDiagnostics.shared(context)
+    private fun key(): String = credentials.read()?.optString("api_key").orEmpty().ifEmpty { throw ProviderFailure.AuthInvalid("Add your Anthropic API key in Accounts") }
     fun hasKey(): Boolean = runCatching { credentials.read()?.optString("api_key").orEmpty().isNotEmpty() }.getOrDefault(false)
     private val engine = ClaudeEngine { key -> AnthropicOkHttpClient.builder().apiKey(key).timeout(Duration.ofMinutes(10)).maxRetries(2).build() }
 
@@ -53,21 +59,21 @@ class ClaudeAdapter(context: Context) : AgentModel {
         withContext(Dispatchers.IO) {
             val value = raw.trim()
             require(value.startsWith("sk-ant-") && value.none { it.isWhitespace() }) { "That does not look like an Anthropic API key (it starts with sk-ant-)" }
-            val models = engine.catalog(value)
+            val models = providerCall(HOST, "Anthropic", diagnostics) { engine.catalog(value) }
             credentials.save(JSONObject().put("api_key", value))
             prefs.edit().remove("verifiedAt").apply()
             models
         }
     }
     suspend fun removeKey() = withContext(Dispatchers.IO) { credentials.save(JSONObject()); prefs.edit().remove("verifiedAt").apply() }
-    suspend fun listModels(): List<ClaudeModel> = lock.withLock { withContext(Dispatchers.IO) { engine.catalog(key()) } }
+    suspend fun listModels(): List<ClaudeModel> = lock.withLock { withContext(Dispatchers.IO) { providerCall(HOST, "Anthropic", diagnostics) { engine.catalog(key()) } } }
 
     override fun streamAgentTurn(request: AgentRequest): Flow<ProviderEvent> = flow {
         lock.withLock {
             engine.turn(key(), preferredModel ?: DEFAULT_MODEL, request).collect { emit(it) }
             prefs.edit().putLong("verifiedAt", System.currentTimeMillis()).apply()
         }
-    }.flowOn(Dispatchers.IO)
+    }.asProviderFailures(HOST, "Anthropic", diagnostics).flowOn(Dispatchers.IO)
 
     override fun cancel() = engine.cancel()
 
@@ -83,6 +89,7 @@ class ClaudeAdapter(context: Context) : AgentModel {
     companion object {
         const val PROVIDER = "claude"
         const val DEFAULT_MODEL = "claude-opus-5-5"
+        const val HOST = "api.anthropic.com"
     }
 }
 
@@ -95,7 +102,8 @@ class ClaudeEngine(private val newClient: (String) -> AnthropicClient) {
 
     @Volatile private var active: com.anthropic.core.http.StreamResponse<*>? = null
     fun cancel() { runCatching { active?.close() } }
-    private fun explained(error: AnthropicServiceException) = ProviderFailure(ClaudeWire.describe(error.statusCode(), error.message.orEmpty()))
+    private fun explained(error: AnthropicServiceException) = ClaudeWire.failure(error.statusCode(), error.message.orEmpty(),
+        runCatching { error.headers().values("retry-after").firstOrNull() }.getOrNull())
 
     fun catalog(key: String): List<ClaudeModel> {
         val client = newClient(key)
@@ -138,7 +146,7 @@ class ClaudeEngine(private val newClient: (String) -> AnthropicClient) {
             } finally { client.close() }
             val message = accumulator.message()
             val stop = message.stopReason().orElse(null)?.toString().orEmpty()
-            if (stop == "refusal") throw ProviderFailure("Claude declined this request (refusal)")
+            if (stop == "refusal") throw ProviderFailure.Rejected("Claude declined this request (refusal)")
             val id = "claude-${UUID.randomUUID()}"
             turns[id] = message.content().map { it.toParam() }
             emit(ProviderEvent.Item(AgentItem.Opaque(ClaudeAdapter.PROVIDER, id)))
@@ -149,7 +157,7 @@ class ClaudeEngine(private val newClient: (String) -> AnthropicClient) {
                 val input = use._input().convert(Map::class.java) ?: emptyMap<String, Any?>()
                 emit(ProviderEvent.Item(AgentItem.ToolCall(use.id(), use.name(), ClaudeWire.normalizeJson(JSONObject(input).toString()))))
             }
-            if (stop == "max_tokens") throw ProviderFailure("Claude's reply hit the length limit before finishing")
+            if (stop == "max_tokens") throw ProviderFailure.Rejected("Claude's reply hit the length limit before finishing")
             emit(ProviderEvent.Completed)
         }
     }.flowOn(Dispatchers.IO)
@@ -227,6 +235,12 @@ object ClaudeWire {
         { -(Regex("(\\d+)(?:-(\\d))?(?!\\d)").findAll(it.id).firstOrNull()?.let { m ->
             m.groupValues[1].toDouble() + (m.groupValues[2].toDoubleOrNull() ?: 0.0) / 10 } ?: 0.0) },
         { it.id }))
+
+    fun failure(status: Int, message: String, retryAfter: String? = null): ProviderFailure {
+        val json = message.indexOf('{').takeIf { it >= 0 }?.let { runCatching { JSONObject(message.substring(it)) }.getOrNull() }
+        val type = json?.optJSONObject("error")?.optString("type").orEmpty().take(64)
+        return FailureClassifier.http(status, describe(status, message), type, FailureClassifier.retryAfter(retryAfter))
+    }
 
     fun describe(status: Int, message: String): String {
         // SDK messages look like `401: {"type":"error","error":{"type":...,"message":...}}`; keep only the provider's text.

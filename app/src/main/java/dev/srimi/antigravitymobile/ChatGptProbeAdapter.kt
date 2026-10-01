@@ -3,6 +3,10 @@ package dev.srimi.antigravitymobile
 import android.content.Context
 import android.net.Uri
 import com.nimbusds.jose.jwk.JWKSet
+import dev.srimi.antigravitymobile.network.AndroidNetworkDiagnostics
+import dev.srimi.antigravitymobile.providers.ProviderFailure
+import dev.srimi.antigravitymobile.providers.asProviderFailures
+import dev.srimi.antigravitymobile.providers.providerCall
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -34,6 +38,7 @@ class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, Agent
     private val http = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(180, TimeUnit.SECONDS).retryOnConnectionFailure(false).build()
     private val sessionLock = Mutex()
+    private val diagnostics = AndroidNetworkDiagnostics.shared(context)
     @Volatile private var call: Call? = null
     @Volatile private var listener: ServerSocket? = null
     override val capabilities = ProviderCapabilities(CheckStatus.UNVERIFIED, true, true,
@@ -49,8 +54,8 @@ class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, Agent
         call = pending
         try {
             return pending.execute().use { response ->
-                if (!response.isSuccessful) throw ProviderFailure(ResponsesWire.describe(response.code,
-                    response.header("Content-Type").orEmpty(), response.peekBody(65_536).string()).replace("OpenAI replied", "OpenAI account request replied"))
+                if (!response.isSuccessful) throw ResponsesWire.failure(response.code,
+                    response.header("Content-Type").orEmpty(), response.peekBody(65_536).string(), response.header("Retry-After"))
                 JSONObject(response.body?.string() ?: error("Provider returned an empty response"))
             }
         } finally { call = null }
@@ -151,8 +156,8 @@ class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, Agent
     override suspend fun renewCredentials() = sessionLock.withLock { withContext(Dispatchers.IO) { refresh() } }
 
     private fun accessToken(): String {
-        var saved = credentials.read() ?: error("Connect your ChatGPT account first")
-        if (saved.optString("access_token").isEmpty()) error("Reconnect your ChatGPT account")
+        var saved = credentials.read() ?: throw ProviderFailure.AuthInvalid("Connect your ChatGPT account first")
+        if (saved.optString("access_token").isEmpty()) throw ProviderFailure.AuthInvalid("Reconnect your ChatGPT account")
         if (saved.getLong("expires_at") < System.currentTimeMillis() + 60_000) { refresh(); saved = credentials.read()!! }
         return saved.getString("access_token")
     }
@@ -161,7 +166,7 @@ class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, Agent
         ResponsesWire.catalog(json(Request.Builder().url("https://api.openai.com/v1/models").header("Authorization", "Bearer $access").build()))
     /** Every model OpenAI's catalog returns for this sign-in, listed ones first. Requires a connected account. */
     suspend fun listModels(): List<ChatModel> = sessionLock.withLock {
-        withContext(Dispatchers.IO) { fullCatalog(accessToken()).also { all ->
+        withContext(Dispatchers.IO) { providerCall(API_HOST, "OpenAI", diagnostics) { fullCatalog(accessToken()) }.also { all ->
             cachedModels = System.currentTimeMillis() to all.filter { it.listed }.map { it.slug }
             allSlugs = all.map { it.slug }.toSet()
         } }
@@ -193,7 +198,7 @@ class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, Agent
             try {
                 response.use {
                     val contentType = it.header("Content-Type").orEmpty()
-                    if (!it.isSuccessful) throw ProviderFailure(ResponsesWire.describe(it.code, contentType, boundedBody(it)))
+                    if (!it.isSuccessful) throw ResponsesWire.failure(it.code, contentType, boundedBody(it), it.header("Retry-After"))
                     if (!contentType.lowercase().startsWith("text/event-stream")) {
                         ResponsesWire.unlabelled(it.code, contentType, boundedBody(it)).forEach { event -> emit(event) }
                         prefs.edit().putLong("verifiedAt", System.currentTimeMillis()).apply()
@@ -208,12 +213,12 @@ class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, Agent
                         line = reader.readLine()
                     }
                     if (!parser.completed) parser.finish().forEach { event -> emit(event) }
-                    check(parser.completed) { "Stream ended without response.completed" }
+                    if (!parser.completed) throw ProviderFailure.StreamInterrupted("Stream ended without response.completed")
                     prefs.edit().putLong("verifiedAt", System.currentTimeMillis()).apply()
                 }
             } finally { call = null }
         }
-    }.flowOn(Dispatchers.IO)
+    }.asProviderFailures(API_HOST, "OpenAI", diagnostics).flowOn(Dispatchers.IO)
 
     /** Reads at most 1 MB of a reply that is not an event stream, for parsing or a short explanation. */
     private fun boundedBody(response: Response): String = response.body?.source()?.let { source ->
@@ -250,6 +255,7 @@ class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, Agent
     }
 
     override fun cancel() { call?.cancel(); listener?.close() }
+    private companion object { const val API_HOST = "api.openai.com" }
     override suspend fun disconnect(): Boolean = sessionLock.withLock {
         withContext(Dispatchers.IO) {
             val saved = credentials.read() ?: return@withContext true

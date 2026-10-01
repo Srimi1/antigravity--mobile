@@ -1,9 +1,9 @@
 package dev.srimi.antigravitymobile
 
+import dev.srimi.antigravitymobile.providers.FailureClassifier
+import dev.srimi.antigravitymobile.providers.ProviderFailure
 import org.json.JSONArray
 import org.json.JSONObject
-
-class ProviderFailure(message: String) : Exception(message)
 
 /**
  * Incremental parser for the documented Responses API server-sent event stream. Feeds one line at a time.
@@ -22,7 +22,7 @@ class ResponsesStreamParser(private val provider: String = ResponsesWire.PROVIDE
             return event(raw)
         }
         if (line.startsWith("data:")) {
-            if (data.length + line.length >= 4_000_000) throw ProviderFailure("Provider event exceeded the size limit")
+            if (data.length + line.length >= 4_000_000) throw ProviderFailure.Unknown("Provider event exceeded the size limit")
             data.append(line.removePrefix("data:").trimStart()).append('\n')
         }
         return emptyList()
@@ -36,7 +36,7 @@ class ResponsesStreamParser(private val provider: String = ResponsesWire.PROVIDE
             "response.output_text.delta" -> listOf(ProviderEvent.Text(event.getString("delta")))
             "response.output_item.done" -> listOfNotNull(ResponsesWire.item(event.getJSONObject("item"), provider)?.let(ProviderEvent::Item))
             "response.completed" -> { completed = true; listOf(ProviderEvent.Completed) }
-            "response.failed", "response.incomplete", "error" -> throw ProviderFailure(
+            "response.failed", "response.incomplete", "error" -> throw ResponsesWire.streamFailure(event.optString("type"), code(event).removePrefix(": "),
                 "Provider did not complete the turn (${event.optString("type")}${code(event)}). Check account access and usage limits.")
             else -> emptyList()
         }
@@ -75,16 +75,33 @@ object ResponsesWire {
             val events = text.lineSequence().flatMap { parser.line(it.trimEnd('\r')) }.toMutableList()
             if (!parser.completed) events += parser.finish()
             if (parser.completed) return events
-            throw ProviderFailure("The stream from OpenAI ended before the response completed")
+            throw ProviderFailure.StreamInterrupted("The stream from OpenAI ended before the response completed")
         }
         val json = runCatching { org.json.JSONObject(text) }.getOrNull()
         if (json != null && json.optString("object") == "response" && json.optJSONObject("error") == null) {
-            if (json.optString("status") != "completed") throw ProviderFailure(
+            if (json.optString("status") != "completed") throw ProviderFailure.Unknown(
                 "OpenAI did not complete the response (status ${json.optString("status").take(32).ifEmpty { "unknown" }})")
             val output = json.optJSONArray("output") ?: JSONArray()
             return (0 until output.length()).mapNotNull { item(output.getJSONObject(it))?.let(ProviderEvent::Item) } + ProviderEvent.Completed
         }
-        throw ProviderFailure(describe(status, contentType, text))
+        throw ProviderFailure.Unknown(describe(status, contentType, text))
+    }
+
+    /** Typed failure for an unsuccessful HTTP reply (any OpenAI-compatible server). */
+    fun failure(status: Int, contentType: String, body: String, retryAfter: String? = null): ProviderFailure {
+        val json = runCatching { JSONObject(body.trim()) }.getOrNull()
+        val error = json?.optJSONObject("error") ?: json?.optJSONObject("response")?.optJSONObject("error")
+        val code = (error?.optString("code").orEmpty().ifEmpty { error?.optString("type").orEmpty() }).take(64)
+        return FailureClassifier.http(status, describe(status, contentType, body), code, FailureClassifier.retryAfter(retryAfter))
+    }
+
+    /** Typed failure for a failed/incomplete stream event. */
+    fun streamFailure(type: String, code: String, message: String): ProviderFailure = when {
+        Regex("(?i)insufficient_quota|quota").containsMatchIn(code) -> ProviderFailure.QuotaExhausted(message)
+        Regex("(?i)rate_limit").containsMatchIn(code) -> ProviderFailure.RateLimited(message)
+        Regex("(?i)trial").containsMatchIn(code) -> ProviderFailure.TrialExpired(message)
+        type == "response.incomplete" || Regex("(?i)content_filter|max_output_tokens|invalid").containsMatchIn(code) -> ProviderFailure.Rejected(message)
+        else -> ProviderFailure.Unknown(message)
     }
 
     /** A short explanation of an unusable provider reply. Never includes headers, tokens or the request. */

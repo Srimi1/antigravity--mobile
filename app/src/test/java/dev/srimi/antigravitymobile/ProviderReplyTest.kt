@@ -1,5 +1,6 @@
 package dev.srimi.antigravitymobile
 
+import dev.srimi.antigravitymobile.providers.ProviderFailure
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
