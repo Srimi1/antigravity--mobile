@@ -260,6 +260,13 @@ def stop_owned(record, process=None):
     return False
 
 
+def cli_environment(binary):
+    """npm-installed CLIs are `#!/usr/bin/env node` scripts; their own directory must be on PATH."""
+    environment = dict(os.environ)
+    environment["PATH"] = os.path.dirname(binary) + ":/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    return environment
+
+
 def source_path(value):
     if not isinstance(value, str) or not value or value.startswith("/") or "\\" in value or len(value.encode("utf-8")) > 512 or any(ord(c) < 32 or ord(c) == 127 for c in value):
         raise ProtocolError()
@@ -568,7 +575,8 @@ class TaskSupervisor:
             self._save(task)  # This claim survives a crash before/after Popen. Never repeat it.
             process = None
             try:
-                process = self.spawn(argv, cwd=str(workspace), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+                process = self.spawn(argv, cwd=str(workspace), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                     start_new_session=True, env=cli_environment(binary))
                 self.processes[task] = process
                 self.pipe_locks[task] = threading.Lock()
                 self.records[task].update(state="RUNNING", pid=process.pid, startTime=start_time(process.pid))
@@ -620,17 +628,28 @@ class TaskSupervisor:
                 if method.startswith("account/"):
                     continue
                 with self.lock:
-                    if method in {"item/commandExecution/requestApproval", "item/fileChange/requestApproval"}:
+                    if kind == "cli" and "id" in message and "method" in message and self.records[task]["backend"] == "codex":
                         request = message.get("id")
                         if type(request) not in (str, int) or len(str(request)) > 128 or len(self.records[task]["requests"]) >= 32:
                             raise ProtocolError()
-                        params = message["params"]
+                        params = message.get("params") or {}
                         workspace = str(self._workspace(task))
-                        safe = all(params.get(field) is None for field in ("networkApprovalContext", "additionalPermissions", "proposedExecpolicyAmendment")) and params.get("grantRoot") in (None, workspace)
-                        if method == "item/commandExecution/requestApproval":
-                            safe = safe and params.get("cwd") == workspace
+                        if method in {"item/commandExecution/requestApproval", "item/fileChange/requestApproval"}:
+                            kind_of = "approval"
+                            safe = all(params.get(field) is None for field in ("networkApprovalContext", "additionalPermissions", "proposedExecpolicyAmendment")) and params.get("grantRoot") in (None, workspace)
+                            if method == "item/commandExecution/requestApproval":
+                                safe = safe and params.get("cwd") == workspace
+                        elif method == "item/permissions/requestApproval":
+                            kind_of, safe = "permissions", False
+                        elif method == "mcpServer/elicitation/request":
+                            # Only this app's own native-tool server; its tools still need the phone owner's approval.
+                            kind_of, safe = "elicitation", params.get("serverName") == "agm_native"
+                        elif method == "item/tool/requestUserInput":
+                            kind_of, safe = "user_input", False
+                        else:
+                            kind_of, safe = "unsupported", False
                         # Preview remains in the bounded event journal; control metadata stores no command text.
-                        self.records[task]["requests"][dump(request)] = {"safe": safe}
+                        self.records[task]["requests"][dump(request)] = {"safe": safe, "kind": kind_of}
                 self._event(task, {"kind": "cli", "message": message})
         except Exception:
             self._interrupt(task, process)
@@ -700,10 +719,30 @@ class TaskSupervisor:
                 raise ProtocolError()
         elif method is None:
             request = self.records[task]["requests"].get(dump(message.get("id")))
-            decision = message.get("result", {}).get("decision")
-            if request is None or decision not in {"accept", "decline", "cancel"}:
+            if request is None:
                 raise ProtocolError()
-            if decision == "accept" and not request["safe"]:
+            kind = request.get("kind", "approval")
+            if kind == "unsupported":
+                if set(message) != {"id", "error"}:
+                    raise ProtocolError()
+                return
+            if set(message) != {"id", "result"} or not isinstance(message["result"], dict):
+                raise ProtocolError()
+            result = message["result"]
+            if kind == "approval":
+                if set(result) != {"decision"} or result["decision"] not in {"accept", "decline", "cancel"} or (result["decision"] == "accept" and not request["safe"]):
+                    raise ProtocolError()
+            elif kind == "permissions":
+                if result != {"permissions": {}}:
+                    raise ProtocolError()  # Never grant additional filesystem or network access.
+            elif kind == "elicitation":
+                action = result.get("action")
+                if not set(result) <= {"action", "content"} or action not in {"accept", "decline", "cancel"} or result.get("content", {}) != {} or (action == "accept" and not request["safe"]):
+                    raise ProtocolError()
+            elif kind == "user_input":
+                if result != {"answers": {}}:
+                    raise ProtocolError()
+            else:
                 raise ProtocolError()
         else:
             raise ProtocolError()
@@ -797,7 +836,7 @@ class TaskSupervisor:
         def execute(argv, cwd):
             try:
                 done = run(argv, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                           timeout=30, start_new_session=True)
+                           timeout=30, start_new_session=True, env=cli_environment(binary))
                 return done.returncode, done.stdout[:400].decode("utf-8", errors="replace")
             except (OSError, subprocess.SubprocessError):
                 return None, ""
@@ -813,7 +852,8 @@ class TaskSupervisor:
             work.mkdir(parents=True)
             try:
                 # Writes inside the workspace must succeed; a write next to it must be refused by Codex's sandbox.
-                code, _ = execute([binary, "sandbox", "linux", "--full-auto", "--", "/bin/sh", "-c",
+                # codex-cli 0.159.3: `sandbox --permission-profile :workspace` (built-in workspace-write profile).
+                code, _ = execute([binary, "sandbox", "--permission-profile", ":workspace", "-C", str(work), "--", "/bin/sh", "-c",
                                    "echo ok > inside; echo escaped > ../outside"], str(work))
                 if outside.exists():
                     result["sandbox"] = "escaped"
@@ -1011,7 +1051,12 @@ def read_endpoint(root, config):
     return value
 
 
-def bootstrap(config, source, root="/root/agm-work/bridge", python="/usr/bin/python3"):
+def bootstrap(config, source, root="/root/agm-work/bridge", python="/usr/bin/python3", in_place=False):
+    """Install the verified helper and start (or find) its single daemon.
+
+    in_place: proot-distro login kills every process inside when its first process exits, so on the phone the
+    launcher itself becomes the daemon (exec, config handed over through a pipe) instead of spawning a child.
+    """
     config = daemon_config(config)
     if hashlib.sha256(source).hexdigest() != config["helperHash"] or len(source) > 200_000:
         raise ProtocolError()
@@ -1030,6 +1075,11 @@ def bootstrap(config, source, root="/root/agm-work/bridge", python="/usr/bin/pyt
             os.chmod(temporary, 0o600); output.write(source); output.flush(); os.fsync(output.fileno())
         os.replace(temporary, helper)
         fcntl.flock(lock, fcntl.LOCK_UN)
+    if in_place:
+        read_end, write_end = os.pipe()
+        os.write(write_end, dump(config).encode("utf-8") + b"\n"); os.close(write_end)
+        os.dup2(read_end, 0); os.close(read_end)
+        os.execv(python, [python, str(helper), "serve", str(root)])
     # Competing bootstraps may launch, but the daemon's exclusive lock permits only one listener.
     process = subprocess.Popen([python, str(helper), "serve", str(root)], stdin=subprocess.PIPE,
         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True)

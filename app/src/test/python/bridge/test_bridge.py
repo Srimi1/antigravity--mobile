@@ -274,8 +274,9 @@ class SupervisorTest(unittest.TestCase):
 
     def probe_with(self, sandbox_writes):
         calls = []
-        def run(argv, cwd=None, **kwargs):
+        def run(argv, cwd=None, env=None, **kwargs):
             calls.append(argv)
+            self.assertTrue(env["PATH"].startswith("/usr/local/bin:"), "CLI directory first on PATH for its node shebang")
             if argv[-1] == "--version":
                 return mock.Mock(returncode=0, stdout=b"codex-cli 0.159.3\n\x1b[0m")
             for target, text in sandbox_writes:
@@ -286,7 +287,7 @@ class SupervisorTest(unittest.TestCase):
     def test_probe_confirms_only_a_sandbox_that_refuses_writes_outside_the_workspace(self):
         confirmed, calls = self.probe_with([("inside", "ok\n")])
         self.assertEqual("confirmed", confirmed["sandbox"]); self.assertEqual("codex-cli 0.159.3", confirmed["version"])
-        self.assertEqual(["/usr/local/bin/codex", "sandbox", "linux", "--full-auto", "--"], calls[1][:5])
+        self.assertEqual(["/usr/local/bin/codex", "sandbox", "--permission-profile", ":workspace", "-C"], calls[1][:5])
         escaped, _ = self.probe_with([("inside", "ok\n"), ("../outside", "escaped\n")])
         self.assertEqual("escaped", escaped["sandbox"])
         broken, _ = self.probe_with([])
@@ -350,6 +351,27 @@ class SupervisorTest(unittest.TestCase):
         self.assertIn("stopped", replies[2]["content"][0]["text"])
         requests = [e for e in self.runner.observe("task-1", 0)["events"] if e["kind"] == "native_request"]
         self.assertEqual(["install_apk"], [e["tool"] for e in requests], "invalid requests must not reach the journal")
+
+    def test_replies_to_other_codex_requests_cannot_grant_access(self):
+        self.runner.start("task-1", "codex")
+        process = self.spawned[0][1]
+        workspace = str(self.runner._workspace("task-1"))
+        requests = [{"id": 30, "method": "item/permissions/requestApproval", "params": {"threadId": "t", "turnId": "u", "itemId": "i", "cwd": workspace, "permissions": {}, "startedAtMs": 1}},
+                    {"id": 31, "method": "mcpServer/elicitation/request", "params": {"serverName": "agm_native", "threadId": "t", "mode": "form", "message": "m", "requestedSchema": {}}},
+                    {"id": 32, "method": "mcpServer/elicitation/request", "params": {"serverName": "other", "threadId": "t", "mode": "form", "message": "m", "requestedSchema": {}}},
+                    {"id": 33, "method": "attestation/generate", "params": {}}]
+        self.runner._read("task-1", process, io.BytesIO(b"".join((bridge.dump(m) + "\n").encode() for m in requests)), "cli")
+        def refused(message):
+            with self.assertRaises(bridge.ProtocolError):
+                self.runner.send("task-1", "bad-%d" % message["id"], message)
+        refused({"id": 30, "result": {"permissions": {"network": {"enabled": True}}}})
+        refused({"id": 32, "result": {"action": "accept", "content": {}}})
+        refused({"id": 31, "result": {"action": "accept", "content": {"secret": "x"}}})
+        refused({"id": 33, "result": {}})
+        self.assertTrue(self.runner.send("task-1", "ok-30", {"id": 30, "result": {"permissions": {}}}))
+        self.assertTrue(self.runner.send("task-1", "ok-31", {"id": 31, "result": {"action": "accept", "content": {}}}))
+        self.assertTrue(self.runner.send("task-1", "ok-32", {"id": 32, "result": {"action": "decline"}}))
+        self.assertTrue(self.runner.send("task-1", "ok-33", {"id": 33, "error": {"code": -32601, "message": "Not supported by Antigravity Mobile"}}))
 
 
 if __name__ == "__main__":

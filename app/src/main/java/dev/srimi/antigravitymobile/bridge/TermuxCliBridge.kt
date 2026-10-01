@@ -57,13 +57,16 @@ class TermuxBridgeLauncher(
             .getResourceAsStream("/dev/srimi/antigravitymobile/bridge/agm_bridge.py")!!.use { it.readBytes() }
         fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
-        /** Runs inside Debian: verifies the helper bytes, then lets the helper install itself and start its locked daemon. */
+        /**
+         * Runs inside Debian: verifies the helper bytes, then lets the helper install itself and either print the running
+         * daemon's endpoint or exec into the daemon (which prints its own endpoint), keeping proot's first process alive.
+         */
         internal const val LAUNCHER = """import base64,hashlib,json,sys,types
 try:
     c=json.loads(sys.stdin.readline()); s=base64.b64decode(sys.stdin.readline().strip(),validate=True)
     if hashlib.sha256(s).hexdigest()!=c.get("helperHash"): raise ValueError()
     m=types.ModuleType("agm_bridge"); exec(compile(s,"agm_bridge.py","exec"),m.__dict__)
-    print(json.dumps(m.bootstrap(c,s,sys.argv[1],sys.executable)),flush=True)
+    print(json.dumps(m.bootstrap(c,s,sys.argv[1],sys.executable,True)),flush=True)
 except Exception as e:
     print(json.dumps({"error":type(e).__name__}),flush=True)
 """
@@ -95,6 +98,8 @@ exit 3
     }
     private val mutex = Mutex()
     private var port: Int? = null
+    /** Last validated loopback port; exposed for device tests of unpaired-client rejection. */
+    val endpointPort: Int? get() = port
     val helperHash: String by lazy { sha256(helperSource) }
 
     suspend fun connect(): PairedBridgeConnection = mutex.withLock {

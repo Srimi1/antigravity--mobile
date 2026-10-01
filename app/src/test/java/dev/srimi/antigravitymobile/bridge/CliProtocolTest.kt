@@ -144,4 +144,22 @@ class CliProtocolTest {
             agy.receive(json("""{"event":"result","result":{"conversation_id":"cli-1","status":"SUCCESS","response":"","num_turns":0.5}}"""))
         }
     }
+
+    @Test fun otherCodexServerRequestsGetSafeRepliesAndRuntimeLimitsNotDeclines() {
+        val protocol = running()
+        val permissions = protocol.receive(json("""{"id":20,"method":"item/permissions/requestApproval","params":{"threadId":"thread-1","turnId":"turn-1","itemId":"cmd-9","cwd":"$workspace","permissions":{"network":{"enabled":true}},"startedAtMs":1}}"""))
+        permissions.writes.single().let { assertEquals(20, it.getInt("id")); assertEquals("{\"permissions\":{}}", it.getJSONObject("result").toString()) }
+        assertTrue((permissions.events.single() as CliEvent.ToolResult).outcome is ToolOutcome.RuntimeUnavailable)
+        val own = protocol.receive(json("""{"id":21,"method":"mcpServer/elicitation/request","params":{"serverName":"agm_native","threadId":"thread-1","turnId":"turn-1","mode":"form","message":"Allow build_project?","requestedSchema":{"type":"object","properties":{}}}}"""))
+        assertEquals("accept", own.writes.single().getJSONObject("result").getString("action"))
+        assertTrue("native prompt still follows in the app", own.events.isEmpty())
+        val foreign = protocol.receive(json("""{"id":22,"method":"mcpServer/elicitation/request","params":{"serverName":"other","threadId":"thread-1","turnId":"turn-1","mode":"url","elicitationId":"e","message":"Sign in","url":"https://example.com"}}"""))
+        assertEquals("decline", foreign.writes.single().getJSONObject("result").getString("action"))
+        val question = protocol.receive(json("""{"id":23,"method":"item/tool/requestUserInput","params":{"threadId":"thread-1","turnId":"turn-1","itemId":"ask-1","questions":[]}}"""))
+        assertEquals("""{"answers":{}}""", question.writes.single().getJSONObject("result").toString())
+        val unknown = protocol.receive(json("""{"id":24,"method":"attestation/generate","params":{}}"""))
+        assertEquals(-32601, unknown.writes.single().getJSONObject("error").getInt("code"))
+        assertTrue(listOf(permissions, foreign, question, unknown).all { batch -> batch.events.single().let { (it as CliEvent.ToolResult).outcome is ToolOutcome.RuntimeUnavailable } })
+        assertThrows(BridgeProtocolException::class.java) { protocol.receive(json("""{"id":24,"method":"attestation/generate","params":{}}""")) }
+    }
 }

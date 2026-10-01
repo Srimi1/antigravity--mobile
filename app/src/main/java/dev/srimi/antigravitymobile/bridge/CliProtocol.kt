@@ -143,10 +143,32 @@ class CodexProtocol(private val workspace: String, private val prompt: String, p
                     else -> throw BridgeProtocolException()
                 }
             }
+            "item/permissions/requestApproval", "mcpServer/elicitation/request", "item/tool/requestUserInput" -> {
+                val wire = message.get("id"); val id = rpcId(wire)
+                if (!seenRequests.add(id) || seenRequests.size > 1000) throw BridgeProtocolException()
+                val (reply, outcome) = when (method) {
+                    // Extra filesystem/network access is never granted from the phone; the turn continues without it.
+                    "item/permissions/requestApproval" -> JSONObject().put("permissions", JSONObject()) to
+                        ToolOutcome.RuntimeUnavailable("Codex asked for extra permissions; none were granted. Review in Termux if needed")
+                    "mcpServer/elicitation/request" -> if (!stopping && params.optString("serverName") == "agm_native")
+                        JSONObject().put("action", "accept").put("content", JSONObject()) to null
+                        else JSONObject().put("action", if (stopping) "cancel" else "decline") to
+                            ToolOutcome.RuntimeUnavailable("MCP server ${params.optString("serverName").take(64)} asked for input; answer it in Termux")
+                    else -> JSONObject().put("answers", JSONObject()) to
+                        ToolOutcome.RuntimeUnavailable("Codex asked a question the phone cannot answer headlessly; no answer was given")
+                }
+                val item = params.optString("itemId").takeIf { Regex("[A-Za-z0-9_.:-]{1,128}").matches(it) } ?: "request:$id".take(128)
+                CliBatch(listOfNotNull(outcome?.let { CliEvent.ToolResult(item, method.substringAfter('/').substringBefore('/'), it) }),
+                    listOf(JSONObject().put("id", wire).put("result", reply)))
+            }
             else -> {
-                // Ignore informational notifications, but never silently drop a server request.
-                if (message.has("id")) throw BridgeProtocolException()
-                CliBatch()
+                // Informational notifications are ignored; an unsupported server request gets an error, never silence.
+                if (!message.has("id")) return@guard CliBatch()
+                val wire = message.get("id"); val id = rpcId(wire)
+                if (!seenRequests.add(id) || seenRequests.size > 1000) throw BridgeProtocolException()
+                CliBatch(listOf(CliEvent.ToolResult("request:$id".take(128), method.take(64),
+                    ToolOutcome.RuntimeUnavailable("Codex request $method is not supported by Antigravity Mobile"))),
+                    listOf(JSONObject().put("id", wire).put("error", JSONObject().put("code", -32601).put("message", "Not supported by Antigravity Mobile"))))
             }
         }
     }
