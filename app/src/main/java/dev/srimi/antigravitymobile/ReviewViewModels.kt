@@ -97,6 +97,10 @@ data class AccountsState(
     val busy: String? = null,
     val output: String = "",
     val message: String? = null,
+    val agentProvider: ProviderId = ProviderId.CHATGPT,
+    val geminiModels: List<String> = emptyList(),
+    val geminiModel: String? = null,
+    val geminiOutput: String = "",
 )
 
 class AccountsViewModel(application: Application) : AndroidViewModel(application) {
@@ -112,10 +116,12 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
             val snapshot = withContext(Dispatchers.IO) {
                 val credentials = services.gitCredentials
                 state.value.copy(accounts = services.accountStates(), preferredModel = services.chatgpt.preferredModel,
+                    geminiModel = services.gemini.preferredModel, agentProvider = services.agentProvider,
                     gitUser = credentials?.username.orEmpty(), hasGitToken = credentials?.token?.isNotEmpty() == true,
                     authorName = services.authorName, authorEmail = services.authorEmail)
             }
-            mutable.update { snapshot.copy(busy = it.busy, output = it.output, message = it.message, models = it.models) }
+            mutable.update { snapshot.copy(busy = it.busy, output = it.output, message = it.message, models = it.models,
+                geminiModels = it.geminiModels, geminiOutput = it.geminiOutput) }
         }
     }
     fun dismissMessage() = mutable.update { it.copy(message = null) }
@@ -129,7 +135,39 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
             refresh()
         }
     }
-    fun cancel() { services.chatgpt.cancel(); job?.cancel() }
+    fun cancel() { services.chatgpt.cancel(); services.gemini.cancel(); job?.cancel() }
+
+    fun useForAgent(provider: ProviderId) { services.agentProvider = provider; refresh() }
+    fun saveGeminiKey(key: String) = run("Check Gemini key") {
+        val models = services.gemini.saveKey(key)
+        mutable.update { it.copy(geminiModels = models) }
+        if (services.chatgpt.accountState().status == AccountStatus.DISCONNECTED) services.agentProvider = ProviderId.GEMINI
+        "Key accepted by Google and saved in Keystore-encrypted storage. ${models.size} Gemini model(s) available."
+    }
+    fun removeGeminiKey() = run("Remove Gemini key") {
+        services.gemini.removeKey()
+        if (services.agentProvider == ProviderId.GEMINI) services.agentProvider = ProviderId.CHATGPT
+        mutable.update { it.copy(geminiModels = emptyList()) }
+        "Gemini key removed from this phone. You can also delete it at aistudio.google.com/apikey."
+    }
+    fun loadGeminiModels() = run("Load Gemini models") {
+        val models = services.gemini.listModels(); mutable.update { it.copy(geminiModels = models) }
+        "${models.size} Gemini model(s) available"
+    }
+    fun chooseGeminiModel(model: String?) { services.gemini.preferredModel = model; refresh() }
+    fun verifyGemini() = run("Gemini test request") {
+        mutable.update { it.copy(geminiOutput = "") }
+        var completed = false
+        services.gemini.streamAgentTurn(AgentRequest("", listOf(AgentItem.User("Reply with the single word: ready")), emptyList())).collect { event ->
+            when (event) {
+                is ProviderEvent.Text -> mutable.update { it.copy(geminiOutput = (it.geminiOutput + event.delta).takeLast(2000)) }
+                ProviderEvent.Completed -> completed = true
+                is ProviderEvent.Item -> Unit
+            }
+        }
+        check(completed) { "The response did not complete" }
+        "Gemini answered using your AI Studio API key."
+    }
 
     fun connectChatGpt(openBrowser: (String) -> Unit) = run("ChatGPT sign-in") {
         services.chatgpt.authenticate(openBrowser)

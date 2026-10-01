@@ -61,7 +61,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun refreshAccount() {
-        viewModelScope.launch { mutable.update { it.copy(account = withContext(Dispatchers.IO) { services.chatgpt.accountState() }) } }
+        viewModelScope.launch { mutable.update { it.copy(account = withContext(Dispatchers.IO) { services.agentAccount() }) } }
     }
     fun newConversation() { if (!state.value.running) conversationId.value = null }
     fun openConversation(id: String) { if (!state.value.running) conversationId.value = id }
@@ -81,12 +81,14 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         val prompt = text.trim()
         val project = state.value.project ?: return
         if (prompt.isEmpty() || state.value.running) return
+        val provider = services.agentProvider
+        val model = services.agentModel(provider)
         mutable.update { it.copy(running = true, streaming = "", autoApprove = false) }
         job = viewModelScope.launch {
             services.ready.await()
             val existing = conversationId.value?.let { dao.find(it) }
             val conversation = (existing ?: ConversationRecord(UUID.randomUUID().toString(), project.id, prompt.lineSequence().first().take(60),
-                ProviderId.CHATGPT.name, "IDLE", now(), now())).copy(status = "RUNNING", updatedAt = now())
+                provider.name, "IDLE", now(), now())).copy(status = "RUNNING", updatedAt = now())
             dao.save(conversation)
             conversationId.value = conversation.id
             val history = dao.messages(conversation.id).mapNotNull {
@@ -132,7 +134,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                 override suspend fun onNotice(text: String) = note(conversation.id, "notice", text)
             }
             try {
-                AgentOrchestrator(services.chatgpt, tools, gate, listener).run(AgentOrchestrator.INSTRUCTIONS, history, prompt)
+                AgentOrchestrator(model, tools, gate, listener).run(AgentOrchestrator.INSTRUCTIONS, history, prompt)
             } catch (error: Exception) {
                 // Stopping cancels the HTTP call too, which can surface as an IOException before cancellation does.
                 withContext(NonCancellable) {
@@ -160,7 +162,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
 
     fun stop() {
         approvalAnswer?.complete(false)
-        services.chatgpt.cancel()
+        services.chatgpt.cancel(); services.gemini.cancel()
         job?.cancel()
     }
 

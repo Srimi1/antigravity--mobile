@@ -19,8 +19,8 @@ Continue from there. Keep unresolved capabilities clearly marked. The request fo
 
 - Personal sideloading, single user, one agent task at a time.
 - Native Kotlin, Compose, coroutines and Room; repositories and execution live on the phone.
-- Google, Claude and ChatGPT subscription support remain mandatory for full acceptance.
-- No root, desktop runtime dependency, cloud builds or paid-API fallback.
+- Google, Claude and ChatGPT subscription support remain mandatory for full acceptance. Exception approved by the user on 1 Oct 2026: Gemini via the user's own Google AI Studio API key (Google forbids third-party use of its consumer subscription login). No other API-key provider.
+- No root, desktop runtime dependency, cloud builds or automatic paid-API fallback; providers are used only when the user selects them.
 - No internal-endpoint reverse engineering, unofficial token lifting/proxying or provider impersonation.
 - A login screen, successful OAuth callback or unit test is not proof of real subscription inference.
 - Do not invent working providers, fake responses, successful phone builds or physical-device evidence.
@@ -42,7 +42,7 @@ All Kotlin implementation paths below are under `app/src/main/java/dev/srimi/ant
 | `ChangeService.kt` | Durable change sets with before/after snapshots on disk, conflict-aware revert, accept, commit marking, interrupted-set recovery. |
 | `AgentLoop.kt`, `AgentViewModel.kt` | Provider-neutral tool loop, project-bounded tools, approvals with diff previews, persistent conversations/actions, Stop. No shell or build tool is offered to the model. |
 | `ChatGptProbeAdapter.kt`, `ResponsesStream.kt` | Documented Sign in with ChatGPT OAuth plus Responses API streaming with function tools (`store:false`). No live account validation yet. |
-| `Providers.kt` | Account states; Claude and Google are BLOCKED with documented reasons. |
+| `Providers.kt`, `GeminiAdapter.kt` | Account states. Claude and Google-subscription BLOCKED; Gemini via user's AI Studio key (user-selected Agent provider). |
 | `ReviewViewModels.kt` | Changes, Accounts and Build view models. |
 | `ProbeViewModel.kt`, `NativeExecutionService.kt` | Device diagnostics on the Build tab. Still runs only `version`, `exit-7` and `wait` on the packaged childless probe; not a shell. |
 | `CredentialStore.kt`, `OidcVerifier.kt` | Keystore-backed encrypted storage (ChatGPT and Git token records) and signed ID-token validation. Preserve the security boundaries. |
@@ -89,7 +89,7 @@ The complete product remains unaccepted until all mandatory subscriptions perfor
 - Instrumentation uses a debug signer. A personally signed release on the same test device can cause `INSTALL_FAILED_UPDATE_INCOMPATIBLE`; use a separate test emulator or preserve the device's data before changing installations. Never uninstall the user's phone app just to make tests pass.
 - Keep generated output outside iCloud. Root Gradle configuration uses `~/.cache/antigravity-mobile-build`; generate native libraries/assets using `layout.buildDirectory`, not hard-coded old `app/build` paths.
 - Source archive: `python3 tools/package_source.py`. It excludes build caches, APKs/ZIPs and private signing keys. Published v0.1.2 archives are immutable snapshots; new source work needs its own later release.
-- Application ID is `dev.srimi.antigravitymobile.probe`; changing it breaks the update path. Version code 3 (0.1.2) is published; source is version code 7 (0.4.1), emulator-validated; published as public GitHub release v0.4.1 (Latest) at the user's request, with all earlier versions also released. See THIRD_PARTY_NOTICES.md. Worker source code 2 is required by the client and passed emulator tests (debug-signed, installed by ADB); its Build-tab update path from code 1 passed on emulators (docs/upgrade-qa-2026-10-01.md). Synchronize required worker version and preserve matching signers. Increment version code/name and synchronize build packaging and release metadata for a new APK.
+- Application ID is `dev.srimi.antigravitymobile.probe`; changing it breaks the update path. Version code 3 (0.1.2) is published; source is version code 8 (0.4.2), published as public GitHub release v0.4.2 (Latest) after the user's phone report; all earlier versions are also released. See THIRD_PARTY_NOTICES.md. Worker source code 2 is required by the client and passed emulator tests (debug-signed, installed by ADB); its Build-tab update path from code 1 passed on emulators (docs/upgrade-qa-2026-10-01.md). Synchronize required worker version and preserve matching signers. Increment version code/name and synchronize build packaging and release metadata for a new APK.
 - Preserve `.signing/personal.p12` locally. Do not commit, upload or print the key. A checkout on another computer does not contain the original signer; do not claim a newly generated key can update the published APK.
 - Preserve the completed artwork and existing release. Do not recreate the icon, re-upload unchanged APKs or repeat completed Drive replacement work.
 - Consult the checkpoint for the current GitHub release and Drive URL. Verify a replacement before deleting an old file, and use the human user's authorization for publishing or deletion.

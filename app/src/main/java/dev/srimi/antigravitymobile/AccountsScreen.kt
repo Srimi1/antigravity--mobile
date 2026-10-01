@@ -25,7 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Accounts", style = MaterialTheme.typography.headlineSmall)
-        Text("Subscriptions only. There is no API-key billing fallback, and credentials never leave Keystore-encrypted storage.",
+        Text("Credentials stay in Keystore-encrypted storage on this phone. Nothing switches providers on its own: the Agent uses only the account you choose.",
             style = MaterialTheme.typography.bodySmall)
         state.busy?.let { BusyRow(it, onCancel = model::cancel) }
 
@@ -33,6 +33,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
             SectionCard(account.provider.label) {
                 StatusChip(account.status.name.lowercase(), account.status.name)
                 Text(account.detail)
+                if (account.provider in setOf(ProviderId.CHATGPT, ProviderId.GEMINI) && account.status != AccountStatus.DISCONNECTED)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = state.agentProvider == account.provider, onClick = { model.useForAgent(account.provider) }, enabled = idle)
+                        Text(if (state.agentProvider == account.provider) "Agent uses this account" else "Use for Agent")
+                    }
+                if (account.provider == ProviderId.GEMINI) GeminiSettings(state, model, idle, account)
                 if (account.provider == ProviderId.CHATGPT) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { model.connectChatGpt { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } },
@@ -68,6 +74,46 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
     }
     if (disconnecting) ConfirmDialog("Disconnect ChatGPT?", "Local tokens are erased and the app asks OpenAI to revoke the session.",
         "Disconnect", onDismiss = { disconnecting = false }) { model.disconnect() }
+}
+
+@Composable private fun GeminiSettings(state: AccountsState, model: AccountsViewModel, idle: Boolean, account: AccountState) {
+    val context = LocalContext.current
+    var key by remember { mutableStateOf("") }
+    var removing by remember { mutableStateOf(false) }
+    if (account.status == AccountStatus.DISCONNECTED) {
+        Text("1. Open Google AI Studio and create an API key (free tier available). 2. Paste it here. " +
+            "This uses the Gemini API, not your Google AI Pro/Ultra subscription; Google does not allow third-party apps to use that login.",
+            style = MaterialTheme.typography.bodySmall)
+        OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/apikey"))) }) {
+            Text("Get a key in AI Studio")
+        }
+    }
+    OutlinedTextField(key, { key = it }, label = { Text(if (account.status == AccountStatus.DISCONNECTED) "Gemini API key" else "Replace API key") },
+        singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = { model.saveGeminiKey(key); key = "" }, enabled = idle && key.isNotBlank()) { Text("Check and save") }
+        if (account.status != AccountStatus.DISCONNECTED) OutlinedButton(onClick = model::verifyGemini, enabled = idle) { Text("Test request") }
+    }
+    if (account.status != AccountStatus.DISCONNECTED) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = model::loadGeminiModels, enabled = idle) { Text("Models") }
+            OutlinedButton(onClick = { removing = true }, enabled = idle) { Text("Remove key") }
+        }
+        Text("Model: ${state.geminiModel ?: "automatic (newest stable Flash)"}", style = MaterialTheme.typography.bodySmall)
+        if (state.geminiModels.isNotEmpty()) Column {
+            listOf<String?>(null).plus(state.geminiModels).forEach { slug ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = state.geminiModel == slug, onClick = { model.chooseGeminiModel(slug) })
+                    Text(slug ?: "Automatic", fontFamily = if (slug == null) null else FontFamily.Monospace)
+                }
+            }
+        }
+        if (state.geminiOutput.isNotBlank()) Text("Response: ${state.geminiOutput}", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+    }
+    Text("Free-tier keys: Google may use prompts and project files you send to improve its products, and limits are low. " +
+        "Usage is billed only if you enable billing on the key's Google Cloud project.", style = MaterialTheme.typography.bodySmall)
+    if (removing) ConfirmDialog("Remove Gemini key?", "The key is erased from this phone. It stays valid at Google until you delete it in AI Studio.",
+        "Remove", onDismiss = { removing = false }) { removing = false; model.removeGeminiKey() }
 }
 
 @Composable private fun GitSettings(state: AccountsState, model: AccountsViewModel, idle: Boolean) {

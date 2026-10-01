@@ -4,7 +4,18 @@ Last updated **1 October 2026** (0.4.1 private phone-test build; signed upgrade 
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## Latest: all versions published on GitHub — 1 October 2026
+## Latest: 0.4.2 — phone-report fixes and Gemini key provider — 1 October 2026
+
+User's **physical OnePlus 7 Pro** report on 0.4.1 (outcomes in [provider-evidence.md](provider-evidence.md)): ChatGPT sign-in page hung until returning to the app; every ChatGPT request failed "Expected streaming response"; Google unavailable.
+
+- **0.4.2/code 8:** sign-in foreground service `SignInKeepAlive` + HTML callback page with a `dev.srimi.antigravitymobile://signed-in` return link (MainActivity now `singleTask`); `ResponsesWire.unlabelled/describe` parse or explain non-event-stream replies (secrets redacted); new **Gemini provider (Google AI Studio API key, user-approved change to the earlier no-API-key rule)** — `GeminiAdapter`/`GeminiWire`/`GeminiStreamParser`, native `streamGenerateContent?alt=sse`, function calling with `parametersJsonSchema`, thought-signature replay via Opaque items; Accounts lets the user pick which provider the Agent uses; Google subscription card explains Google's prohibition.
+- **Tests:** `./tools/build.sh` passed — **65 JVM tests** (9 new in `ProviderReplyTest`), release lint, signed `dist/antigravity-mobile-0.4.2.apk` **286,770,505 bytes, SHA-256 `db8ce8083c978e3004f6148d8a9392b8876bfa15b237e89eddb8a53c3d5d242c`**. API 36 device suite: 19/20 on the first run after reinstall (same intermittent website-preview timeout as before, now even at 60 s), then **20/20 twice**, including a fresh-install rerun; the test now reports the visible screen when it times out.
+- **Emulator checks (OnePlus-like AVD):** 0.4.1→0.4.2 kept data; keep-alive service ran during sign-in; with the app backgrounded 30 s the loopback server answered instantly (process at perceptible priority); Stop ended the service; the return link reopened the existing task; a fake Gemini key reached Google and showed `HTTP 400 INVALID_ARGUMENT — API key not valid`. The emulator does not reproduce OxygenOS's freezing, and no real ChatGPT or Gemini request has completed.
+- **Environment incident:** between ~03:15 and 14:24 IST something outside this session deleted `~/.android` and `~/.gradle` (~14 GB). Lost: AVDs `AntigravityMobileProbe_API31` (preserved release-upgrade data) and `AntigravityMobileQA_API31`, the Android debug keystore and adb keys. `.signing/personal.p12`, the SDK, `~/.cache` AVDs and evidence survived. AVD pointer files for `OnePlus7ProSim_API31` and `AntigravityMobileQA_API36` were recreated (non-destructive); debug test packages on the disposable API 36 AVD were reinstalled with the new debug key.
+
+**Next:** user runs [PHONE_TEST_0.4.2.md](PHONE_TEST_0.4.2.md) and sends the exact ChatGPT error text if it still fails, plus Gemini results.
+
+## Earlier: all versions published on GitHub — 1 October 2026
 
 At the user's explicit request (after being told about the licence risk of redistributing the bundled OpenJDK/Android SDK build components), every built version was published as a **public GitHub release** with its signed APK, SHA-256 and source tag: v0.1.0-probe, v0.1.1-probe (nearest source tag 75ffc8c; their exact build source was not committed), v0.1.2 (existing, unchanged), v0.2.0 (0f43adf), v0.3.0 (29d0d11), v0.4.0 (cda8bcc) and **v0.4.1 marked Latest** (f61f7d1). Added [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) with licences, upstream sources and a GPL source offer. All APKs are signed with certificate `791980ed…10b5`. Releases state plainly that the full app is not ready. Google Drive upload was not possible from this machine.
 

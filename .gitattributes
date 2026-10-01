@@ -9,3 +9,4 @@ gradlew text eol=lf
 assets/screenshots/integration-20260930/** -text -whitespace
 assets/screenshots/web-20261001/** -text -whitespace
 assets/screenshots/upgrade-20261001/** -text -whitespace
+assets/screenshots/providers-20261001/** -text -whitespace

@@ -52,6 +52,50 @@ class ResponsesStreamParser(private val provider: String = ResponsesWire.PROVIDE
 object ResponsesWire {
     const val PROVIDER = "chatgpt"
 
+    /**
+     * Handles a successful response that is not labelled as an event stream. Event-stream text is parsed anyway;
+     * a complete Response object is accepted only if it says it completed; anything else becomes a short,
+     * credential-free explanation (status, content type, provider error code and message).
+     */
+    fun unlabelled(status: Int, contentType: String, body: String): List<ProviderEvent> {
+        val text = body.trimStart('\uFEFF', ' ', '\n', '\r', '\t')
+        if (text.startsWith("data:") || text.startsWith("event:") || text.startsWith(":")) {
+            val parser = ResponsesStreamParser()
+            val events = text.lineSequence().flatMap { parser.line(it.trimEnd('\r')) }.toMutableList()
+            if (!parser.completed) events += parser.finish()
+            if (parser.completed) return events
+            throw ProviderFailure("The stream from OpenAI ended before the response completed")
+        }
+        val json = runCatching { org.json.JSONObject(text) }.getOrNull()
+        if (json != null && json.optString("object") == "response" && json.optJSONObject("error") == null) {
+            if (json.optString("status") != "completed") throw ProviderFailure(
+                "OpenAI did not complete the response (status ${json.optString("status").take(32).ifEmpty { "unknown" }})")
+            val output = json.optJSONArray("output") ?: JSONArray()
+            return (0 until output.length()).mapNotNull { item(output.getJSONObject(it))?.let(ProviderEvent::Item) } + ProviderEvent.Completed
+        }
+        throw ProviderFailure(describe(status, contentType, text))
+    }
+
+    /** A short explanation of an unusable provider reply. Never includes headers, tokens or the request. */
+    fun describe(status: Int, contentType: String, body: String): String {
+        val type = contentType.substringBefore(';').trim().take(60).ifEmpty { "no content type" }
+        val json = runCatching { org.json.JSONObject(body.trim()) }.getOrNull()
+        val error = json?.optJSONObject("error") ?: json?.optJSONObject("response")?.optJSONObject("error")
+        if (error != null || json?.has("detail") == true) {
+            val code = (error?.optString("code").orEmpty().ifEmpty { error?.optString("type").orEmpty() })
+                .takeIf { it.matches(Regex("[A-Za-z0-9_.-]{1,64}")) }
+            val message = (error?.optString("message") ?: json?.optString("detail")).orEmpty()
+                .replace(Regex("\\s+"), " ").replace(Regex("(?i)bearer\\s+\\S+|sk-[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_.-]+"), "[redacted]").take(200)
+            return "OpenAI replied HTTP $status ($type)" + (code?.let { ": $it" } ?: "") + (if (message.isNotBlank()) " — $message" else "")
+        }
+        return when {
+            type.contains("html") -> "Received a web page (HTTP $status) instead of an OpenAI response. A network filter, " +
+                "captive Wi-Fi login, VPN or proxy may be intercepting api.openai.com. Try mobile data or another network."
+            body.isBlank() -> "OpenAI replied HTTP $status with an empty $type body"
+            else -> "OpenAI replied HTTP $status with $type instead of an event stream"
+        }
+    }
+
     /** Maps a finished output item. Unknown item types are ignored rather than guessed. */
     fun item(item: JSONObject, provider: String = PROVIDER): AgentItem? = when (item.optString("type")) {
         "message" -> {

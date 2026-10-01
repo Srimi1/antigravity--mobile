@@ -24,13 +24,14 @@ class WebsiteDeviceTest {
         fun walk(node: AccessibilityNodeInfo) { found += node; repeat(node.childCount) { node.getChild(it)?.let(::walk) } }
         walk(root); return found
     }
-    private suspend fun text(value: String): AccessibilityNodeInfo = withTimeout(60000) {
+    private suspend fun text(value: String): AccessibilityNodeInfo = withTimeoutOrNull(60000) {
         while (true) {
-            nodes().firstOrNull { it.text?.toString()?.contains(value, ignoreCase = true) == true }?.let { return@withTimeout it }
+            nodes().firstOrNull { it.text?.toString()?.contains(value, ignoreCase = true) == true }?.let { return@withTimeoutOrNull it }
             delay(200)
         }
         @Suppress("UNREACHABLE_CODE") error("unreachable")
-    }
+    } ?: throw AssertionError("Did not see \"$value\" within 60 s. Visible: " +
+        nodes().mapNotNull { it.text?.toString()?.takeIf(String::isNotBlank)?.take(80) }.take(25).joinToString(" | "))
     private suspend fun tap(value: String) {
         val bounds = Rect(); text(value).getBoundsInScreen(bounds)
         android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(

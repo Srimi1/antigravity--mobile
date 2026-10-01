@@ -1,4 +1,12 @@
-# Subscription evidence — 2026-09-30
+# Subscription evidence — 2026-09-30 (updated 2026-10-01)
+
+## Physical phone report — 1 October 2026 (0.4.1, user's OnePlus 7 Pro; outcomes only)
+
+- **ChatGPT sign-in:** consent granted in the browser; after "Continue" the callback page kept loading until the user returned to the app, then the app showed connected and listed models. Likely cause: OxygenOS/Android paused the backgrounded app, so its loopback callback server could not answer. 0.4.2 keeps a foreground service running during sign-in and adds a "Return to Antigravity Mobile" link.
+- **ChatGPT inference:** every Agent message and "Test request" failed with "Expected streaming response": OpenAI answered HTTP 2xx without an event-stream content type. 0.4.1 discarded the body, so the real reason is still unknown. 0.4.2 parses event-stream bodies regardless of label, accepts a completed non-streamed Response, and otherwise shows status, content type and OpenAI's error code/message (secrets redacted). **ChatGPT remains UNVERIFIED** until a request completes on the phone.
+- **Google:** user requested Google access. Google's terms do not allow third-party apps to reuse Google AI Pro/Ultra logins; Google suspended accounts doing so in 2026 and removed consumer "Login with Google" for Gemini CLI on 18 June 2026 ([summary](https://syntackle.com/blog/google-gemini-ai-subscription-with-opencode/), [Gemini API OAuth docs](https://ai.google.dev/gemini-api/docs/oauth)). **At the user's explicit request (1 Oct 2026), 0.4.2 adds Gemini through the user's own Google AI Studio API key** — a documented, key-based route, labelled as not the subscription. Free-tier data-use and billing are disclosed in the UI. Live key error path verified on an emulator (real Google HTTP 400 `INVALID_ARGUMENT` for a fake key); **a real key and agent turn are untested.**
+- Claude: unchanged, BLOCKED.
+
 
 Personal use is the intended scope. Provider documentation and a real entitled request must establish the route; a login screen, model catalog or successful build is insufficient.
 

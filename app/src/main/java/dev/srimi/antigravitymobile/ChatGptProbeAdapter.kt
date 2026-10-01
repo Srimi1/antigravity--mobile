@@ -24,7 +24,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /** Experimental documented SIWC probe; live eligibility and inference remain unverified. */
-class ChatGptProbeAdapter(context: Context) : ProviderAdapter, AgentModel {
+class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, AgentModel {
     override val providerId = ResponsesWire.PROVIDER
     private val credentials = CredentialStore(context)
     private val prefs = context.getSharedPreferences("host", Context.MODE_PRIVATE)
@@ -49,7 +49,8 @@ class ChatGptProbeAdapter(context: Context) : ProviderAdapter, AgentModel {
         call = pending
         try {
             return pending.execute().use { response ->
-                check(response.isSuccessful) { "Provider request returned HTTP ${response.code}. Retry or reconnect." }
+                if (!response.isSuccessful) throw ProviderFailure(ResponsesWire.describe(response.code,
+                    response.header("Content-Type").orEmpty(), response.peekBody(65_536).string()).replace("OpenAI replied", "OpenAI account request replied"))
                 JSONObject(response.body?.string() ?: error("Provider returned an empty response"))
             }
         } finally { call = null }
@@ -81,6 +82,7 @@ class ChatGptProbeAdapter(context: Context) : ProviderAdapter, AgentModel {
                 else old.optString("id_token").takeIf { it.isNotEmpty() }?.let {
                     builder.appendQueryParameter("id_token_hint", it)
                 }
+                SignInKeepAlive.start(context.applicationContext)
                 withContext(Dispatchers.Main) { openBrowser(builder.build().toString()) }
                 val deadline = System.currentTimeMillis() + 180_000
                 var callback: Uri? = null
@@ -93,9 +95,12 @@ class ChatGptProbeAdapter(context: Context) : ProviderAdapter, AgentModel {
                         val uri = Uri.parse("http://127.0.0.1$target")
                         val valid = request.startsWith("GET ") && uri.path == "/auth/callback" &&
                             MessageDigest.isEqual(uri.getQueryParameter("state").orEmpty().toByteArray(), state.toByteArray())
-                        val page = if (valid) "Return to Antigravity Mobile to finish signing in." else "Invalid callback."
+                        val page = if (valid) "<!doctype html><meta name=viewport content='width=device-width'>" +
+                            "<body style='font-family:sans-serif;padding:24px'><h2>Signed in</h2><p>Antigravity Mobile is finishing sign-in." +
+                            "</p><p><a style='font-size:20px' href='dev.srimi.antigravitymobile://signed-in'>Return to Antigravity Mobile</a></p>"
+                            else "Invalid callback."
                         socket.getOutputStream().write(("HTTP/1.1 ${if (valid) "200 OK" else "400 Bad Request"}\r\n" +
-                            "Content-Type: text/plain; charset=utf-8\r\nConnection: close\r\n" +
+                            "Content-Type: ${if (valid) "text/html" else "text/plain"}; charset=utf-8\r\nCache-Control: no-store\r\nConnection: close\r\n" +
                             "Content-Length: ${page.toByteArray().size}\r\n\r\n$page").toByteArray())
                         if (valid) callback = uri
                     }
@@ -112,7 +117,7 @@ class ChatGptProbeAdapter(context: Context) : ProviderAdapter, AgentModel {
                 val subject = validateIdToken(tokens.getString("id_token"), issued, nonce)
                 check(old == null || subject == old.getString("subject")) { "Signed-in account did not match saved registration" }
                 saveTokens(tokens, issued, subject, null)
-            } finally { server.close(); listener = null }
+            } finally { server.close(); listener = null; SignInKeepAlive.stop(context.applicationContext) }
         }
     }
 
@@ -186,8 +191,13 @@ class ChatGptProbeAdapter(context: Context) : ProviderAdapter, AgentModel {
             }
             try {
                 response.use {
-                    check(it.isSuccessful) { "Inference returned HTTP ${it.code}. No fallback was used." }
-                    check(it.header("Content-Type").orEmpty().startsWith("text/event-stream")) { "Expected a streaming response" }
+                    val contentType = it.header("Content-Type").orEmpty()
+                    if (!it.isSuccessful) throw ProviderFailure(ResponsesWire.describe(it.code, contentType, boundedBody(it)))
+                    if (!contentType.lowercase().startsWith("text/event-stream")) {
+                        ResponsesWire.unlabelled(it.code, contentType, boundedBody(it)).forEach { event -> emit(event) }
+                        prefs.edit().putLong("verifiedAt", System.currentTimeMillis()).apply()
+                        return@use
+                    }
                     val reader = it.body?.charStream()?.buffered() ?: error("Empty inference stream")
                     val parser = ResponsesStreamParser()
                     var line = reader.readLine()
@@ -204,6 +214,11 @@ class ChatGptProbeAdapter(context: Context) : ProviderAdapter, AgentModel {
         }
     }.flowOn(Dispatchers.IO)
 
+    /** Reads at most 1 MB of a reply that is not an event stream, for parsing or a short explanation. */
+    private fun boundedBody(response: Response): String = response.body?.source()?.let { source ->
+        source.request(1_048_576); val buffer = source.buffer
+        buffer.readString(minOf(buffer.size, 1_048_576L), Charsets.UTF_8)
+    }.orEmpty()
     @Volatile private var cachedModels: Pair<Long, List<String>>? = null
     private val plainModels = java.util.Collections.synchronizedSet(mutableSetOf<String>())
     private fun post(access: String, body: JSONObject): Response {

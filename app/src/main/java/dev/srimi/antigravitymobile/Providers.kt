@@ -1,6 +1,8 @@
 package dev.srimi.antigravitymobile
 
-enum class ProviderId(val label: String) { CHATGPT("ChatGPT"), CLAUDE("Claude"), GOOGLE("Google") }
+enum class ProviderId(val label: String) {
+    CHATGPT("ChatGPT"), GEMINI("Gemini (Google AI Studio key)"), CLAUDE("Claude"), GOOGLE("Google AI subscription")
+}
 
 /**
  * VERIFIED: a subscription response completed on this install. CONNECTED: signed in, not yet proven.
@@ -16,6 +18,6 @@ object ProviderPolicy {
         "Anthropic's documentation requires prior approval before a third-party product offers claude.ai sign-in " +
             "or subscription limits. No approved route exists for this app, so no Claude login is offered and no API key fallback is used.")
     val google = AccountState(ProviderId.GOOGLE, AccountStatus.BLOCKED,
-        "Google documents Antigravity subscription access only in its own desktop apps, and its SDK uses API keys or " +
-            "Google Cloud credentials. No supported way for a native third-party Android app to use a Google subscription was found.")
+        "Google does not allow third-party apps to use a Google AI Pro/Ultra subscription login, and has suspended accounts " +
+            "that did. Use Gemini with your own Google AI Studio API key above instead.")
 }
