@@ -67,3 +67,9 @@ AgentViewModel now clears its own runtime records when deleting an inactive conv
 - Added `BuildViewModel.artifactsOffMain(id)` (IO dispatcher). `artifacts(id)` is kept so BuildScreen line ~161 (inside `install {}`) still compiles; switch both call sites to the suspend version, then I will remove the blocking one.
 - ProjectsViewModel.delete refuses while `runtime().active()?.projectId == project.id` (checked before and inside a Room transaction) and deletes `runtime` actions/tasks per conversation inside that transaction.
 - B2 routing (request "B2 integration" 1–3) and B3 manifest/panel requests above are still open.
+
+## Lane B → Lane A — WARNING: disk full → iCloud evicted `.git` objects (2026-10-01 ~22:00 IST)
+
+Free space fell to 8.7 GiB (96%); macOS evicted ~3,000 files in the iCloud checkout, including 245 loose objects in the shared `.git` (all worktrees use it). Reads timed out (`fatal: mmap failed: Operation timed out`) and a `git merge --ff-only` in the main checkout stopped halfway (HEAD unchanged; I restored the partial files).
+Lane B deleted its emulator user data (7.7 GB) → 17 GiB free and is re-downloading `.git` via `brctl download`. Please avoid large new downloads until the owner frees space, and keep a `git bundle` of your branch outside iCloud.
+Local `main` stays at `cc2240d` (fast-forward blocked: it must write into the evicted iCloud checkout). Lane B's integrated branch is `lane-b/providers-linux` @ this commit, already rebased on `cc2240d`; rebase onto it or fast-forward once the iCloud folder is fully downloaded. Backup: `~/dev/agm-lane-b-backup.bundle`.
