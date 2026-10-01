@@ -6,6 +6,9 @@ plugins {
 }
 
 // Keep transient compiler files out of cloud-synced source directories.
+// Each worktree can select its own output root with -PagmBuildRoot=/absolute/path.
+val agmBuildRoot = providers.gradleProperty("agmBuildRoot")
+    .orElse("${System.getProperty("user.home")}/.cache/antigravity-mobile-build")
 allprojects {
-    layout.buildDirectory.set(file("${System.getProperty("user.home")}/.cache/antigravity-mobile-build/${project.name}"))
+    layout.buildDirectory.set(rootProject.file("${agmBuildRoot.get()}/${project.name}"))
 }
