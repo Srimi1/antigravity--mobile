@@ -99,12 +99,13 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
             val dir = services.projects.directory(project)
             var changeSet: String? = null
             val actionIds = mutableMapOf<String, String>()
-            val tools = WorkspaceTools(workspace, services.changes, {
+            val fileTools = WorkspaceTools(workspace, services.changes, {
                 changeSet ?: services.changes.open(project.id, conversation.id, prompt).id.also { changeSet = it }
             }, { if (services.git.isRepository(dir)) services.git.status(dir).let { s ->
                 s.summary + "\n" + listOf("staged" to s.added + s.changed + s.removed, "modified" to s.modified,
                     "untracked" to s.untracked, "deleted" to s.missing).filter { it.second.isNotEmpty() }
                     .joinToString("\n") { "${it.first}: ${it.second.sorted().joinToString()}" } } else "This project is not a Git repository" })
+            val tools = AgentBuildTools(fileTools, PhoneBuildRunner(services, project, getApplication()))
             val gate = ApprovalGate { call, preview ->
                 val actionId = UUID.randomUUID().toString()
                 actionIds[call.callId] = actionId

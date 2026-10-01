@@ -10,7 +10,7 @@ For agents continuing this project, read [AGENTS.md](AGENTS.md) and the [saved c
 
 A native Kotlin/Compose coding app for one Android phone: open or clone a repository, ask an agent for changes, review every edit, and commit locally.
 
-**Status:** Current **0.5.0 source** adds GitHub (sign in with a token, open your repositories, branches, push, pull requests, publish) — [phone test](docs/PHONE_TEST_0.5.0.md). Earlier: **0.4.2** (fixes from the first real-phone report; adds Gemini via Google AI Studio key — [phone test](docs/PHONE_TEST_0.4.2.md)). The 0.4.1 notes: (private phone-test build; [upgrade QA](docs/upgrade-qa-2026-10-01.md), [phone test guide](docs/PHONE_TEST_0.4.1.md)) adds a static-website workflow (create from template, edit, approve a one-use copy, preview in the separate tools app with console, export ZIP). It passed 56 JVM tests, release lint, a signed release build and **20 device tests on an Android 16 ARM64 emulator** plus website tests on Android 12 ([website QA](docs/website-qa-2026-10-01.md)). The integrated Android-native worker built, installed and launched a Compose project on an ARM64 emulator in 0.3.0. See the [complete continuation prompt](CONTINUE_WITH_ANY_AI.md) and [checkpoint](docs/PROJECT_CHECKPOINT.md). Live subscriptions, physical OnePlus, Node/backend websites, wider development and the earlier upgrade ANR remain unaccepted. The latest GitHub release is 0.5.0 (test build; not complete). All earlier APKs are also on the [releases page](https://github.com/Srimi1/antigravity--mobile/releases). See [third-party notices](THIRD_PARTY_NOTICES.md).
+**Status:** Latest release **0.5.1**: the Agent can now build your Android project on the phone and open the installer, with your approval ([phone test](docs/PHONE_TEST_0.5.1.md)). 0.5.0 added GitHub (token sign-in, your repositories, branches, push, pull requests, publish); 0.4.2 added Gemini through a Google AI Studio key. The app runs on the owner's OnePlus 7 Pro. Not complete: Claude is blocked, Google AI subscriptions cannot be used by third-party apps, websites are static only, and there is no general shell. All versions are on the [releases page](https://github.com/Srimi1/antigravity--mobile/releases). See the [checkpoint](docs/PROJECT_CHECKPOINT.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Version 0.1.2 includes the original adaptive launcher icon, round launcher support and an Android 13+ themed-icon silhouette. The repository artwork and icon sources are in [assets/branding](assets/branding/README.md).
 
@@ -31,7 +31,7 @@ Version 0.1.2 includes the original adaptive launcher icon, round launcher suppo
 - **Claude and Google subscriptions.** Supported, approved integration routes have not been established for this app, so both show as blocked. There is no API-key fallback.
 - **ChatGPT** uses OpenAI's documented Sign in with ChatGPT flow, but has not been tested against a live account.
 - **Physical phone and wider projects.** The experimental ARM64 toolchain is now integrated through a separate Android UID. The [separate Kotlin/Compose proof](docs/native-compose-qa-2026-09-30.md) succeeded; see the checkpoint for integration QA. Physical OnePlus, Node/backend websites, other languages and general desktop capabilities are not accepted. Native compatibility and redistribution requirements remain open.
-- **No shell.** The agent cannot run commands, builds or tests.
+- **No general shell.** The agent can run approved Gradle builds/unit-test tasks and open the APK installer, but not arbitrary commands.
 
 ## Build
 

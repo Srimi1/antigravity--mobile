@@ -4,7 +4,17 @@ Last updated **1 October 2026** (0.4.1 private phone-test build; signed upgrade 
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## Latest: 0.5.0 — GitHub support and full ChatGPT model catalog — 1 October 2026
+## Latest: 0.5.1 — Agent can build and install on the phone — 1 October 2026
+
+User reported that the Agent said it could not build or install the APK because "the environment has no build or device tools" (it only had file tools and its instructions said so).
+
+- **0.5.1/code 10:** `AgentBuildTools` adds two approval-gated tools on top of the file tools. `build_project` prepares an immutable snapshot during the approval preview (tasks + SHA-256 shown); the user's approval is the one-shot claim; it runs in the companion worker, waits for the final state (cancelling the agent cancels the build), and returns status, duration, APK names and the last 6,000 characters of the log so the model can fix errors. Declining releases the prepared build. `install_apk` opens Android's installer for an APK from the latest successful build in the task. Agent instructions updated: no general shell, never claim unexecuted results. `ToolHost.declined` hook added. `BuildRunner` interface/`PhoneBuildRunner` keep it testable.
+- **Tests:** `./tools/build.sh` passed — **74 JVM tests** (4 in `AgentBuildToolsTest` through the real orchestrator: approve→build→install, decline releases and never runs, failed build returns the log and blocks install, missing tools/invalid tasks refused before approval), release lint, signed `dist/antigravity-mobile-0.5.1.apk`, SHA-256 `e97ffd0d565ba259c98e4df47d01869bd6c9c2f1add32bfaf38904d194b18bdf`. **21/21 device tests on API 36**, including new `AgentBuildDeviceTest`: the real `PhoneBuildRunner` built the Compose template (COMPLETED, APK, "BUILD SUCCESSFUL" in the returned log), then a deliberately broken source build returned FAILED with the `notDefinedAnywhere` compiler error and no APK. Those two builds took 1,941 s together on this emulator, much slower than earlier 188–231 s runs; not investigated (fresh dependency caches per build are a likely factor).
+- No live model drove these tools yet (needs the user's account on the phone).
+
+**Next:** user runs [PHONE_TEST_0.5.1.md](PHONE_TEST_0.5.1.md); investigate build time and dependency caching; keep agent tasks alive in a foreground service during long builds.
+
+## Earlier: 0.5.0 — GitHub support and full ChatGPT model catalog — 1 October 2026
 
 User's phone report on 0.4.2: "the codes are working", ready to code; asked for GitHub support, for all ChatGPT models (named "Soul 6.16", "Luna 6") and for a bypass to use the Google AI subscription. **The bypass was declined:** it would breach Google's terms and risk suspension of the user's Google account. The Gemini AI Studio key route remains.
 

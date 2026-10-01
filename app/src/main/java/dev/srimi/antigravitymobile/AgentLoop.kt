@@ -12,6 +12,8 @@ interface ToolHost {
     fun requiresApproval(name: String): Boolean
     suspend fun describe(call: AgentItem.ToolCall): ToolPreview
     suspend fun execute(call: AgentItem.ToolCall): String
+    /** Called when the user declines an approval, so prepared work can be released. */
+    suspend fun declined(call: AgentItem.ToolCall) {}
 }
 
 fun interface ApprovalGate { suspend fun approve(call: AgentItem.ToolCall, preview: ToolPreview): Boolean }
@@ -72,6 +74,7 @@ class AgentOrchestrator(
         }
         if (tools.requiresApproval(call.name) && !approvals.approve(call, preview)) {
             val output = "The user declined this action. Do not retry it unless the user asks."
+            tools.declined(call)
             listener.onToolFinished(call, preview, "DECLINED", output)
             return output
         }
@@ -90,7 +93,9 @@ class AgentOrchestrator(
         const val MAX_OUTPUT = 60_000
         const val INSTRUCTIONS = "You are the coding agent inside Antigravity Mobile, working in one project stored on the user's Android phone. " +
             "Inspect files with the tools before editing. Every write or delete asks the user for approval and is recorded for review in the Changes screen. " +
-            "You have no shell, compiler, test runner or network tool, so you cannot build or run anything; never claim that you did. " +
+            "You can build Android Gradle projects on the phone with build_project (for example :app:assembleDebug, or :app:testDebugUnitTest " +
+            "to run unit tests) and install the resulting APK with install_apk; both need the user's approval and building takes minutes. " +
+            "Read the build log in the result and fix errors yourself. There is no general shell or network tool; never claim results you did not get from a tool. " +
             "Paths are relative to the project root. Keep edits focused, write complete file contents with write_file, " +
             "and finish with a short summary of what changed and what the user should check."
     }

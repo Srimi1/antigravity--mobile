@@ -76,7 +76,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (state.messages.isEmpty() && state.streaming.isEmpty()) item {
                 EmptyState("Ask for a change", "For example: \"Add a settings screen\" or \"Explain how MainActivity works\". " +
-                    "The agent can read and search files; every write needs your approval and lands in Changes for review. It cannot build or run code.")
+                    "The agent can read and search files; every write needs your approval and lands in Changes for review. With your approval it can also build the app on this phone and open the installer.")
             }
             items(state.messages, key = { it.id }) { MessageBubble(it) }
             if (state.streaming.isNotEmpty()) item(key = "streaming") {

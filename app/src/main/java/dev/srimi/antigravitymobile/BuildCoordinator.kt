@@ -32,6 +32,7 @@ class BuildCoordinator(private val context: Context, private val dao: BuildDao,
                 "Project snapshot prepared", hash, System.currentTimeMillis()).also { dao.save(it) }
         } catch (error: Exception) { target.delete(); throw error }
     }
+    suspend fun find(id: String): BuildRecord? = dao.find(id)
     suspend fun decline(id: String) {
         val record = dao.find(id) ?: return
         check(record.status == "AWAITING_APPROVAL")
