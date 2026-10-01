@@ -1,5 +1,9 @@
 # Subscription evidence — 2026-09-30 (updated 2026-10-01)
 
+## Claude via Anthropic API key — 1 October 2026 (0.5.2)
+
+Added at the user's explicit request after being told it is billed per use and is not their Claude Pro/Max subscription. Implementation uses the official Anthropic Java SDK. Verified only against a local mock server and with a fake key (real HTTP 401 from Anthropic on an Android emulator). **No real key or paid request has been run.** Claude Pro/Max subscription access remains BLOCKED.
+
 ## Physical phone report — 1 October 2026 (0.4.2)
 
 User reported the app working on the phone and was ready to start coding. They asked for more ChatGPT models; per-provider request outcomes were not itemised. Request to bypass Google's subscription restrictions was declined (terms of service, account-suspension risk).

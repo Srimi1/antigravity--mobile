@@ -11,6 +11,7 @@ Versions **0.3.0, 0.4.0 and 0.4.1** embed a companion "Antigravity Build Tools" 
 | Android SDK platform and build-tools Java data (android.jar, d8/R8 and related jars) | 36 | Android Software Development Kit License Agreement and the Apache-2.0 notices of their AOSP sources | https://developer.android.com/studio/terms ; https://android.googlesource.com |
 | Kotlin compiler and standard library | 2.1.21 | Apache-2.0 | https://github.com/JetBrains/kotlin |
 | AndroidX, Jetpack Compose, Room, WebKit | per `gradle/libs` / build files | Apache-2.0 | https://android.googlesource.com/platform/frameworks/support |
+| Anthropic Java SDK (`com.anthropic:anthropic-java`) and Jackson | 2.34.0 / 2.18 | MIT (SDK); Apache-2.0 (Jackson) | https://github.com/anthropics/anthropic-sdk-java ; https://github.com/FasterXML/jackson |
 | Eclipse JGit | 5.13.5 | Eclipse Distribution License 1.0 (BSD-3-Clause) | https://github.com/eclipse-jgit/jgit |
 
 Upstream licence files shipped with the runtime are kept inside the companion APK's runtime archive.

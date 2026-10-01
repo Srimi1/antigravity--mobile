@@ -101,6 +101,9 @@ data class AccountsState(
     val geminiModels: List<String> = emptyList(),
     val geminiModel: String? = null,
     val geminiOutput: String = "",
+    val claudeModels: List<ClaudeModel> = emptyList(),
+    val claudeModel: String? = null,
+    val claudeOutput: String = "",
 )
 
 class AccountsViewModel(application: Application) : AndroidViewModel(application) {
@@ -116,12 +119,12 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
             val snapshot = withContext(Dispatchers.IO) {
                 val credentials = services.gitCredentials
                 state.value.copy(accounts = services.accountStates(), preferredModel = services.chatgpt.preferredModel,
-                    geminiModel = services.gemini.preferredModel, agentProvider = services.agentProvider,
+                    geminiModel = services.gemini.preferredModel, claudeModel = services.claude.preferredModel, agentProvider = services.agentProvider,
                     gitUser = credentials?.username.orEmpty(), hasGitToken = credentials?.token?.isNotEmpty() == true,
                     authorName = services.authorName, authorEmail = services.authorEmail)
             }
             mutable.update { snapshot.copy(busy = it.busy, output = it.output, message = it.message, models = it.models,
-                geminiModels = it.geminiModels, geminiOutput = it.geminiOutput) }
+                geminiModels = it.geminiModels, geminiOutput = it.geminiOutput, claudeModels = it.claudeModels, claudeOutput = it.claudeOutput) }
         }
     }
     fun dismissMessage() = mutable.update { it.copy(message = null) }
@@ -135,7 +138,37 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
             refresh()
         }
     }
-    fun cancel() { services.chatgpt.cancel(); services.gemini.cancel(); job?.cancel() }
+    fun cancel() { services.chatgpt.cancel(); services.gemini.cancel(); services.claude.cancel(); job?.cancel() }
+
+    fun saveClaudeKey(key: String) = run("Check Claude key") {
+        val models = services.claude.saveKey(key)
+        mutable.update { it.copy(claudeModels = models) }
+        "Key accepted by Anthropic and saved in Keystore-encrypted storage. ${models.size} Claude model(s) available. Choose \"Use for Agent\" to use it."
+    }
+    fun removeClaudeKey() = run("Remove Claude key") {
+        services.claude.removeKey()
+        if (services.agentProvider == ProviderId.CLAUDE_KEY) services.agentProvider = ProviderId.CHATGPT
+        mutable.update { it.copy(claudeModels = emptyList()) }
+        "Claude key removed from this phone. You can also delete it at console.anthropic.com."
+    }
+    fun loadClaudeModels() = run("Load Claude models") {
+        val models = services.claude.listModels(); mutable.update { it.copy(claudeModels = models) }
+        "${models.size} Claude model(s) available"
+    }
+    fun chooseClaudeModel(model: String?) { services.claude.preferredModel = model; refresh() }
+    fun verifyClaude() = run("Claude test request") {
+        mutable.update { it.copy(claudeOutput = "") }
+        var completed = false
+        services.claude.streamAgentTurn(AgentRequest("", listOf(AgentItem.User("Reply with the single word: ready")), emptyList())).collect { event ->
+            when (event) {
+                is ProviderEvent.Text -> mutable.update { it.copy(claudeOutput = (it.claudeOutput + event.delta).takeLast(2000)) }
+                ProviderEvent.Completed -> completed = true
+                is ProviderEvent.Item -> Unit
+            }
+        }
+        check(completed) { "The response did not complete" }
+        "Claude answered using your Anthropic API key (billed to your Console account)."
+    }
 
     fun useForAgent(provider: ProviderId) { services.agentProvider = provider; refresh() }
     fun saveGeminiKey(key: String) = run("Check Gemini key") {

@@ -10,7 +10,7 @@ For agents continuing this project, read [AGENTS.md](AGENTS.md) and the [saved c
 
 A native Kotlin/Compose coding app for one Android phone: open or clone a repository, ask an agent for changes, review every edit, and commit locally.
 
-**Status:** Latest release **0.5.1**: the Agent can now build your Android project on the phone and open the installer, with your approval ([phone test](docs/PHONE_TEST_0.5.1.md)). 0.5.0 added GitHub (token sign-in, your repositories, branches, push, pull requests, publish); 0.4.2 added Gemini through a Google AI Studio key. The app runs on the owner's OnePlus 7 Pro. Not complete: Claude is blocked, Google AI subscriptions cannot be used by third-party apps, websites are static only, and there is no general shell. All versions are on the [releases page](https://github.com/Srimi1/antigravity--mobile/releases). See the [checkpoint](docs/PROJECT_CHECKPOINT.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+**Status:** Latest release **0.5.2** adds Claude with your own Anthropic API key (paid per use; [phone test](docs/PHONE_TEST_0.5.2.md)). **0.5.1**: the Agent can now build your Android project on the phone and open the installer, with your approval ([phone test](docs/PHONE_TEST_0.5.1.md)). 0.5.0 added GitHub (token sign-in, your repositories, branches, push, pull requests, publish); 0.4.2 added Gemini through a Google AI Studio key. The app runs on the owner's OnePlus 7 Pro. Not complete: Claude Pro/Max and Google AI subscriptions cannot be used by third-party apps, websites are static only, and there is no general shell. All versions are on the [releases page](https://github.com/Srimi1/antigravity--mobile/releases). See the [checkpoint](docs/PROJECT_CHECKPOINT.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Version 0.1.2 includes the original adaptive launcher icon, round launcher support and an Android 13+ themed-icon silhouette. The repository artwork and icon sources are in [assets/branding](assets/branding/README.md).
 
@@ -24,7 +24,7 @@ Version 0.1.2 includes the original adaptive launcher icon, round launcher suppo
 - **Changes:** every agent task becomes a change set with diffs. Keep it, revert it (refused if you edited the file afterwards), and commit only accepted files.
 - **Websites:** start from the Hello Web template, edit and save, choose a folder and HTML entry (for example `dist/index.html`), approve a one-use copy, preview it with reload and console in the separate tools app (HTTP, file and content requests blocked), and export the folder as a ZIP. Static sites only.
 - **Build:** installs a bundled companion toolchain, prepares a source snapshot for approval, runs Gradle locally in a separate foreground worker, tracks cancellation/recovery and transfers built APKs to Android’s installer. Device diagnostics remain available.
-- **Accounts:** ChatGPT sign-in, test request, renewal, model choice and disconnect. Gemini with your own Google AI Studio API key. Choose which one the Agent uses. Git commit author and an encrypted HTTPS token for private repos and push.
+- **Accounts:** ChatGPT sign-in, test request, renewal, model choice and disconnect. Gemini with your own Google AI Studio API key; Claude with your own Anthropic API key (paid per use). Choose which one the Agent uses. Git commit author and an encrypted HTTPS token for private repos and push.
 
 ## What is still blocked
 

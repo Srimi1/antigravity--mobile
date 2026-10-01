@@ -33,12 +33,15 @@ class AppContainer(context: Context) {
     val git = GitService(File(app.noBackupFilesDir, "git-home"))
     val chatgpt = ChatGptProbeAdapter(app)
     val gemini = GeminiAdapter(app)
+    val claude = ClaudeAdapter(app)
     /** Which connected provider the Agent uses. Each provider is used only when the user picked it. */
     var agentProvider: ProviderId
         get() = runCatching { ProviderId.valueOf(prefs.getString("agentProvider", ProviderId.CHATGPT.name)!!) }.getOrDefault(ProviderId.CHATGPT)
         set(value) { prefs.edit().putString("agentProvider", value.name).apply() }
-    fun agentModel(provider: ProviderId = agentProvider): AgentModel = if (provider == ProviderId.GEMINI) gemini else chatgpt
-    fun agentAccount(provider: ProviderId = agentProvider): AccountState = if (provider == ProviderId.GEMINI) gemini.accountState() else chatgpt.accountState()
+    fun agentModel(provider: ProviderId = agentProvider): AgentModel = when (provider) {
+        ProviderId.GEMINI -> gemini; ProviderId.CLAUDE_KEY -> claude; else -> chatgpt }
+    fun agentAccount(provider: ProviderId = agentProvider): AccountState = when (provider) {
+        ProviderId.GEMINI -> gemini.accountState(); ProviderId.CLAUDE_KEY -> claude.accountState(); else -> chatgpt.accountState() }
     val builds = BuildCoordinator(app, database.builds(), projects, scope)
     val websites = WebsiteService(File(app.filesDir, "website-copies"))
     private val checkpointRoot = File(app.filesDir, "checkpoints")
@@ -75,7 +78,7 @@ class AppContainer(context: Context) {
 
     fun workspace(project: ProjectRecord) = WorkspaceService(projects.directory(project), checkpointRoot)
 
-    fun accountStates(): List<AccountState> = listOf(chatgpt.accountState(), gemini.accountState(), ProviderPolicy.claude, ProviderPolicy.google)
+    fun accountStates(): List<AccountState> = listOf(chatgpt.accountState(), gemini.accountState(), claude.accountState(), ProviderPolicy.claude, ProviderPolicy.google)
 
     var gitCredentials: GitCredentials?
         get() = try { gitCredentialStore.read()?.let { GitCredentials(it.optString("username"), it.getString("token")) } } catch (_: Exception) { null }

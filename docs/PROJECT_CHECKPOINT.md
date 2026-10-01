@@ -4,7 +4,17 @@ Last updated **1 October 2026** (0.4.1 private phone-test build; signed upgrade 
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## Latest: 0.5.1 — Agent can build and install on the phone — 1 October 2026
+## Latest: 0.5.2 — Claude via the user's Anthropic API key — 1 October 2026
+
+User asked why there was no Claude API key option. Explained that an Anthropic API key is billed per use and is separate from a Claude Pro/Max subscription; the user chose to add it.
+
+- **0.5.2/code 11:** `ClaudeAdapter` (Keystore-encrypted key, model choice, test request, account state) over `ClaudeEngine`, built on the **official `com.anthropic:anthropic-java:2.34.0` SDK** (beta Messages streaming via `BetaMessageAccumulator`; client tools from our JSON schemas; assistant turns replayed verbatim with `BetaContentBlock.toParam()` so thinking signatures survive; server-side refusal fallback `fallbacks: "default"` with `server-side-fallback-2026-07-01`; effort `medium`; default model `claude-opus-5-5`; refusal and `max_tokens` stops reported; errors reduced to Anthropic's message with keys redacted). Accounts shows a red per-use cost warning; Agent can select Claude. The Claude Pro/Max subscription card stays BLOCKED. AGENTS.md boundary updated for the approved exception.
+- **Tests:** `./tools/build.sh` passed — **78 JVM tests** (4 in `ClaudeEngineTest` with OkHttp MockWebServer speaking the Messages SSE format: text deltas, tool call, thinking + signature replayed unchanged with tool_result in the next request, request headers/body including fallback beta and effort, refusal, 401 without key leakage, model ordering), release lint, signed `dist/antigravity-mobile-0.5.2.apk`, 305,254,448 bytes, SHA-256 `3c80020f653478c062dd46867b44d29963623814c2e69f259c06c8b67c2ca7db` (SDK adds ~18 MB). On the OnePlus-like emulator, 0.5.1→0.5.2 installed, the Claude card rendered, and a fake key reached Anthropic through the SDK on Android and showed `HTTP 401 — API key is invalid` (before the message clean-up). The device instrumentation suite was not rerun for 0.5.2 (no device-side code paths changed beyond the new provider). **No real key or paid request was used.**
+- First test-run attempt was interrupted when the host app quit; the SDK's model auto-pager also hung against the mock server, so listing now uses one page with `limit=1000`.
+
+**Next:** user runs [PHONE_TEST_0.5.2.md](PHONE_TEST_0.5.2.md) with their own key.
+
+## Earlier: 0.5.1 — Agent can build and install on the phone — 1 October 2026
 
 User reported that the Agent said it could not build or install the APK because "the environment has no build or device tools" (it only had file tools and its instructions said so).
 

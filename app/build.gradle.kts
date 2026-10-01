@@ -15,8 +15,8 @@ android {
         applicationId = "dev.srimi.antigravitymobile.probe"
         minSdk = 29
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.5.1"
+        versionCode = 11
+        versionName = "0.5.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a") }
     }
@@ -104,11 +104,13 @@ dependencies {
     kapt("androidx.room:room-compiler:2.7.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.anthropic:anthropic-java:2.34.0")
     implementation("com.nimbusds:nimbus-jose-jwt:9.37.3")
     implementation("androidx.core:core-ktx:1.16.0")
     // Pure-Java Git; 5.13 is the last line built for Java 8 APIs available on Android 10.
     implementation("org.eclipse.jgit:org.eclipse.jgit:5.13.5.202508271544-r")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     // Real org.json for JVM tests; Android's copy is a stub there.
     testImplementation("org.json:json:20250517")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")

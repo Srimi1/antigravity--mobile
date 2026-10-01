@@ -33,12 +33,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
             SectionCard(account.provider.label) {
                 StatusChip(account.status.name.lowercase(), account.status.name)
                 Text(account.detail)
-                if (account.provider in setOf(ProviderId.CHATGPT, ProviderId.GEMINI) && account.status != AccountStatus.DISCONNECTED)
+                if (account.provider in setOf(ProviderId.CHATGPT, ProviderId.GEMINI, ProviderId.CLAUDE_KEY) && account.status != AccountStatus.DISCONNECTED)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = state.agentProvider == account.provider, onClick = { model.useForAgent(account.provider) }, enabled = idle)
                         Text(if (state.agentProvider == account.provider) "Agent uses this account" else "Use for Agent")
                     }
                 if (account.provider == ProviderId.GEMINI) GeminiSettings(state, model, idle, account)
+                if (account.provider == ProviderId.CLAUDE_KEY) ClaudeSettings(state, model, idle, account)
                 if (account.provider == ProviderId.CHATGPT) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { model.connectChatGpt { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } },
@@ -124,6 +125,42 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
         "Usage is billed only if you enable billing on the key's Google Cloud project.", style = MaterialTheme.typography.bodySmall)
     if (removing) ConfirmDialog("Remove Gemini key?", "The key is erased from this phone. It stays valid at Google until you delete it in AI Studio.",
         "Remove", onDismiss = { removing = false }) { removing = false; model.removeGeminiKey() }
+}
+
+@Composable private fun ClaudeSettings(state: AccountsState, model: AccountsViewModel, idle: Boolean, account: AccountState) {
+    var key by remember { mutableStateOf("") }
+    var removing by remember { mutableStateOf(false) }
+    Text("Paid per use: every Agent message is billed to your Anthropic Console credits, separately from any Claude Pro/Max " +
+        "subscription. A coding task can cost from a few cents to a dollar or more. Set a spend limit in the Console.",
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+    if (account.status == AccountStatus.DISCONNECTED) OpenLink("Get a key at console.anthropic.com", "https://console.anthropic.com/settings/keys")
+    OutlinedTextField(key, { key = it }, label = { Text(if (account.status == AccountStatus.DISCONNECTED) "Anthropic API key (sk-ant-…)" else "Replace API key") },
+        singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = { model.saveClaudeKey(key); key = "" }, enabled = idle && key.isNotBlank()) { Text("Check and save") }
+        if (account.status != AccountStatus.DISCONNECTED) OutlinedButton(onClick = model::verifyClaude, enabled = idle) { Text("Test request") }
+    }
+    if (account.status != AccountStatus.DISCONNECTED) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = model::loadClaudeModels, enabled = idle) { Text("Models") }
+            OutlinedButton(onClick = { removing = true }, enabled = idle) { Text("Remove key") }
+        }
+        Text("Model: ${state.claudeModel ?: "${ClaudeAdapter.DEFAULT_MODEL} (default)"}", style = MaterialTheme.typography.bodySmall)
+        if (state.claudeModels.isNotEmpty()) Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = state.claudeModel == null, onClick = { model.chooseClaudeModel(null) }); Text("Default (${ClaudeAdapter.DEFAULT_MODEL})")
+            }
+            state.claudeModels.forEach { item ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = state.claudeModel == item.id, onClick = { model.chooseClaudeModel(item.id) })
+                    Column { Text(item.displayName); Text(item.id, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) }
+                }
+            }
+        }
+        if (state.claudeOutput.isNotBlank()) Text("Response: ${state.claudeOutput}", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+    }
+    if (removing) ConfirmDialog("Remove Claude key?", "The key is erased from this phone. It stays valid at Anthropic until you delete it in the Console.",
+        "Remove", onDismiss = { removing = false }) { removing = false; model.removeClaudeKey() }
 }
 
 @Composable private fun GitSettings(state: AccountsState, model: AccountsViewModel, idle: Boolean) {

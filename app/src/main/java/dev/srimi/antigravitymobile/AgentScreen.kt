@@ -61,14 +61,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
             }
         }
         Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StatusChip("${if (account?.provider == ProviderId.GEMINI) "Gemini" else "ChatGPT"} ${account?.status?.name?.lowercase() ?: "…"}",
+            StatusChip("${when (account?.provider) { ProviderId.GEMINI -> "Gemini"; ProviderId.CLAUDE_KEY -> "Claude"; else -> "ChatGPT" }} ${account?.status?.name?.lowercase() ?: "…"}",
                 account?.status?.name ?: "UNVERIFIED")
-            StatusChip("Claude blocked", "BLOCKED")
         }
         if (!usable) Card(Modifier.fillMaxWidth().padding(12.dp)) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(account?.detail ?: "Checking account…")
-                Text("Connect ChatGPT, or add a Gemini API key from Google AI Studio, then choose which one the Agent uses in Accounts.",
+                Text("Connect ChatGPT, or add a Gemini (Google AI Studio) or Claude (Anthropic) API key, then choose which one the Agent uses in Accounts.",
                     style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = onOpenAccounts) { Text("Open Accounts") }
             }

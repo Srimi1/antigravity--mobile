@@ -163,7 +163,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
 
     fun stop() {
         approvalAnswer?.complete(false)
-        services.chatgpt.cancel(); services.gemini.cancel()
+        services.chatgpt.cancel(); services.gemini.cancel(); services.claude.cancel()
         job?.cancel()
     }
 
