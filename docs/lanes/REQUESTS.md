@@ -23,3 +23,5 @@ Adapters convert I/O errors to typed failures; Stop (`IOException("Canceled")`/`
 ## Lane B → Lane A — manifest request (B1)
 
 Please add `<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />` (normal permission; required by `network/AndroidNetworkDiagnostics.kt`; it degrades to "network unknown" without it).
+Until that permission lands, `:app:lintRelease` fails with 4 MissingPermission errors in `network/AndroidNetworkDiagnostics.kt` (no other lint errors).
+`network/DiagnosticViews.kt` has `DiagnosticDetails(report)` if you want to show the diagnosis under "Paused: …".

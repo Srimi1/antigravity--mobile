@@ -55,3 +55,14 @@ class DiagnosisRulesTest {
         assertEquals("Retry the request.", DiagnosisRules.explain(healthy.copy(networkChanges = 2)).recovery)
     }
 }
+
+class NetworkHostsTest {
+    @Test fun normalizeKeepsOnlyTheHostname() {
+        assertEquals("api.openai.com", NetworkHosts.normalize("https://api.openai.com/v1/responses?key=secret"))
+        assertEquals("example.com", NetworkHosts.normalize("user:pass@Example.com:8443/x"))
+        assertEquals("api.groq.com", NetworkHosts.normalize(" api.groq.com. "))
+        assertNull(NetworkHosts.normalize("not a host"))
+        assertNull(NetworkHosts.normalize(""))
+        assertNull(NetworkHosts.normalize("bad_host.com"))
+    }
+}

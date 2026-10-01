@@ -104,6 +104,8 @@ data class AccountsState(
     val claudeModels: List<ClaudeModel> = emptyList(),
     val claudeModel: String? = null,
     val claudeOutput: String = "",
+    /** Latest network diagnosis: from a provider failure or from the user's network check. Credential-free. */
+    val diagnostic: dev.srimi.antigravitymobile.providers.DiagnosticReport? = null,
 )
 
 class AccountsViewModel(application: Application) : AndroidViewModel(application) {
@@ -124,7 +126,8 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
                     authorName = services.authorName, authorEmail = services.authorEmail)
             }
             mutable.update { snapshot.copy(busy = it.busy, output = it.output, message = it.message, models = it.models,
-                geminiModels = it.geminiModels, geminiOutput = it.geminiOutput, claudeModels = it.claudeModels, claudeOutput = it.claudeOutput) }
+                geminiModels = it.geminiModels, geminiOutput = it.geminiOutput, claudeModels = it.claudeModels, claudeOutput = it.claudeOutput,
+                diagnostic = it.diagnostic) }
         }
     }
     fun dismissMessage() = mutable.update { it.copy(message = null) }
@@ -133,7 +136,10 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
         if (state.value.busy != null) return
         mutable.update { it.copy(busy = label, message = null) }
         job = viewModelScope.launch {
-            val message = try { block() } catch (_: CancellationException) { "$label stopped" } catch (error: Exception) { "$label failed: ${friendly(error)}" }
+            val message = try { block() } catch (_: CancellationException) { "$label stopped" } catch (error: Exception) {
+                (error as? dev.srimi.antigravitymobile.providers.ProviderFailure)?.diagnostic?.let { report -> mutable.update { it.copy(diagnostic = report) } }
+                "$label failed: ${friendly(error)}"
+            }
             mutable.update { it.copy(busy = null, message = message) }
             refresh()
         }
@@ -171,6 +177,15 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun useForAgent(provider: ProviderId) { services.agentProvider = provider; refresh() }
+
+    /** Credential-free reachability check of [input] (a hostname or URL; only the hostname is used). */
+    fun checkNetwork(input: String) = run("Network check") {
+        val host = dev.srimi.antigravitymobile.network.NetworkHosts.normalize(input) ?: error("Enter a hostname such as api.openai.com")
+        val report = dev.srimi.antigravitymobile.network.AndroidNetworkDiagnostics.shared(getApplication()).diagnose(host)
+        mutable.update { it.copy(diagnostic = report) }
+        if (report.failedStage == null) "Network check passed for $host" else "Network check found a problem reaching $host"
+    }
+    fun dismissDiagnostic() = mutable.update { it.copy(diagnostic = null) }
     fun saveGeminiKey(key: String) = run("Check Gemini key") {
         val models = services.gemini.saveKey(key)
         mutable.update { it.copy(geminiModels = models) }

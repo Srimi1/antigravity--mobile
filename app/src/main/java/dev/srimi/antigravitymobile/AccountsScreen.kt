@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.srimi.antigravitymobile.network.DiagnosticDetails
 
 @Composable fun AccountsScreen(model: AccountsViewModel, notify: (String) -> Unit) {
     val state by model.state.collectAsStateWithLifecycle()
@@ -81,10 +82,32 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
             }
         }
 
+        NetworkCheck(state, model, idle)
         GitSettings(state, model, idle)
     }
     if (disconnecting) ConfirmDialog("Disconnect ChatGPT?", "Local tokens are erased and the app asks OpenAI to revoke the session.",
         "Disconnect", onDismiss = { disconnecting = false }) { model.disconnect() }
+}
+
+@Composable private fun NetworkCheck(state: AccountsState, model: AccountsViewModel, idle: Boolean) {
+    var host by remember { mutableStateOf("") }
+    SectionCard("Network check") {
+        Text("Checks whether this phone can reach a provider on the current network (DNS, connection and secure TLS). " +
+            "No account details are sent. Run it on Wi-Fi and on mobile data to compare.", style = MaterialTheme.typography.bodySmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("OpenAI" to "api.openai.com", "Google" to "generativelanguage.googleapis.com", "Anthropic" to "api.anthropic.com").forEach { (label, target) ->
+                OutlinedButton(onClick = { model.checkNetwork(target) }, enabled = idle) { Text(label) }
+            }
+        }
+        OutlinedTextField(host, { host = it }, label = { Text("Other hostname or URL") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        Button(onClick = { model.checkNetwork(host) }, enabled = idle && host.isNotBlank()) { Text("Check") }
+        state.diagnostic?.let { report ->
+            HorizontalDivider()
+            StatusChip(if (report.failedStage == null) "reachable" else "problem", if (report.failedStage == null) "PASSED" else "FAILED")
+            DiagnosticDetails(report)
+            TextButton(onClick = model::dismissDiagnostic) { Text("Clear") }
+        }
+    }
 }
 
 @Composable private fun GeminiSettings(state: AccountsState, model: AccountsViewModel, idle: Boolean, account: AccountState) {
