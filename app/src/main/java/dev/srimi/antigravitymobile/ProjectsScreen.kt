@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-private enum class ProjectDialog { CREATE, TEMPLATE, WEBSITE, CLONE, NEW_FILE, NEW_FOLDER, COMMIT, RENAME }
+private enum class ProjectDialog { CREATE, TEMPLATE, WEBSITE, CLONE, GITHUB, BRANCH, PUBLISH, PULL_REQUEST, NEW_FILE, NEW_FOLDER, COMMIT, RENAME }
 
 @Composable fun ProjectsScreen(model: ProjectsViewModel, notify: (String) -> Unit) {
     val state by model.state.collectAsStateWithLifecycle()
@@ -41,7 +41,7 @@ private enum class ProjectDialog { CREATE, TEMPLATE, WEBSITE, CLONE, NEW_FILE, N
         when {
             project == null -> ProjectList(state, model, onCreate = { dialog = ProjectDialog.CREATE },
                 onTemplate = { dialog = ProjectDialog.TEMPLATE }, onClone = { dialog = ProjectDialog.CLONE },
-                onWebsite = { dialog = ProjectDialog.WEBSITE }, onImport = { importer.launch(null) })
+                onWebsite = { dialog = ProjectDialog.WEBSITE }, onGitHub = { dialog = ProjectDialog.GITHUB }, onImport = { importer.launch(null) })
             editor != null -> Editor(editor, model, state.busy != null)
             else -> ProjectDetail(state, project, model, onDialog = { dialog = it },
                 onExport = { git -> includeGit = git; exporter.launch("${project.name}.zip") },
@@ -59,6 +59,10 @@ private enum class ProjectDialog { CREATE, TEMPLATE, WEBSITE, CLONE, NEW_FILE, N
         ProjectDialog.WEBSITE -> TextPromptDialog("New website", "Name", "Create", initial = "Hello Web", onDismiss = { dialog = null }) { name, _ ->
             dialog = null; model.createWebsite(name)
         }
+        ProjectDialog.GITHUB -> GitHubRepoPicker(state, model, onDismiss = { dialog = null })
+        ProjectDialog.BRANCH -> state.git?.let { BranchDialog(it, model, onDismiss = { dialog = null }) }
+        ProjectDialog.PUBLISH -> PublishDialog(state.selected?.name.orEmpty(), model, onDismiss = { dialog = null })
+        ProjectDialog.PULL_REQUEST -> PullRequestDialog(state.git?.status?.branch.orEmpty(), model, onDismiss = { dialog = null })
         ProjectDialog.CLONE -> TextPromptDialog("Clone repository", "HTTPS URL", "Clone", secondLabel = "Project name (optional)",
             onDismiss = { dialog = null }) { url, name -> dialog = null; model.clone(url, name) }
         ProjectDialog.NEW_FILE -> TextPromptDialog("New file", "File name or relative path", "Create", onDismiss = { dialog = null }) { name, _ ->
@@ -78,7 +82,7 @@ private enum class ProjectDialog { CREATE, TEMPLATE, WEBSITE, CLONE, NEW_FILE, N
 }
 
 @Composable private fun ProjectList(state: ProjectsState, model: ProjectsViewModel, onCreate: () -> Unit, onTemplate: () -> Unit,
-                                    onClone: () -> Unit, onWebsite: () -> Unit, onImport: () -> Unit) {
+                                    onClone: () -> Unit, onWebsite: () -> Unit, onGitHub: () -> Unit, onImport: () -> Unit) {
     var deleting by remember { mutableStateOf<ProjectRecord?>(null) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
@@ -96,7 +100,10 @@ private enum class ProjectDialog { CREATE, TEMPLATE, WEBSITE, CLONE, NEW_FILE, N
                 OutlinedButton(onClick = onImport, enabled = state.busy == null, modifier = Modifier.weight(1f)) { Text("Import folder") }
                 OutlinedButton(onClick = onTemplate, enabled = state.busy == null, modifier = Modifier.weight(1f)) { Text("Compose app") }
             }
-            OutlinedButton(onClick = onWebsite, enabled = state.busy == null, modifier = Modifier.fillMaxWidth()) { Text("Website") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onGitHub, enabled = state.busy == null, modifier = Modifier.weight(1f)) { Text("From GitHub") }
+                OutlinedButton(onClick = onWebsite, enabled = state.busy == null, modifier = Modifier.weight(1f)) { Text("Website") }
+            }
         }
         if (state.projects.isEmpty()) item {
             EmptyState("No projects yet", "Create one, clone an HTTPS repository or import a folder to start.")
@@ -231,17 +238,25 @@ private fun size(bytes: Long) = when { bytes < 1024 -> "$bytes B"; bytes < 1024 
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { onDialog(ProjectDialog.COMMIT) }, enabled = state.busy == null && status?.clean == false) { Text("Commit all") }
+                        OutlinedButton(onClick = { onDialog(ProjectDialog.BRANCH) }, enabled = state.busy == null) { Text("Branch") }
                         OutlinedButton(onClick = model::refreshGit) { Text("Refresh") }
                     }
                     Text("Agent edits are best committed from Changes after review, so only accepted files are included.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (git.remote != null) SectionCard("Remote") {
-                    Text("Uses the HTTPS token saved in Accounts, if any.", style = MaterialTheme.typography.bodySmall)
+                if (git.remote != null) SectionCard(if (git.gitHubRepo != null) "GitHub · ${git.gitHubRepo}" else "Remote") {
+                    Text("Uses the GitHub token saved in Accounts, if any.", style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = model::pull, enabled = state.busy == null) { Text("Pull") }
                         OutlinedButton(onClick = model::push, enabled = state.busy == null) { Text("Push") }
+                        if (git.gitHubRepo != null) Button(onClick = { onDialog(ProjectDialog.PULL_REQUEST) }, enabled = state.busy == null) { Text("Pull request") }
                     }
+                    git.gitHubRepo?.let { OpenLink("Open on GitHub", "https://github.com/$it") }
+                    state.lastPullRequest?.let { OpenLink("View pull request", it) }
+                } else SectionCard("GitHub") {
+                    Text("This project is only on this phone. Publish it to a new repository on your GitHub account.", style = MaterialTheme.typography.bodySmall)
+                    Button(onClick = { onDialog(ProjectDialog.PUBLISH) }, enabled = state.busy == null && git.log.isNotEmpty()) { Text("Publish to GitHub") }
+                    if (git.log.isEmpty()) Text("Commit first.", style = MaterialTheme.typography.bodySmall)
                 }
                 SectionCard("History") {
                     if (git.log.isEmpty()) Text("No commits yet")

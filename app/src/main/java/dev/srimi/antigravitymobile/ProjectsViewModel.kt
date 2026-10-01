@@ -15,7 +15,10 @@ import java.io.File
 data class EditorState(val path: String, val original: String, val text: String, val readOnly: Boolean, val note: String? = null) {
     val dirty: Boolean get() = !readOnly && text != original
 }
-data class GitPanel(val isRepo: Boolean, val status: GitStatus? = null, val log: List<GitCommitInfo> = emptyList(), val remote: String? = null)
+data class GitPanel(val isRepo: Boolean, val status: GitStatus? = null, val log: List<GitCommitInfo> = emptyList(), val remote: String? = null,
+                    val branches: List<String> = emptyList()) {
+    val gitHubRepo: String? get() = GitHubWire.fullName(remote)
+}
 data class ProjectsState(
     val projects: List<ProjectRecord> = emptyList(),
     val selected: ProjectRecord? = null,
@@ -29,6 +32,9 @@ data class ProjectsState(
     val websiteRoot: String = "",
     val websiteEntry: String = "index.html",
     val websiteApproval: WebsiteCopy? = null,
+    val gitHubRepos: List<GitHubRepo> = emptyList(),
+    val gitHubLoading: Boolean = false,
+    val lastPullRequest: String? = null,
 )
 
 class ProjectsViewModel(application: Application) : AndroidViewModel(application) {
@@ -335,7 +341,7 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val panel = withContext(Dispatchers.IO) {
                 if (!services.git.isRepository(dir)) GitPanel(false)
-                else try { GitPanel(true, services.git.status(dir), services.git.log(dir), services.git.remoteUrl(dir)) }
+                else try { GitPanel(true, services.git.status(dir), services.git.log(dir), services.git.remoteUrl(dir), services.git.branches(dir)) }
                 catch (error: Exception) { GitPanel(true).also { mutable.update { s -> s.copy(message = "Git: ${friendly(error)}") } } }
             }
             mutable.update { it.copy(git = panel) }
@@ -355,6 +361,46 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
         val result = services.git.pull(dir() ?: return@operation null, services.gitCredentials?.takeIf { it.token.isNotEmpty() }, { cancelRequested }, ::progress)
         withContext(Dispatchers.Main) { refreshGit(); refreshFiles() }
         "Pull: $result"
+    }
+    fun loadGitHubRepos(query: String) {
+        if (state.value.gitHubLoading) return
+        mutable.update { it.copy(gitHubLoading = true) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching {
+                if (query.isBlank()) { if (services.hasGitCredentials) services.github.repos() else emptyList() } else services.github.search(query.trim())
+            } }
+            mutable.update { it.copy(gitHubLoading = false, gitHubRepos = result.getOrDefault(it.gitHubRepos),
+                message = result.exceptionOrNull()?.let { e -> "GitHub: ${friendly(e)}" }) }
+        }
+    }
+    fun cloneGitHub(repo: GitHubRepo) = clone(repo.cloneUrl, repo.fullName.substringAfter('/'))
+    fun switchBranch(name: String, create: Boolean) = operation(if (create) "Create branch" else "Switch branch") {
+        val branch = services.git.checkout(dir() ?: return@operation null, name, create)
+        withContext(Dispatchers.Main) { refreshGit(); refreshFiles() }
+        if (create) "Created and switched to $branch. Push to publish it." else "Switched to $branch"
+    }
+    fun publishToGitHub(name: String, private: Boolean) = operation("Publish to GitHub") {
+        val dir = dir() ?: return@operation null
+        val credentials = services.gitCredentials?.takeIf { it.token.isNotEmpty() } ?: error("Sign in to GitHub in Accounts first")
+        check(services.git.remoteUrl(dir) == null) { "This project already has a remote" }
+        check(services.git.log(dir, 1).isNotEmpty()) { "Commit at least once before publishing" }
+        val repo = services.github.createRepository(name.trim(), private, "Created with Antigravity Mobile")
+        services.git.setRemote(dir, repo.cloneUrl)
+        services.git.push(dir, credentials, { cancelRequested }, ::progress)
+        withContext(Dispatchers.Main) { refreshGit() }
+        "Published to ${repo.fullName} (${if (repo.private) "private" else "public"})"
+    }
+    fun createPullRequest(title: String, body: String) = operation("Create pull request") {
+        val dir = dir() ?: return@operation null
+        val fullName = GitHubWire.fullName(services.git.remoteUrl(dir)) ?: error("The origin remote is not a GitHub repository")
+        val branch = services.git.status(dir).branch
+        val base = services.github.repository(fullName).defaultBranch
+        check(branch != base) { "Create a branch for your changes first; you are on the default branch $base" }
+        services.git.push(dir, services.gitCredentials?.takeIf { it.token.isNotEmpty() }, { cancelRequested }, ::progress)
+        val pull = services.github.createPullRequest(fullName, branch, base, title.trim().ifEmpty { branch }, body)
+        mutable.update { it.copy(lastPullRequest = pull.url) }
+        withContext(Dispatchers.Main) { refreshGit() }
+        "Opened pull request #${pull.number} from $branch into $base"
     }
     fun push() = operation("Push") {
         val result = services.git.push(dir() ?: return@operation null, services.gitCredentials?.takeIf { it.token.isNotEmpty() }, { cancelRequested }, ::progress)

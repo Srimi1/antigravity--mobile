@@ -156,16 +156,17 @@ class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, Agent
         if (saved.getLong("expires_at") < System.currentTimeMillis() + 60_000) { refresh(); saved = credentials.read()!! }
         return saved.getString("access_token")
     }
-    private fun catalog(access: String): List<String> {
-        val catalog = json(Request.Builder().url("https://api.openai.com/v1/models").header("Authorization", "Bearer $access").build())
-        val models = catalog.getJSONArray("models")
-        return (0 until models.length()).map { models.getJSONObject(it) }
-            .filter { it.optString("visibility") == "list" }.map { it.getString("slug") }
+    private fun catalog(access: String): List<String> = fullCatalog(access).filter { it.listed }.map { it.slug }
+    private fun fullCatalog(access: String): List<ChatModel> =
+        ResponsesWire.catalog(json(Request.Builder().url("https://api.openai.com/v1/models").header("Authorization", "Bearer $access").build()))
+    /** Every model OpenAI's catalog returns for this sign-in, listed ones first. Requires a connected account. */
+    suspend fun listModels(): List<ChatModel> = sessionLock.withLock {
+        withContext(Dispatchers.IO) { fullCatalog(accessToken()).also { all ->
+            cachedModels = System.currentTimeMillis() to all.filter { it.listed }.map { it.slug }
+            allSlugs = all.map { it.slug }.toSet()
+        } }
     }
-    /** Models the account's catalog lists for this client. Requires a connected account. */
-    suspend fun listModels(): List<String> = sessionLock.withLock {
-        withContext(Dispatchers.IO) { catalog(accessToken()).also { cachedModels = System.currentTimeMillis() to it } }
-    }
+    @Volatile private var allSlugs: Set<String> = emptySet()
     var preferredModel: String?
         get() = prefs.getString("model", null)
         set(value) { prefs.edit().apply { if (value == null) remove("model") else putString("model", value) }.apply() }
@@ -178,7 +179,7 @@ class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, Agent
             val access = accessToken()
             val listed = cachedModels?.takeIf { System.currentTimeMillis() - it.first < 10 * 60_000 }?.second
                 ?: catalog(access).also { cachedModels = System.currentTimeMillis() to it }
-            val model = preferredModel?.takeIf { it in listed } ?: listed.firstOrNull()
+            val model = preferredModel?.takeIf { it in listed || it in allSlugs } ?: listed.firstOrNull()
                 ?: error("No eligible model was returned for this account")
             var reasoning = model !in plainModels
             var response = post(access, ResponsesWire.body(model, request, reasoning))

@@ -49,8 +49,19 @@ class ResponsesStreamParser(private val provider: String = ResponsesWire.PROVIDE
     }
 }
 
+data class ChatModel(val slug: String, val displayName: String, val listed: Boolean)
+
 object ResponsesWire {
     const val PROVIDER = "chatgpt"
+
+    /** Parses the model catalog. Models marked `visibility: list` are the ones OpenAI recommends showing. */
+    fun catalog(json: org.json.JSONObject): List<ChatModel> {
+        val models = json.optJSONArray("models") ?: json.optJSONArray("data") ?: JSONArray()
+        return (0 until models.length()).map { models.getJSONObject(it) }.mapNotNull { model ->
+            val slug = model.optString("slug").ifEmpty { model.optString("id") }.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            ChatModel(slug, model.optString("display_name").ifEmpty { slug }, model.optString("visibility", "list") == "list")
+        }.distinctBy { it.slug }.sortedBy { if (it.listed) 0 else 1 }
+    }
 
     /**
      * Handles a successful response that is not labelled as an event stream. Event-stream text is parsed anyway;

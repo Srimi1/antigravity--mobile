@@ -4,7 +4,18 @@ Last updated **1 October 2026** (0.4.1 private phone-test build; signed upgrade 
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## Latest: 0.4.2 — phone-report fixes and Gemini key provider — 1 October 2026
+## Latest: 0.5.0 — GitHub support and full ChatGPT model catalog — 1 October 2026
+
+User's phone report on 0.4.2: "the codes are working", ready to code; asked for GitHub support, for all ChatGPT models (named "Soul 6.16", "Luna 6") and for a bypass to use the Google AI subscription. **The bypass was declined:** it would breach Google's terms and risk suspension of the user's Google account. The Gemini AI Studio key route remains.
+
+- **GitHub (0.5.0/code 9):** `GitHubService`/`GitHubWire` (REST API with the user's personal access token, Keystore-encrypted in the existing Git credential store, verified via `/user`); Accounts GitHub card with a pre-scoped token link (`repo`, `workflow`); Projects **From GitHub** picker (own repositories, or anonymous public search) → one-tap clone; Git tab **Branch** dialog (switch, create, check out remote-only branches with tracking), push of the current branch with upstream tracking, **Pull request** (pushes, opens a PR into the default branch, link to it), **Publish to GitHub** (creates a repository and pushes), **Open on GitHub**. `GitService.branches/checkout/setRemote` added; push now targets the current branch explicitly.
+- **ChatGPT models:** Accounts lists every model OpenAI's catalog returns, with display names; ones not marked `visibility: list` are flagged "may be refused" and can be selected. Models OpenAI does not return cannot be added.
+- **Tests:** `./tools/build.sh` passed — **70 JVM tests** (5 new in `GitHubSupportTest`: remote parsing, token redaction, catalog, real JGit branch/push/tracking/remote-branch checkout against a bare repository), release lint, signed `dist/antigravity-mobile-0.5.0.apk`, SHA-256 `ac991edd5a86f7259452c9701727a841ac7227e5f3d0fc2532891865ff89cefd`. API 36 device suite **20/20**.
+- **Live emulator checks (OnePlus-like AVD, real network):** 0.4.2→0.5.0 kept data; anonymous GitHub search found `octocat/Spoon-Knife`; **real HTTPS clone on Android** succeeded (first device clone evidence); Git tab showed the GitHub repository, remote branches and created/switched to `phone-edit`; pull ran; PR without sign-in showed "Sign in to GitHub in Accounts first"; a fake token got GitHub's real `HTTP 401: Bad credentials`. **No authenticated push/PR/publish was run** (that needs the user's own token; not used by the developer).
+
+**Next:** user follows [PHONE_TEST_0.5.0.md](PHONE_TEST_0.5.0.md) with their token on the phone and reports push/PR results.
+
+## Earlier: 0.4.2 — phone-report fixes and Gemini key provider — 1 October 2026
 
 User's **physical OnePlus 7 Pro** report on 0.4.1 (outcomes in [provider-evidence.md](provider-evidence.md)): ChatGPT sign-in page hung until returning to the app; every ChatGPT request failed "Expected streaming response"; Google unavailable.
 

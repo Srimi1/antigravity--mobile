@@ -1,6 +1,10 @@
 package dev.srimi.antigravitymobile
 
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.api.CreateBranchCommand
+import org.eclipse.jgit.api.ListBranchCommand
+import org.eclipse.jgit.lib.Repository
+import org.eclipse.jgit.transport.RefSpec
 import org.eclipse.jgit.diff.DiffAlgorithm
 import org.eclipse.jgit.diff.DiffFormatter
 import org.eclipse.jgit.diff.RawText
@@ -85,6 +89,36 @@ class GitService(home: File) {
         }
     }
 
+    /** Local branches, then remote-only branches (as `origin/name`). */
+    fun branches(dir: File): List<String> = Git.open(dir).use { git ->
+        val local = git.branchList().call().map { Repository.shortenRefName(it.name) }
+        val remote = git.branchList().setListMode(ListBranchCommand.ListMode.REMOTE).call().map { Repository.shortenRefName(it.name) }
+            .filter { it.startsWith("origin/") && it != "origin/HEAD" && it.removePrefix("origin/") !in local }
+        local.sorted() + remote.sorted()
+    }
+
+    /** Switches branch. Refuses when uncommitted changes would be carried over or lost. */
+    fun checkout(dir: File, name: String, create: Boolean): String = Git.open(dir).use { git ->
+        val target = name.trim()
+        require(Repository.isValidRefName("refs/heads/${target.removePrefix("origin/")}")) { "Invalid branch name" }
+        check(git.status().call().isClean) { "Commit or revert your changes before switching branches" }
+        val local = target.removePrefix("origin/")
+        val exists = git.repository.findRef("refs/heads/$local") != null
+        when {
+            create -> { check(!exists) { "Branch $local already exists" }; git.checkout().setCreateBranch(true).setName(local).call() }
+            exists -> git.checkout().setName(local).call()
+            else -> git.checkout().setCreateBranch(true).setName(local).setStartPoint("origin/$local")
+                .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.TRACK).call()
+        }
+        local
+    }
+
+    fun setRemote(dir: File, url: String) = Git.open(dir).use { git ->
+        require(url.startsWith("https://")) { "Only HTTPS remotes are supported" }
+        git.repository.config.apply { setString("remote", "origin", "url", url)
+            setString("remote", "origin", "fetch", "+refs/heads/*:refs/remotes/origin/*"); save() }
+    }
+
     fun remoteUrl(dir: File): String? = Git.open(dir).use { it.repository.config.getString("remote", "origin", "url") }
 
     fun pull(dir: File, credentials: GitCredentials?, isCancelled: () -> Boolean, progress: (String) -> Unit): String = Git.open(dir).use { git ->
@@ -94,7 +128,14 @@ class GitService(home: File) {
     }
 
     fun push(dir: File, credentials: GitCredentials?, isCancelled: () -> Boolean, progress: (String) -> Unit): String = Git.open(dir).use { git ->
-        val results = git.push().setCredentialsProvider(provider(credentials)).setProgressMonitor(Monitor(isCancelled, progress)).call()
+        val branch = git.repository.branch ?: error("Check out a branch before pushing")
+        val results = git.push().setRemote("origin").setRefSpecs(RefSpec("refs/heads/$branch:refs/heads/$branch"))
+            .setCredentialsProvider(provider(credentials)).setProgressMonitor(Monitor(isCancelled, progress)).call()
+        // Track the pushed branch so later pulls know where to fetch from.
+        git.repository.config.apply {
+            if (getString("branch", branch, "remote") == null) { setString("branch", branch, "remote", "origin")
+                setString("branch", branch, "merge", "refs/heads/$branch"); save() }
+        }
         val updates = results.flatMap { it.remoteUpdates }
         val failed = updates.filter { it.status.name !in setOf("OK", "UP_TO_DATE") }
         check(failed.isEmpty()) { "Push rejected: " + failed.joinToString { "${it.remoteName} ${it.status}" } }

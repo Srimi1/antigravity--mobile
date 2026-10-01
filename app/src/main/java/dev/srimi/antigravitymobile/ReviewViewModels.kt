@@ -88,7 +88,7 @@ class ChangesViewModel(application: Application) : AndroidViewModel(application)
 
 data class AccountsState(
     val accounts: List<AccountState> = emptyList(),
-    val models: List<String> = emptyList(),
+    val models: List<ChatModel> = emptyList(),
     val preferredModel: String? = null,
     val gitUser: String = "",
     val hasGitToken: Boolean = false,
@@ -194,7 +194,8 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     fun loadModels() = run("Load models") {
         val models = services.chatgpt.listModels()
         mutable.update { it.copy(models = models) }
-        if (models.isEmpty()) "No models are listed for this account" else "${models.size} model(s) available"
+        if (models.isEmpty()) "OpenAI returned no models for this sign-in" else
+            "${models.count { it.listed }} recommended and ${models.count { !it.listed }} other model(s) returned by OpenAI"
     }
     fun chooseModel(model: String?) { services.chatgpt.preferredModel = model; refresh() }
 
@@ -202,6 +203,12 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
         require(token.isNotBlank()) { "Enter a token" }
         withContext(Dispatchers.IO) { services.gitCredentials = GitCredentials(user.trim(), token.trim()) }
         "Token saved in Keystore-encrypted storage"
+    }
+    fun signInGitHub(token: String) = run("GitHub sign-in") {
+        val user = withContext(Dispatchers.IO) { services.github.verify(token) }
+        withContext(Dispatchers.IO) { services.gitCredentials = GitCredentials(user.login, token.trim()) }
+        if (services.authorName.isBlank() && user.name.isNotBlank()) services.authorName = user.name
+        "Signed in to GitHub as ${user.login}. Use Projects → From GitHub to open a repository."
     }
     fun clearGitToken() = run("Remove Git token") {
         withContext(Dispatchers.IO) { services.gitCredentials = null }

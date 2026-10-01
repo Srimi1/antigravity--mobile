@@ -1,5 +1,9 @@
 # Subscription evidence — 2026-09-30 (updated 2026-10-01)
 
+## Physical phone report — 1 October 2026 (0.4.2)
+
+User reported the app working on the phone and was ready to start coding. They asked for more ChatGPT models; per-provider request outcomes were not itemised. Request to bypass Google's subscription restrictions was declined (terms of service, account-suspension risk).
+
 ## Physical phone report — 1 October 2026 (0.4.1, user's OnePlus 7 Pro; outcomes only)
 
 - **ChatGPT sign-in:** consent granted in the browser; after "Continue" the callback page kept loading until the user returned to the app, then the app showed connected and listed models. Likely cause: OxygenOS/Android paused the backgrounded app, so its loopback callback server could not answer. 0.4.2 keeps a foreground service running during sign-in and adds a "Return to Antigravity Mobile" link.

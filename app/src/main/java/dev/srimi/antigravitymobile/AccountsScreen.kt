@@ -54,12 +54,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
                         }
                         Text("Model: ${state.preferredModel ?: "first listed for your account"}", style = MaterialTheme.typography.bodySmall)
                         if (state.models.isNotEmpty()) Column {
-                            listOf<String?>(null).plus(state.models).forEach { slug ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(selected = state.preferredModel == null, onClick = { model.chooseModel(null) }); Text("Automatic")
+                            }
+                            state.models.forEach { item ->
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(selected = state.preferredModel == slug, onClick = { model.chooseModel(slug) })
-                                    Text(slug ?: "Automatic", fontFamily = if (slug == null) null else FontFamily.Monospace)
+                                    RadioButton(selected = state.preferredModel == item.slug, onClick = { model.chooseModel(item.slug) })
+                                    Column {
+                                        Text(item.displayName)
+                                        Text(item.slug + if (item.listed) "" else " · not recommended for this sign-in; may be refused",
+                                            fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                                    }
                                 }
                             }
+                            Text("These are all the models OpenAI returns for apps using Sign in with ChatGPT. Models missing here " +
+                                "(even if you see them in the ChatGPT app) are not offered to third-party apps, and Antigravity cannot add them.",
+                                style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     if (state.output.isNotBlank()) Text("Response: ${state.output}", fontFamily = FontFamily.Monospace,
@@ -121,13 +131,32 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
     var email by remember(state.authorEmail) { mutableStateOf(state.authorEmail) }
     var user by remember(state.gitUser) { mutableStateOf(state.gitUser) }
     var token by remember { mutableStateOf("") }
+    var githubToken by remember { mutableStateOf("") }
+    SectionCard("GitHub") {
+        if (state.hasGitToken) {
+            StatusChip("connected", "CONNECTED")
+            Text("Signed in as ${state.gitUser.ifEmpty { "token" }}. Open repositories with Projects → From GitHub; push, branches and pull requests are in each project's Git tab.")
+        } else {
+            Text("1. Create a token on GitHub (the page opens with the needed \"repo\" and \"workflow\" permissions). 2. Copy it and paste it here.",
+                style = MaterialTheme.typography.bodySmall)
+            OpenLink("Create token on GitHub", GitHubWire.TOKEN_PAGE)
+        }
+        OutlinedTextField(githubToken, { githubToken = it }, label = { Text(if (state.hasGitToken) "Replace token" else "GitHub token") }, singleLine = true,
+            visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { model.signInGitHub(githubToken); githubToken = "" }, enabled = idle && githubToken.isNotBlank()) { Text("Sign in") }
+            if (state.hasGitToken) OutlinedButton(onClick = model::clearGitToken, enabled = idle) { Text("Sign out") }
+        }
+        Text("The token stays in Keystore-encrypted storage and is sent only to GitHub. Revoke it any time in GitHub settings.",
+            style = MaterialTheme.typography.bodySmall)
+    }
     SectionCard("Git") {
         Text("Commit author", style = MaterialTheme.typography.labelLarge)
         OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(email, { email = it }, label = { Text("Email") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedButton(onClick = { model.saveAuthor(name, email) }, enabled = idle) { Text("Save author") }
         HorizontalDivider()
-        Text("HTTPS access token for private repositories and push", style = MaterialTheme.typography.labelLarge)
+        Text("Other HTTPS Git hosts (advanced): username and token", style = MaterialTheme.typography.labelLarge)
         Text(if (state.hasGitToken) "A token is saved for user \"${state.gitUser.ifEmpty { "token" }}\"." else "No token saved. Public clones work without one.",
             style = MaterialTheme.typography.bodySmall)
         OutlinedTextField(user, { user = it }, label = { Text("Username") }, singleLine = true, modifier = Modifier.fillMaxWidth())

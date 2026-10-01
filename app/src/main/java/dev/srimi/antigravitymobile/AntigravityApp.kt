@@ -84,6 +84,7 @@ class AppContainer(context: Context) {
             else gitCredentialStore.save(JSONObject().put("username", value.username).put("token", value.token))
         }
     val hasGitCredentials: Boolean get() = gitCredentials?.token?.isNotEmpty() == true
+    val github = GitHubService { gitCredentials?.token }
 
     var authorName: String
         get() = prefs.getString("authorName", "").orEmpty()
