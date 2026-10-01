@@ -2,8 +2,12 @@ package dev.srimi.antigravitymobile.runtime
 
 import dev.srimi.antigravitymobile.providers.ProviderFailure
 
+class ProviderSelectionChanged : Exception()
+
 /** Consume Lane B's classification; never persist raw exception messages, URLs, headers or credentials. */
 fun providerPause(error: Throwable): RuntimePause {
+    if (error is ProviderSelectionChanged) return RuntimePause("selected provider or model changed",
+        "Restore this task's original provider and model in Accounts, then retry this provider.")
     val failure = generateSequence(error) { it.cause }.filterIsInstance<ProviderFailure>().firstOrNull()
         ?: return RuntimePause("the provider reply did not complete", "Check network and selected provider in Accounts, then retry this provider.")
     val recovery = failure.diagnostic?.recovery ?: when (failure) {

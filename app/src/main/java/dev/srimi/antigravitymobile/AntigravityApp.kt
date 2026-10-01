@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.room.Room
 import dev.srimi.antigravitymobile.runtime.NativeAgentTaskRunner
 import dev.srimi.antigravitymobile.runtime.RoomProviderUsageStore
+import dev.srimi.antigravitymobile.providers.CompatProviders
+import dev.srimi.antigravitymobile.providers.ProviderStores
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,14 +39,26 @@ class AppContainer(context: Context, databaseOverride: SessionStore? = null,
     val chatgpt = ChatGptProbeAdapter(app)
     val gemini = GeminiAdapter(app)
     val claude = ClaudeAdapter(app)
+    val compat = CompatProviders.shared(app)
     /** Which connected provider the Agent uses. Each provider is used only when the user picked it. */
     var agentProvider: ProviderId
         get() = runCatching { ProviderId.valueOf(prefs.getString("agentProvider", ProviderId.CHATGPT.name)!!) }.getOrDefault(ProviderId.CHATGPT)
         set(value) { prefs.edit().putString("agentProvider", value.name).apply() }
     fun agentModel(provider: ProviderId = agentProvider): AgentModel = when (provider) {
-        ProviderId.GEMINI -> gemini; ProviderId.CLAUDE_KEY -> claude; else -> chatgpt }
+        ProviderId.CHATGPT -> chatgpt; ProviderId.GEMINI -> gemini; ProviderId.CLAUDE_KEY -> claude
+        ProviderId.OPENAI_COMPAT -> compat
+        ProviderId.CLAUDE, ProviderId.GOOGLE -> error("Selected subscription has no supported Agent route") }
     fun agentAccount(provider: ProviderId = agentProvider): AccountState = when (provider) {
-        ProviderId.GEMINI -> gemini.accountState(); ProviderId.CLAUDE_KEY -> claude.accountState(); else -> chatgpt.accountState() }
+        ProviderId.CHATGPT -> chatgpt.accountState(); ProviderId.GEMINI -> gemini.accountState(); ProviderId.CLAUDE_KEY -> claude.accountState()
+        ProviderId.OPENAI_COMPAT -> compat.accountState(); ProviderId.CLAUDE -> ProviderPolicy.claude; ProviderId.GOOGLE -> ProviderPolicy.google }
+    /** Non-secret route snapshot. A paused task cannot silently switch a compatible provider or its model. */
+    fun agentSelection(provider: String): String? {
+        if (provider != ProviderId.OPENAI_COMPAT.name) return null
+        val id = compat.selected
+        return JSONObject().put("id", id ?: JSONObject.NULL).put("model", id?.let { compat.model(it) } ?: JSONObject.NULL)
+            .put("freeOnly", compat.freeOnly).put("planConfirmed", id?.let { compat.planConfirmed(it) } ?: false)
+            .put("baseUrl", id?.let { compat.entry(it)?.descriptor?.baseUrl } ?: JSONObject.NULL).toString()
+    }
     val builds = BuildCoordinator(app, database.builds(), projects, scope, database.runtime())
     val tasks by lazy { taskFactory(this, app) }
     val providerUsage = RoomProviderUsageStore(database.providerUsage())
@@ -62,6 +76,7 @@ class AppContainer(context: Context, databaseOverride: SessionStore? = null,
     /** Completes after startup recovery; callers that read task state should await it. */
     val ready = CompletableDeferred<Unit>()
     init {
+        if (databaseOverride == null) ProviderStores.usage = providerUsage
         scope.launch {
             try {
                 database.checks().interruptUnfinished()
@@ -84,7 +99,7 @@ class AppContainer(context: Context, databaseOverride: SessionStore? = null,
 
     fun workspace(project: ProjectRecord) = WorkspaceService(projects.directory(project), checkpointRoot)
 
-    fun accountStates(): List<AccountState> = listOf(chatgpt.accountState(), gemini.accountState(), claude.accountState(), ProviderPolicy.claude, ProviderPolicy.google)
+    fun accountStates(): List<AccountState> = listOf(chatgpt.accountState(), gemini.accountState(), claude.accountState(), compat.accountState(), ProviderPolicy.claude, ProviderPolicy.google)
 
     var gitCredentials: GitCredentials?
         get() = try { gitCredentialStore.read()?.let { GitCredentials(it.optString("username"), it.getString("token")) } } catch (_: Exception) { null }

@@ -95,7 +95,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         val project = state.value.project ?: return
         if (prompt.isEmpty() || state.value.task != null || state.value.running) return
         mutable.update { it.copy(running = true, error = null) }
-        viewModelScope.launch {
+        services.scope.launch {
             try {
                 val id = services.tasks.start(TaskStart(project.id, conversationId.value, prompt, services.agentProvider.name))
                 conversationId.value = services.database.runtime().task(id)?.conversationId
@@ -103,8 +103,8 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     fun answerApproval(decision: ApprovalDecision) {
-        viewModelScope.launch { services.tasks.answerApproval(decision) }
+        services.scope.launch { services.tasks.answerApproval(decision) }
     }
-    fun retry() { state.value.task?.let { task -> viewModelScope.launch { services.tasks.retry(task.id) } } }
-    fun stop() { state.value.task?.let { task -> viewModelScope.launch { services.tasks.cancel(task.id) } } }
+    fun retry() { state.value.task?.let { task -> services.scope.launch { services.tasks.retry(task.id) } } }
+    fun stop() { state.value.task?.let { task -> services.scope.launch { services.tasks.cancel(task.id) } } }
 }

@@ -195,6 +195,7 @@ data class RuntimeTaskRecord(
     val activeSlot: Int?,
     val createdAt: Long,
     val updatedAt: Long,
+    val providerSelection: String? = null,
 )
 
 @Entity(tableName = "runtime_actions", indices = [Index(value = ["taskId", "toolCallId"], unique = true)])
@@ -317,7 +318,7 @@ abstract class SessionStore : RoomDatabase() {
         val MIGRATION_3_4_SQL = listOf(
             "ALTER TABLE `build_runs` ADD COLUMN `artifactState` TEXT NOT NULL DEFAULT 'PENDING'",
             "ALTER TABLE `build_runs` ADD COLUMN `agentTaskId` TEXT",
-            "CREATE TABLE IF NOT EXISTS `runtime_tasks` (`id` TEXT NOT NULL, `projectId` TEXT NOT NULL, `conversationId` TEXT NOT NULL, `providerId` TEXT NOT NULL, `backend` TEXT NOT NULL, `prompt` TEXT NOT NULL, `status` TEXT NOT NULL, `detail` TEXT NOT NULL, `recoveryAction` TEXT, `transcript` TEXT NOT NULL, `completedSteps` INTEGER NOT NULL, `nextStep` TEXT NOT NULL, `historySize` INTEGER NOT NULL, `changeSetId` TEXT, `autoApproveEdits` INTEGER NOT NULL, `activeSlot` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+            "CREATE TABLE IF NOT EXISTS `runtime_tasks` (`id` TEXT NOT NULL, `projectId` TEXT NOT NULL, `conversationId` TEXT NOT NULL, `providerId` TEXT NOT NULL, `backend` TEXT NOT NULL, `prompt` TEXT NOT NULL, `status` TEXT NOT NULL, `detail` TEXT NOT NULL, `recoveryAction` TEXT, `transcript` TEXT NOT NULL, `completedSteps` INTEGER NOT NULL, `nextStep` TEXT NOT NULL, `historySize` INTEGER NOT NULL, `changeSetId` TEXT, `autoApproveEdits` INTEGER NOT NULL, `activeSlot` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `providerSelection` TEXT, PRIMARY KEY(`id`))",
             "CREATE UNIQUE INDEX IF NOT EXISTS `index_runtime_tasks_activeSlot` ON `runtime_tasks` (`activeSlot`)",
             "CREATE TABLE IF NOT EXISTS `runtime_actions` (`id` TEXT NOT NULL, `taskId` TEXT NOT NULL, `toolCallId` TEXT NOT NULL, `tool` TEXT NOT NULL, `arguments` TEXT NOT NULL, `summary` TEXT NOT NULL, `preview` TEXT NOT NULL, `category` TEXT, `buildId` TEXT, `status` TEXT NOT NULL, `decision` TEXT, `decidedAt` INTEGER, `outcome` TEXT, `resultText` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `allEdits` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
             "CREATE UNIQUE INDEX IF NOT EXISTS `index_runtime_actions_taskId_toolCallId` ON `runtime_actions` (`taskId`, `toolCallId`)",

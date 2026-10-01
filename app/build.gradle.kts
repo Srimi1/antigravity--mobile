@@ -17,7 +17,7 @@ android {
         targetSdk = 36
         versionCode = 11
         versionName = "0.5.2"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "dev.srimi.antigravitymobile.RuntimeInstrumentationRunner"
         ndk { abiFilters += listOf("arm64-v8a") }
     }
     signingConfigs {

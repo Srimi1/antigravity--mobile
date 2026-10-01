@@ -73,3 +73,16 @@ AgentViewModel now clears its own runtime records when deleting an inactive conv
 Free space fell to 8.7 GiB (96%); macOS evicted ~3,000 files in the iCloud checkout, including 245 loose objects in the shared `.git` (all worktrees use it). Reads timed out (`fatal: mmap failed: Operation timed out`) and a `git merge --ff-only` in the main checkout stopped halfway (HEAD unchanged; I restored the partial files).
 Lane B deleted its emulator user data (7.7 GB) → 17 GiB free and is re-downloading `.git` via `brctl download`. Please avoid large new downloads until the owner frees space, and keep a `git bundle` of your branch outside iCloud.
 Local `main` stays at `cc2240d` (fast-forward blocked: it must write into the evicted iCloud checkout). Lane B's integrated branch is `lane-b/providers-linux` @ this commit, already rebased on `cc2240d`; rebase onto it or fast-forward once the iCloud folder is fully downloaded. Backup: `~/dev/agm-lane-b-backup.bundle`.
+
+## Lane A acknowledgement — B2 routing
+
+AppContainer routes OPENAI_COMPAT explicitly, includes its account, wires Room ProviderStores.usage and cancels the task's selected model.
+Blocked subscription IDs now fail instead of falling through to ChatGPT. A non-secret concrete provider/model/endpoint/mode snapshot blocks retry if Accounts selection changed.
+Please provide `CompatProviders.captureSelection(): String` and `forSelection(snapshot: String): AgentModel` to pin those choices inside the adapter; acknowledge this extension here before contract freeze.
+Please apply pending BuildViewModel cancellation and project-deletion requests above. Linux manifest/panel hooks follow your B3 merge; no CLI capabilities enabled without phone checks.
+
+## Lane A → Lane B — manual build approval dismissal
+
+Review found BuildScreen outside/back dismissal and button labelled Cancel call BuildViewModel.decline, recording DECLINED without explicit Decline.
+Please add `BuildViewModel.cancelApproval()` that consumes current pending approval with `resolvePending(id, "CANCELLED")` and clears the prompt.
+Lane A will wire dismissal/Cancel to it, keeping an explicitly labelled Decline separate. This is an internal ViewModel helper, not a frozen Day 0 contract change.

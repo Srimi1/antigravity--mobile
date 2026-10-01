@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.srimi.antigravitymobile.runtime.BuildProtocol as P
+import dev.srimi.antigravitymobile.runtime.*
 import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -25,7 +26,7 @@ class BuildWorkerDeviceTest {
         val base = File(context.cacheDir,"worker-test-${UUID.randomUUID()}").apply { mkdirs() }
         val scope = CoroutineScope(SupervisorJob()+Dispatchers.IO)
         val projects = ProjectRepository(store.projects(),base)
-        val coordinator = BuildCoordinator(context,store.builds(),projects,scope)
+        val coordinator = BuildCoordinator(context,store.builds(),projects,scope,store.runtime())
         try {
             assertTrue("Install the matching worker APK on the QA emulator first",coordinator.client.installed())
             assertNotEquals(context.applicationInfo.uid,context.packageManager.getApplicationInfo(P.WORKER,0).uid)
@@ -75,6 +76,35 @@ class BuildWorkerDeviceTest {
                 awaitStatus(builds,approved.id,"CANCELLED")
                 assertEquals("CANCELLED",builds.client.status(approved.id).getString("status"))
             } finally { runCatching { builds.cancel(approved.id) } }
+        }
+    }
+
+    @Test fun agentApprovalHasOneWorkerRunAndBuildTabCannotStartPendingAgentBuild() = runBlocking {
+        fixture { builds, projects, store ->
+            val project = ProjectRecord(UUID.randomUUID().toString(), "Agent approval proof", "agent-proof", 1, 1)
+            store.projects().save(project)
+            val directory = projects.directory(project).apply { mkdirs() }
+            File(directory, "settings.gradle").writeText("rootProject.name='agent-proof'\n")
+            File(directory, "build.gradle").writeText("tasks.register('proof') { doLast { println 'ONE_AGENT_APPROVAL_ONE_BUILD' } }")
+            val taskId = UUID.randomUUID().toString()
+            val task = RuntimeTaskRecord(taskId, project.id, "fixture-chat", "CHATGPT", "Native", "proof",
+                TaskPhase.AwaitingApproval.name, "waiting", null, "[]", 1, "Tools", 0, null, false, 1, 1, 1)
+            store.runtime().createTask(task)
+            val prepared = builds.prepare(project, "proof", taskId)
+            assertThrows(IllegalStateException::class.java) { runBlocking { builds.approve(prepared.id) } }
+            assertThrows(IllegalStateException::class.java) { runBlocking { builds.decline(prepared.id) } }
+            assertEquals("NOT_FOUND", builds.client.status(prepared.id).getString("status"))
+            val action = RuntimeActionRecord(UUID.randomUUID().toString(), taskId, "build-call", "build_project", "{}",
+                "proof", "snapshot", ApprovalCategory.Build.name, prepared.id, "AWAITING_APPROVAL", null, null, null, null, 1, 1)
+            store.runtime().createAction(action)
+            assertTrue(store.runtime().answer(taskId, action.id, action.toolCallId, prepared.id, "APPROVED", false, 2))
+            assertFalse(store.runtime().answer(taskId, action.id, action.toolCallId, prepared.id, "APPROVED", false, 3))
+            assertEquals(1, store.runtime().claim(action.id, 4))
+            builds.approve(prepared.id, taskId)
+            awaitStatus(builds, prepared.id, "COMPLETED")
+            assertThrows(IllegalStateException::class.java) { runBlocking { builds.approve(prepared.id, taskId) } }
+            val status = builds.client.status(prepared.id)
+            assertEquals(1, status.getString("output").split("ONE_AGENT_APPROVAL_ONE_BUILD").size - 1)
         }
     }
 

@@ -49,6 +49,11 @@ class NativeAgentTaskRunner(
         services.ready.await()
         require(request.backend == AgentBackend.Native) { "CLI runner is not enabled yet" }
         require(request.prompt.isNotBlank() && request.prompt.length <= 100_000)
+        val previous = mutex.withLock {
+            check(dao.active() == null) { "Finish, retry or stop the current task first" }
+            execution?.takeUnless { it.isCompleted }
+        }
+        previous?.join() // Finish old conversation cleanup before reserving the next task.
         val task = mutex.withLock {
             check(dao.active() == null) { "Finish, retry or stop the current task first" }
             val project = services.projects.find(request.projectId) ?: error("Project not found")
@@ -59,12 +64,13 @@ class NativeAgentTaskRunner(
             clock.updateAndGet { maxOf(it, at) }
             val conversation = existing ?: ConversationRecord(UUID.randomUUID().toString(), project.id,
                 request.prompt.lineSequence().first().take(60), request.providerId, "RUNNING", at, at)
-            val history = history(conversation, request.providerId)
+            val selection = services.agentSelection(request.providerId)
+            val history = history(conversation, request.providerId, selection)
             val id = UUID.randomUUID().toString()
             val record = RuntimeTaskRecord(id, project.id, conversation.id, request.providerId, request.backend.name,
                 request.prompt, TaskPhase.Queued.name, "Starting foreground task", null,
                 RuntimeCodec.transcript(history + AgentItem.User(request.prompt)), 0, LoopNext.Model.name, history.size,
-                null, false, 1, at, at)
+                null, false, 1, at, at, selection)
             database.withTransaction {
                 conversations.save(conversation.copy(provider = request.providerId, status = "RUNNING", updatedAt = at))
                 conversations.saveMessage(MessageRecord("$id:prompt", conversation.id, "user", request.prompt, at))
@@ -75,9 +81,9 @@ class NativeAgentTaskRunner(
         dispatchSafely(task.id)
         return task.id
     }
-    private suspend fun history(conversation: ConversationRecord, provider: String): List<AgentItem> {
+    private suspend fun history(conversation: ConversationRecord, provider: String, selection: String?): List<AgentItem> {
         val last = dao.forConversation(conversation.id).lastOrNull()
-        if (last != null && last.providerId == provider && last.backend == AgentBackend.Native.name) {
+        if (last != null && last.providerId == provider && last.providerSelection == selection && last.backend == AgentBackend.Native.name) {
             val items = RuntimeCodec.items(last.transcript).toMutableList()
             val results = items.filterIsInstance<AgentItem.ToolResult>().map { it.callId }.toSet()
             items.filterIsInstance<AgentItem.ToolCall>().filter { it.callId !in results }.forEach { call ->
@@ -98,10 +104,15 @@ class NativeAgentTaskRunner(
     }
     suspend fun retry(id: String) {
         services.ready.await()
+        val previous = mutex.withLock {
+            val task = dao.task(id) ?: return
+            if (task.activeSlot != 1 || task.status != TaskPhase.Paused.name) return
+            if (executingId == id) execution else null
+        }
+        previous?.join()
         mutex.withLock {
             val task = dao.task(id) ?: return
-            check(task.activeSlot == 1 && task.status == TaskPhase.Paused.name) { "Only the paused task can be retried" }
-            check(execution?.isActive != true) { "Task still running" }
+            if (task.activeSlot != 1 || task.status != TaskPhase.Paused.name) return
             check(dao.phase(id, TaskPhase.Queued.name, "Checking recorded actions before retry", null, 1, now()) == 1)
         }
         dispatchSafely(id)
@@ -109,8 +120,13 @@ class NativeAgentTaskRunner(
     /** Service entry only. Screens never own or launch the execution coroutine. */
     suspend fun launchFromService(id: String, scope: CoroutineScope) {
         services.ready.await()
+        val previous = mutex.withLock {
+            if (execution?.isCompleted == false && executingId == id) return
+            execution?.takeUnless { it.isCompleted }
+        }
+        previous?.join()
         mutex.withLock {
-            if (execution?.isActive == true) { check(executingId == id); return }
+            if (execution?.isCompleted == false) return
             val task = dao.task(id) ?: return
             if (task.activeSlot != 1 || task.status != TaskPhase.Queued.name) return
             executingId = id
@@ -148,6 +164,7 @@ class NativeAgentTaskRunner(
         }
         job?.cancel() // Mark cancellation before HTTP cancel can throw an IOException.
         activeModel?.cancel()
+        cancelRecordedBuilds(taskId)
         job?.join()
         withContext(NonCancellable) {
             settleActions(taskId, stopping = true)
@@ -162,12 +179,17 @@ class NativeAgentTaskRunner(
         dao.pauseAfterDeath(now())
         dao.active()?.let { task ->
             val stopped = task.status == TaskPhase.Cancelled.name
+            if (stopped) cancelRecordedBuilds(task.id)
             dao.closePending(task.id, if (stopped) "CANCELLED" else "INTERRUPTED", now())
             settleActions(task.id, stopping = stopped, waitForBuilds = false)
             if (stopped) dao.releaseCancelled(task.id)
             conversationState(task.id, if (stopped) "CANCELLED" else "PAUSED")
         }
         reconcileBuilds()
+    }
+    private suspend fun cancelRecordedBuilds(taskId: String) {
+        dao.actions(taskId).filter { it.tool == "build_project" && it.buildId != null && it.status in setOf("RUNNING", "INTERRUPTED") }
+            .forEach { services.builds.cancel(it.buildId!!) }
     }
     private suspend fun run(id: String) {
         val task = dao.task(id) ?: return
@@ -208,7 +230,17 @@ class NativeAgentTaskRunner(
                 override suspend fun onAssistantMessage(text: String) { stream.value = id to "" }
                 override suspend fun onNotice(text: String) { note(current.conversationId, "notice", text) }
             }
-            val model = modelFor(current.providerId); activeModel = model
+            val delegate = modelFor(current.providerId)
+            val model = object : AgentModel {
+                override val providerId = delegate.providerId
+                override fun cancel() = delegate.cancel()
+                override fun streamAgentTurn(request: AgentRequest): Flow<ProviderEvent> = flow {
+                    if (current.providerSelection != services.agentSelection(current.providerId))
+                        throw ProviderSelectionChanged()
+                    emitAll(delegate.streamAgentTurn(request))
+                }
+            }
+            activeModel = model
             val recorded = runner.recorded()?.report()?.take(8000).orEmpty()
             val instructions = AgentOrchestrator.INSTRUCTIONS + if (recorded.isEmpty()) "" else
                 "\nActual recorded build for this project (use build_result/read_build_log for details):\n$recorded"
@@ -216,7 +248,7 @@ class NativeAgentTaskRunner(
                 .resume(instructions, RuntimeCodec.items(current.transcript), current.completedSteps, LoopNext.valueOf(current.nextStep))
             finishChanges(id)
             dao.phase(id, TaskPhase.Completed.name, "Task completed; review recorded outcomes and Changes", null, null, now())
-            conversationState(id, "IDLE")
+            withContext(NonCancellable) { conversationState(id, "IDLE") }
         } catch (cancelled: CancellationException) {
             withContext(NonCancellable) {
                 val stopped = dao.task(id)?.status == TaskPhase.Cancelled.name
