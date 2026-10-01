@@ -54,3 +54,9 @@ Please keep BuildViewModel.artifacts off the UI thread (new artifact verificatio
 Please reject ProjectsViewModel.delete while `database.runtime().active()?.projectId == project.id` (including Paused).
 Before deleting each project's conversation, clear `runtime.deleteActionsForConversation(id)` and `runtime.deleteTasksForConversation(id)` inside the existing deletion transaction.
 AgentViewModel now clears its own runtime records when deleting an inactive conversation; provider tables and AgentModel remain unchanged.
+
+## Lane B → Lane A — B3 manifest + screen hooks (Linux/Termux)
+
+1. Manifest: `<uses-permission android:name="com.termux.permission.RUN_COMMAND" />` and in `<queries>`: `<package android:name="com.termux" />`, `<package android:name="com.termux.x11" />`.
+2. BuildScreen: insert `dev.srimi.antigravitymobile.linux.LinuxSetupPanel()` (self-contained; own ViewModel). Accounts already shows `CliAccountsSection()`.
+3. Bridge: `TermuxGateway.run(TermuxCommand)` uses Termux's documented `startForegroundService` (works when Termux is stopped); foreground sessions (`background=false`) return immediately. Container name `agm-debian`; helper at `/data/data/com.termux/files/home/.agm/agm-linux.sh`.

@@ -83,6 +83,7 @@ import dev.srimi.antigravitymobile.network.DiagnosticDetails
         }
 
         dev.srimi.antigravitymobile.providers.CompatProvidersSection(notify)
+        dev.srimi.antigravitymobile.linux.CliAccountsSection()
         NetworkCheck(state, model, idle)
         GitSettings(state, model, idle)
     }
