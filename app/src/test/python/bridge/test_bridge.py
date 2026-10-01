@@ -227,6 +227,30 @@ class SupervisorTest(unittest.TestCase):
         self.assertFalse(self.runner.status("task-1")["cancellationUnconfirmed"])
         self.assertTrue(self.runner.start("task-2", "codex"))
 
+    def test_pipe_failure_cannot_release_unknown_process_or_change_completed_stop(self):
+        self.runner.start("task-1", "codex")
+        (self.root / "workspaces/task-2/source").mkdir(parents=True)
+        with mock.patch.object(self.runner, "_write_pipe", side_effect=OSError()), mock.patch.object(bridge, "stop_owned", return_value=False):
+            with self.assertRaises(bridge.ProtocolError):
+                self.runner.send("task-1", "write-1", {"id":"agm-init", "method":"initialize", "params":{}})
+            with self.assertRaises(bridge.ProtocolError):
+                self.runner.start("task-2", "codex")
+        with mock.patch.object(bridge, "stop_owned", return_value=True):
+            self.runner.cancel("task-1")
+            self.runner._interrupt("task-1", self.spawned[0][1])
+        self.assertEqual("CANCELLED", self.runner.status("task-1")["state"])
+
+    def test_known_pre_exec_failure_allows_fresh_task_but_never_replays_old_id(self):
+        self.runner.spawn = mock.Mock(side_effect=FileNotFoundError())
+        self.assertFalse(self.runner.start("task-1", "codex"))
+        self.assertFalse(self.runner.status("task-1")["cancellationUnconfirmed"])
+        self.assertFalse(self.runner.start("task-1", "codex"))
+        self.assertEqual(1, self.runner.spawn.call_count)
+        (self.root / "workspaces/task-2/source").mkdir(parents=True)
+        process = FakeProcess(); self.spawned.append(([], process))
+        self.runner.spawn = lambda *a, **k: process
+        self.assertTrue(self.runner.start("task-2", "codex"))
+
 
 if __name__ == "__main__":
     unittest.main()

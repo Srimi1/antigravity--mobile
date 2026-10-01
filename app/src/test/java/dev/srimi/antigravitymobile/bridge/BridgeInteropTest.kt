@@ -46,7 +46,16 @@ class BridgeInteropTest {
             assertThrows(Exception::class.java) {
                 runBlocking { PairedBridgeConnection.connect(port, "fixture-pair", ByteArray(32).also(SecureRandom()::nextBytes)).close() }
             }
-            assertTrue("failed authentication must not dispatch", File(root, "runtime").listFiles().orEmpty().isEmpty())
+            assertTrue("failed authentication must not dispatch", File(root, "runtime").listFiles().orEmpty().none { it.name.startsWith("task-") })
+            val store = CliWorkspaceStore(File(root, "native-snapshots"))
+            val project = File(root, "project").apply { mkdirs() }
+            File(project, "Game.kt").writeText("before")
+            val endpoint = PairedCliBridge({ PairedBridgeConnection.connect(port, "fixture-pair", key) }, { null }, File(root, "runtime").canonicalPath)
+            val source = endpoint.prepare(store.create("task-2", "project-1", project))
+            File(source, "Game.kt").writeText("CLI fixture edit")
+            val changes = store.differences("task-2", endpoint.capture("task-2", File(root, "returned.zip")))
+            assertEquals("CLI fixture edit", String(changes.single().after!!))
+            assertEquals("before", File(project, "Game.kt").readText())
         } finally {
             process.destroyForcibly(); process.waitFor(3, TimeUnit.SECONDS)
             reader.shutdownNow(); root.deleteRecursively()

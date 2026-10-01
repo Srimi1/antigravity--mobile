@@ -1,7 +1,6 @@
 package dev.srimi.antigravitymobile.bridge
 
 import org.json.JSONObject
-import org.json.JSONTokener
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
@@ -37,10 +36,7 @@ object BridgeSecurity {
     }
     internal fun json(value: String, limit: Int = MAX_FRAME_BYTES): JSONObject = guard {
         if (value.toByteArray(Charsets.UTF_8).size > limit) throw BridgeProtocolException()
-        val tokener = JSONTokener(value)
-        val result = tokener.nextValue() as? JSONObject ?: throw BridgeProtocolException()
-        if (tokener.nextClean() != '\u0000') throw BridgeProtocolException()
-        result
+        StrictJson(value).objectValue()
     }
     internal fun fields(value: JSONObject, expected: Set<String>) {
         if (value.keys().asSequence().toSet() != expected) throw BridgeProtocolException()

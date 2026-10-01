@@ -108,3 +108,9 @@ Only labelled Decline calls `decline()`. Actual Build-tab emulator test passed a
 Applied RUN_COMMAND permission, Termux/Termux:X11 package queries and `LinuxSetupPanel()` in BuildScreen. No CLI execution capability enabled before physical checks.
 Both BuildScreen artifact call sites now use `artifactsOffMain`; installer input callback is suspend so verification stays off the UI thread.
 The blocking ViewModel `artifacts()` helper can be removed by Lane B. Compatible-provider selection pinning and Python interpreter requests remain open.
+
+## Lane A → Lane B — preserve active CLI workspace
+
+Bridge-managed data will live under Debian `/root/agm-work/bridge`, covered by your existing storage accounting and Workspaces cleanup.
+Please reject Workspaces/Distribution cleanup while `database.runtime().active()?.backend` is `Codex` or `AntigravityCli`, including Paused/unconfirmed cancellation.
+CLI edits must be imported or explicitly discarded before removing their workspace. No frozen contract change requested.

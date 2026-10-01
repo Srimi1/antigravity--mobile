@@ -1,5 +1,6 @@
 """Paired loopback CLI supervisor. No shell RPC, credential forwarding or uncertain process replay."""
 import base64
+import contextlib
 import hashlib
 import hmac
 import io
@@ -11,15 +12,23 @@ import secrets
 import select
 import signal
 import socketserver
+import stat
 import subprocess
 import threading
 import time
+import zipfile
 
 MAX_BODY_BYTES = 128 * 1024
 MAX_FRAME_BYTES = 192 * 1024
 MAX_LOG_BYTES = 16 * 1024 * 1024
 MAX_EVENT_BYTES = 80_000
 ID = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
+MAX_SOURCE_BYTES = 64 * 1024 * 1024
+MAX_SOURCE_FILE_BYTES = 8 * 1024 * 1024
+MAX_ARCHIVE_BYTES = 72 * 1024 * 1024
+MAX_SOURCE_FILES = 10_000
+EXCLUDED = {".git", ".gradle", ".kotlin", ".signing", ".codex", ".claude", ".gemini", ".agents", ".config",
+            ".antigravity", ".agm", "node_modules", "local.properties", "credentials.json", "id_rsa", "id_ed25519", "build"}
 
 
 class ProtocolError(Exception):
@@ -246,6 +255,243 @@ def stop_owned(record, process=None):
     return False
 
 
+def source_path(value):
+    if not isinstance(value, str) or not value or value.startswith("/") or "\\" in value or len(value.encode("utf-8")) > 512 or any(ord(c) < 32 or ord(c) == 127 for c in value):
+        raise ProtocolError()
+    parts = value.split("/")
+    if len(parts) > 32 or any(p in {"", ".", ".."} or p in EXCLUDED or p == ".env" or p.startswith(".env.") or p.lower().endswith((".pem", ".p12")) for p in parts):
+        raise ProtocolError()
+    return value
+
+
+def file_hash(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(32 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+@contextlib.contextmanager
+def open_source(base, relative):
+    """Resolve every component with no-follow openat; a CLI replacement cannot redirect the copy."""
+    descriptor = None
+    try:
+        parts = source_path(relative).split("/")
+        descriptor = os.open(str(base), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        for part in parts[:-1]:
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=descriptor)
+            os.close(descriptor); descriptor = child
+        file = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=descriptor)
+        metadata = os.fstat(file)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_SOURCE_FILE_BYTES:
+            os.close(file); raise ProtocolError()
+        with os.fdopen(file, "rb") as stream:
+            yield stream
+    except OSError:
+        raise ProtocolError() from None
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
+def source_hash(base, relative):
+    digest, size = hashlib.sha256(), 0
+    with open_source(base, relative) as stream:
+        for chunk in iter(lambda: stream.read(32 * 1024), b""):
+            size += len(chunk)
+            if size > MAX_SOURCE_FILE_BYTES:
+                raise ProtocolError()
+            digest.update(chunk)
+    return digest.hexdigest(), size
+
+
+class WorkspaceExchange:
+    """Idempotent bounded source transfer. Native accounts and Git internals never enter this workspace."""
+    def __init__(self, root):
+        self.root = pathlib.Path(root).resolve()
+        self.lock = threading.RLock()
+        for name in ("uploads", "workspaces", "exports"):
+            path = self.root / name
+            if path.is_symlink():
+                raise ProtocolError()
+            path.mkdir(exist_ok=True); os.chmod(path, 0o700)
+
+    def upload(self, task, size, digest):
+        task = TaskSupervisor.valid_id(task)
+        if type(size) is not int or size < 0 or size > MAX_ARCHIVE_BYTES or not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest):
+            raise ProtocolError()
+        with self.lock:
+            state = self.root / "uploads" / (task + ".json")
+            if state.is_symlink() or (self.root / ("task-" + task + ".json")).exists():
+                raise ProtocolError()
+            if state.exists():
+                value = parse(state.read_bytes(), 1024)
+                if value["size"] != size or value["hash"] != digest:
+                    raise ProtocolError()
+            else:
+                atomic(state, {"size": size, "hash": digest, "ready": False})
+            return {"size": size, "hash": digest}
+
+    def chunk(self, task, offset, encoded):
+        task = TaskSupervisor.valid_id(task)
+        if type(offset) is not int or offset < 0 or not isinstance(encoded, str):
+            raise ProtocolError()
+        raw = unb64(encoded)
+        if not raw or len(raw) > 48 * 1024:
+            raise ProtocolError()
+        with self.lock:
+            state = self.root / "uploads" / (task + ".json")
+            path = self.root / "uploads" / (task + ".zip")
+            if state.is_symlink() or path.is_symlink():
+                raise ProtocolError()
+            value = parse(state.read_bytes(), 1024)
+            if value["ready"] or offset + len(raw) > value["size"] or offset > (path.stat().st_size if path.exists() else 0):
+                raise ProtocolError()
+            with path.open("r+b" if path.exists() else "x+b") as output:
+                os.chmod(path, 0o600); output.seek(offset)
+                existing = output.read(len(raw))
+                if existing and existing != raw[:len(existing)]:
+                    raise ProtocolError()
+                output.seek(offset); output.write(raw); output.flush(); os.fsync(output.fileno())
+            return {"received": path.stat().st_size}
+
+    def commit(self, task):
+        task = TaskSupervisor.valid_id(task)
+        with self.lock:
+            state = self.root / "uploads" / (task + ".json")
+            archive = self.root / "uploads" / (task + ".zip")
+            parent = self.root / "workspaces" / task
+            if state.is_symlink() or archive.is_symlink() or parent.is_symlink():
+                raise ProtocolError()
+            value = parse(state.read_bytes(), 1024)
+            source = parent / "source"
+            if value["ready"]:
+                if not source.is_dir() or source.is_symlink():
+                    raise ProtocolError()
+                return {"cwd": str(source), "hash": value["hash"]}
+            if (self.root / ("task-" + task + ".json")).exists() or not archive.is_file() or archive.stat().st_size != value["size"] or file_hash(archive) != value["hash"] or source.exists():
+                raise ProtocolError()
+            parent.mkdir(exist_ok=True); os.chmod(parent, 0o700)
+            staging = parent / ("staging-" + secrets.token_hex(8))
+            staging.mkdir(mode=0o700)
+            try:
+                total, seen = 0, set()
+                with zipfile.ZipFile(archive) as incoming:
+                    for entry in incoming.infolist():
+                        path = source_path(entry.filename[:-1] if entry.is_dir() else entry.filename)
+                        mode = entry.external_attr >> 16
+                        if path in seen or len(seen) >= MAX_SOURCE_FILES or stat.S_ISLNK(mode) or (stat.S_IFMT(mode) not in (0, stat.S_IFREG, stat.S_IFDIR)) or entry.file_size < 0 or entry.file_size > MAX_SOURCE_FILE_BYTES:
+                            raise ProtocolError()
+                        seen.add(path); total += entry.file_size
+                        if total > MAX_SOURCE_BYTES or entry.flag_bits & 1:
+                            raise ProtocolError()
+                        target = staging / path
+                        if entry.is_dir():
+                            if entry.file_size != 0:
+                                raise ProtocolError()
+                            target.mkdir(parents=True, exist_ok=True)
+                            continue
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        with incoming.open(entry) as stream, target.open("xb") as output:
+                            os.chmod(target, 0o700 if target.name == "gradlew" else 0o600)
+                            remaining = entry.file_size
+                            while remaining:
+                                chunk = stream.read(min(32 * 1024, remaining))
+                                if not chunk:
+                                    raise ProtocolError()
+                                output.write(chunk); remaining -= len(chunk)
+                            if stream.read(1):
+                                raise ProtocolError()
+                            output.flush(); os.fsync(output.fileno())
+                staging.rename(source)
+                value["ready"] = True; atomic(state, value)
+                return {"cwd": str(source), "hash": value["hash"]}
+            finally:
+                if staging.exists():
+                    import shutil
+                    shutil.rmtree(staging)
+
+    def capture(self, task):
+        task = TaskSupervisor.valid_id(task)
+        with self.lock:
+            source = self.root / "workspaces" / task / "source"
+            if source.is_symlink() or not source.is_dir() or source.resolve() != source.absolute():
+                raise ProtocolError()
+            def files():
+                result, total = {}, 0
+                for directory, dirs, names in os.walk(source, followlinks=False):
+                    for name in list(dirs):
+                        path = pathlib.Path(directory) / name
+                        try:
+                            source_path(path.relative_to(source).as_posix())
+                        except ProtocolError:
+                            dirs.remove(name); continue
+                        if path.is_symlink():
+                            raise ProtocolError()
+                    for name in sorted(names):
+                        path = pathlib.Path(directory) / name
+                        relative = path.relative_to(source).as_posix()
+                        try:
+                            source_path(relative)
+                        except ProtocolError:
+                            continue
+                        if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_SOURCE_FILE_BYTES or len(result) >= MAX_SOURCE_FILES:
+                            raise ProtocolError()
+                        digest, size = source_hash(source, relative)
+                        total += size
+                        if total > MAX_SOURCE_BYTES:
+                            raise ProtocolError()
+                        result[relative] = digest
+                return result
+            before = files()
+            temporary = self.root / "exports" / (task + ".tmp")
+            target = self.root / "exports" / (task + ".zip")
+            if temporary.is_symlink() or target.is_symlink():
+                raise ProtocolError()
+            try:
+                with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as output:
+                    os.chmod(temporary, 0o600)
+                    total = 0
+                    for relative in sorted(before):
+                        entry = zipfile.ZipInfo(relative)
+                        entry.compress_type = zipfile.ZIP_DEFLATED
+                        entry.external_attr = (stat.S_IFREG | (0o700 if relative.split("/")[-1] == "gradlew" else 0o600)) << 16
+                        copied, digest = 0, hashlib.sha256()
+                        with open_source(source, relative) as stream, output.open(entry, "w") as destination:
+                            for chunk in iter(lambda: stream.read(32 * 1024), b""):
+                                copied += len(chunk); total += len(chunk)
+                                if copied > MAX_SOURCE_FILE_BYTES or total > MAX_SOURCE_BYTES:
+                                    raise ProtocolError()
+                                destination.write(chunk); digest.update(chunk)
+                        if digest.hexdigest() != before[relative]:
+                            raise ProtocolError()
+                if temporary.stat().st_size > MAX_ARCHIVE_BYTES or before != files():
+                    raise ProtocolError()
+                os.replace(temporary, target)
+                result = {"size": target.stat().st_size, "hash": file_hash(target)}
+                atomic(self.root / "exports" / (task + ".json"), dict(result, modified=target.stat().st_mtime_ns))
+                return result
+            finally:
+                temporary.unlink(missing_ok=True)
+
+    def download(self, task, offset, digest):
+        task = TaskSupervisor.valid_id(task)
+        if type(offset) is not int or offset < 0:
+            raise ProtocolError()
+        with self.lock:
+            path = self.root / "exports" / (task + ".zip")
+            metadata = self.root / "exports" / (task + ".json")
+            if metadata.is_symlink():
+                raise ProtocolError()
+            value = parse(metadata.read_bytes(), 1024)
+            if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_ARCHIVE_BYTES or offset > path.stat().st_size or value["hash"] != digest or value["size"] != path.stat().st_size or value["modified"] != path.stat().st_mtime_ns:
+                raise ProtocolError()
+            with path.open("rb") as stream:
+                stream.seek(offset); raw = stream.read(48 * 1024)
+            return {"offset": offset, "data": b64(raw), "size": path.stat().st_size, "hash": digest}
+
+
 class TaskSupervisor:
     def __init__(self, root, installations, spawn=subprocess.Popen):
         requested_root = pathlib.Path(root)
@@ -304,15 +550,17 @@ class TaskSupervisor:
                 argv += ["--conversation", conversation]
             self.records[task] = {"id": task, "backend": backend, "state": "STARTING", "writes": {}, "events": 0, "requests": {}}
             self._save(task)  # This claim survives a crash before/after Popen. Never repeat it.
+            process = None
             try:
                 process = self.spawn(argv, cwd=str(workspace), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
                 self.processes[task] = process
                 self.pipe_locks[task] = threading.Lock()
                 self.records[task].update(state="RUNNING", pid=process.pid, startTime=start_time(process.pid))
                 self._save(task)
-            except Exception:
-                # A spawn/save error cannot prove that no child exists.
-                self.records[task].update(state="INTERRUPTED", cancellationUnconfirmed=True); self._save(task)
+            except Exception as error:
+                # Popen reports these before execution. Errors after it returns stay uncertain.
+                absent = process is None and isinstance(error, (FileNotFoundError, PermissionError))
+                self.records[task].update(state="INTERRUPTED", cancellationUnconfirmed=not absent); self._save(task)
                 return False
             readers = []
             for stream, kind in ((process.stdout, "cli"), (process.stderr, "diagnostic")):
@@ -367,12 +615,18 @@ class TaskSupervisor:
                         self.records[task]["requests"][dump(request)] = {"safe": safe}
                 self._event(task, {"kind": "cli", "message": message})
         except Exception:
-            with self.lock:
-                if self.records[task]["state"] == "RUNNING":
-                    self.records[task].update(state="CANCEL_REQUESTED", cancellationUnconfirmed=True); self._save(task)
-            confirmed = stop_owned(self.records[task], process)
-            with self.lock:
-                self.records[task].update(state="INTERRUPTED", cancellationUnconfirmed=not confirmed); self._save(task)
+            self._interrupt(task, process)
+
+    def _interrupt(self, task, process):
+        with self.lock:
+            record = self.records[task]
+            if record["state"] not in {"RUNNING", "CANCEL_REQUESTED"}:
+                return
+            record.update(state="CANCEL_REQUESTED", cancellationUnconfirmed=True); self._save(task)
+        confirmed = stop_owned(record, process)
+        with self.lock:
+            if record["state"] == "CANCEL_REQUESTED":
+                record.update(state="INTERRUPTED", cancellationUnconfirmed=not confirmed); self._save(task)
 
     def _wait(self, task, process, readers):
         try:
@@ -389,7 +643,8 @@ class TaskSupervisor:
                 self._event(task, {"kind": "exit", "code": code})
         except Exception:
             with self.lock:
-                self.records[task]["state"] = "INTERRUPTED"
+                if self.records[task]["state"] in {"RUNNING", "CANCEL_REQUESTED"}:
+                    self.records[task].update(state="INTERRUPTED", cancellationUnconfirmed=True)
                 try:
                     self._save(task)
                 except OSError:
@@ -455,10 +710,7 @@ class TaskSupervisor:
                 self._write_pipe(task, process, raw + b"\n")
             return True
         except Exception:
-            with self.lock:
-                if record["state"] == "RUNNING":
-                    record["state"] = "INTERRUPTED"; self._save(task)
-            stop_owned(record, process)
+            self._interrupt(task, process)
             raise ProtocolError() from None
 
     def _write_pipe(self, task, process, raw):
@@ -528,6 +780,7 @@ class LoopbackServer(socketserver.ThreadingTCPServer):
 
     def __init__(self, port, pair, key, supervisor):
         self.pair, self.key, self.supervisor = pair, key, supervisor
+        self.exchange = WorkspaceExchange(supervisor.root)
         self.connections = threading.BoundedSemaphore(4)
         super().__init__(("127.0.0.1", port), BridgeHandler)
 
@@ -556,6 +809,16 @@ class BridgeHandler(socketserver.StreamRequestHandler):
                     result = self.server.supervisor.observe(task, request.get("after"))
                 elif op == "cancel":
                     self.server.supervisor.cancel(task); result = self.server.supervisor.status(task)
+                elif op == "upload":
+                    result = self.server.exchange.upload(task, request.get("size"), request.get("hash"))
+                elif op == "upload_chunk":
+                    result = self.server.exchange.chunk(task, request.get("offset"), request.get("data"))
+                elif op == "upload_commit":
+                    result = self.server.exchange.commit(task)
+                elif op == "capture":
+                    result = self.server.exchange.capture(task)
+                elif op == "download":
+                    result = self.server.exchange.download(task, request.get("offset"), request.get("hash"))
                 else:
                     raise ProtocolError()
                 self.wfile.write(session.encode(result).encode("utf-8") + b"\n"); self.wfile.flush()
