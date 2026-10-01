@@ -236,6 +236,8 @@ interface RuntimeDao {
     suspend fun phase(id: String, status: String, detail: String, recovery: String?, slot: Int?, at: Long): Int
     @Query("UPDATE runtime_tasks SET changeSetId=:setId WHERE id=:id") suspend fun changeSet(id: String, setId: String?)
     @Query("UPDATE runtime_tasks SET activeSlot=NULL WHERE id=:id AND status='Cancelled'") suspend fun releaseCancelled(id: String)
+    @Query("UPDATE runtime_tasks SET detail=:detail, recoveryAction=:recovery, updatedAt=:at WHERE id=:id AND status='Cancelled' AND activeSlot=1")
+    suspend fun cancellationDetail(id: String, detail: String, recovery: String?, at: Long)
     @Query("UPDATE runtime_tasks SET autoApproveEdits=1 WHERE id=:id AND activeSlot=1") suspend fun approveEdits(id: String)
     @Insert suspend fun createAction(action: RuntimeActionRecord)
     @Query("SELECT * FROM runtime_actions WHERE taskId=:taskId AND toolCallId=:callId")
@@ -248,7 +250,7 @@ interface RuntimeDao {
     suspend fun decide(taskId: String, actionId: String, callId: String, buildId: String?, decision: String, allEdits: Boolean, at: Long): Int
     @Query("UPDATE runtime_actions SET status='RUNNING', updatedAt=:at WHERE id=:id AND status IN ('READY','APPROVED') AND (category IS NULL OR decision='APPROVED') AND EXISTS (SELECT 1 FROM runtime_tasks WHERE id=runtime_actions.taskId AND activeSlot=1 AND status IN ('Running','AwaitingApproval'))")
     suspend fun claim(id: String, at: Long): Int
-    @Query("UPDATE runtime_actions SET outcome=:outcome, resultText=:text, status=:status, updatedAt=:at WHERE id=:id AND (outcome IS NULL OR (status='INTERRUPTED' AND tool='build_project' AND buildId IS NOT NULL AND :status!='INTERRUPTED'))")
+    @Query("UPDATE runtime_actions SET outcome=:outcome, resultText=:text, status=:status, updatedAt=:at WHERE id=:id AND (outcome IS NULL OR (status='INTERRUPTED' AND :status!='INTERRUPTED' AND ((tool='build_project' AND buildId IS NOT NULL) OR tool IN ('cli_command','cli_file_change'))))")
     suspend fun finish(id: String, outcome: String, text: String, status: String, at: Long): Int
     @Query("SELECT * FROM runtime_actions WHERE tool='build_project' AND buildId IS NOT NULL AND (outcome IS NULL OR status='INTERRUPTED') AND status IN ('RUNNING','INTERRUPTED')")
     suspend fun unresolvedBuilds(): List<RuntimeActionRecord>
@@ -256,8 +258,8 @@ interface RuntimeDao {
     suspend fun authorizedBuild(taskId: String, buildId: String): RuntimeActionRecord?
     @Query("UPDATE runtime_actions SET decision=:decision, decidedAt=:at WHERE taskId=:id AND status='AWAITING_APPROVAL' AND decision IS NULL")
     suspend fun closePending(id: String, decision: String, at: Long)
-    @Query("UPDATE runtime_tasks SET autoApproveEdits=0, status='Paused', detail='App process stopped; recorded actions will be checked before retry', recoveryAction='Review Changes and build receipts, then retry this provider.', updatedAt=:at WHERE activeSlot=1 AND status IN ('Queued','Running','AwaitingApproval')")
-    suspend fun pauseAfterDeath(at: Long)
+    @Query("UPDATE runtime_tasks SET autoApproveEdits=0, status='Paused', detail='App process stopped; recorded actions will be checked before retry', recoveryAction='Review Changes and build receipts, then retry this provider.', updatedAt=:at WHERE activeSlot=1 AND backend=:backend AND status IN ('Queued','Running','AwaitingApproval')")
+    suspend fun pauseAfterDeath(at: Long, backend: String = "Native")
     @Query("DELETE FROM runtime_actions WHERE taskId IN (SELECT id FROM runtime_tasks WHERE conversationId=:id)")
     suspend fun deleteActionsForConversation(id: String)
     @Query("DELETE FROM runtime_tasks WHERE conversationId=:id AND activeSlot IS NULL")

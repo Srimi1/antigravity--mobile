@@ -1,6 +1,7 @@
 """Paired loopback CLI supervisor. No shell RPC, credential forwarding or uncertain process replay."""
 import base64
 import contextlib
+import fcntl
 import hashlib
 import hmac
 import io
@@ -14,6 +15,7 @@ import signal
 import socketserver
 import stat
 import subprocess
+import sys
 import threading
 import time
 import zipfile
@@ -510,6 +512,8 @@ class TaskSupervisor:
             if record["state"] in {"STARTING", "RUNNING", "CANCEL_REQUESTED"}:
                 record["cancellationUnconfirmed"] = not stop_owned(record)
                 record["state"] = "INTERRUPTED"
+            # Readers belonged to the previous daemon; no further events can be appended for this task.
+            record["drained"] = True
             self.records[task] = record
             self._save(task)
 
@@ -548,7 +552,7 @@ class TaskSupervisor:
                 if not isinstance(conversation, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", conversation):
                     raise ProtocolError()
                 argv += ["--conversation", conversation]
-            self.records[task] = {"id": task, "backend": backend, "state": "STARTING", "writes": {}, "events": 0, "requests": {}}
+            self.records[task] = {"id": task, "backend": backend, "state": "STARTING", "writes": {}, "events": 0, "requests": {}, "drained": False}
             self._save(task)  # This claim survives a crash before/after Popen. Never repeat it.
             process = None
             try:
@@ -560,7 +564,7 @@ class TaskSupervisor:
             except Exception as error:
                 # Popen reports these before execution. Errors after it returns stay uncertain.
                 absent = process is None and isinstance(error, (FileNotFoundError, PermissionError))
-                self.records[task].update(state="INTERRUPTED", cancellationUnconfirmed=not absent); self._save(task)
+                self.records[task].update(state="INTERRUPTED", cancellationUnconfirmed=not absent, drained=True); self._save(task)
                 return False
             readers = []
             for stream, kind in ((process.stdout, "cli"), (process.stderr, "diagnostic")):
@@ -634,13 +638,20 @@ class TaskSupervisor:
             for reader in readers:
                 reader.join(timeout=5)
             descendants_stopped = stop_owned(self.records[task], process)
+            for reader in readers:
+                reader.join(timeout=2)
+            readers_open = any(reader.is_alive() for reader in readers)
             with self.lock:
                 record = self.records[task]
                 if record["state"] == "RUNNING":
-                    record["state"] = "INTERRUPTED" if any(reader.is_alive() for reader in readers) else "EXITED"
+                    record["state"] = "INTERRUPTED" if readers_open else "EXITED"
                     record["cancellationUnconfirmed"] = not descendants_stopped
+                if readers_open:
+                    record["cancellationUnconfirmed"] = True  # A descendant may still hold the output pipes.
                 record["exitCode"] = code; self._save(task)
                 self._event(task, {"kind": "exit", "code": code})
+                # Same lock as status(): observers see the exit event and drained=True together.
+                record["drained"] = not readers_open; self._save(task)
         except Exception:
             with self.lock:
                 if self.records[task]["state"] in {"RUNNING", "CANCEL_REQUESTED"}:
@@ -750,7 +761,7 @@ class TaskSupervisor:
         task = self.valid_id(task)
         with self.lock:
             record = self.records.get(task)
-            return {"id": task, "state": record["state"] if record else "NOT_FOUND", "events": record["events"] if record else 0, "exitCode": record.get("exitCode") if record else None, "cancellationUnconfirmed": record.get("cancellationUnconfirmed", False) if record else False}
+            return {"id": task, "state": record["state"] if record else "NOT_FOUND", "events": record["events"] if record else 0, "exitCode": record.get("exitCode") if record else None, "cancellationUnconfirmed": record.get("cancellationUnconfirmed", False) if record else False, "drained": record.get("drained", True) if record else True}
 
     def observe(self, task, after):
         task = self.valid_id(task)
@@ -826,3 +837,110 @@ class BridgeHandler(socketserver.StreamRequestHandler):
             pass  # Fail closed. Never log untrusted input or pairing material.
         finally:
             self.server.connections.release()
+
+
+def daemon_config(value):
+    """Configuration arrives only through Termux stdin; never argv, environment or a key file."""
+    if set(value) != {"pairId", "secret", "helperHash", "installations"}:
+        raise ProtocolError()
+    TaskSupervisor.valid_id(value["pairId"])
+    if len(unb64(value["secret"])) != 32 or not re.fullmatch(r"[a-f0-9]{64}", value["helperHash"]):
+        raise ProtocolError()
+    installs = value["installations"]
+    if not isinstance(installs, dict) or not installs or not set(installs) <= {"codex", "antigravity"}:
+        raise ProtocolError()
+    for path in installs.values():
+        if not isinstance(path, str) or not re.fullmatch(r"/[A-Za-z0-9_./-]{1,255}", path) or ".." in pathlib.PurePosixPath(path).parts:
+            raise ProtocolError()
+    return value
+
+
+def private_root(root):
+    requested = pathlib.Path(root)
+    if not requested.is_absolute() or requested.resolve() != requested:
+        raise ProtocolError()
+    requested.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(requested, 0o700)
+    return requested
+
+
+def read_endpoint(root, config):
+    path = root / "endpoint.json"
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 2048:
+        raise ProtocolError()
+    value = parse(path.read_bytes(), 2048)
+    if set(value) != {"pairId", "port", "pid", "helperHash"} or value["pairId"] != config["pairId"] or value["helperHash"] != config["helperHash"]:
+        raise ProtocolError()
+    if type(value["port"]) is not int or not 1024 <= value["port"] <= 65535 or type(value["pid"]) is not int or value["pid"] < 1:
+        raise ProtocolError()
+    return value
+
+
+def bootstrap(config, source, root="/root/agm-work/bridge", python="/usr/bin/python3"):
+    config = daemon_config(config)
+    if hashlib.sha256(source).hexdigest() != config["helperHash"] or len(source) > 200_000:
+        raise ProtocolError()
+    root = private_root(root)
+    lock_fd = os.open(root / "helper.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(lock_fd, "r+") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return read_endpoint(root, config)
+        helper = root / "agm_bridge.py"
+        if helper.is_symlink():
+            raise ProtocolError()
+        temporary = root / ("helper-" + secrets.token_hex(16) + ".tmp")
+        with temporary.open("xb") as output:
+            os.chmod(temporary, 0o600); output.write(source); output.flush(); os.fsync(output.fileno())
+        os.replace(temporary, helper)
+        fcntl.flock(lock, fcntl.LOCK_UN)
+    # Competing bootstraps may launch, but the daemon's exclusive lock permits only one listener.
+    process = subprocess.Popen([python, str(helper), "serve", str(root)], stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True)
+    threading.Thread(target=process.wait, daemon=True).start()
+    try:
+        process.stdin.write(dump(config).encode("utf-8") + b"\n"); process.stdin.close()
+        if not select.select([process.stdout], [], [], 8)[0]:
+            raise ProtocolError()
+        reply = process.stdout.readline(2049)
+        if not reply or len(reply) > 2048:
+            # Another validated daemon may have won the lock during startup.
+            return read_endpoint(root, config)
+        value = parse(reply, 2048)
+        if value != read_endpoint(root, config):
+            raise ProtocolError()
+        return value
+    finally:
+        process.stdout.close()
+
+
+def serve(root):
+    config = daemon_config(parse(sys.stdin.buffer.readline(4097), 4096))
+    root = private_root(root)
+    helper = root / "agm_bridge.py"
+    if helper.is_symlink() or source_hash(root, "agm_bridge.py")[0] != config["helperHash"]:
+        raise ProtocolError()
+    lock_fd = os.open(root / "helper.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(lock_fd, "r+") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        supervisor = TaskSupervisor(root, config["installations"])
+        with LoopbackServer(0, config["pairId"], unb64(config["secret"]), supervisor) as server:
+            value = {"pairId": config["pairId"], "port": server.server_address[1], "pid": os.getpid(), "helperHash": config["helperHash"]}
+            atomic(root / "endpoint.json", value)
+            sys.stdout.write(dump(value) + "\n"); sys.stdout.flush()
+            # No inherited terminal or output channel receives later CLI/daemon text.
+            null = os.open(os.devnull, os.O_RDWR)
+            for descriptor in (0, 1, 2):
+                os.dup2(null, descriptor)
+            os.close(null)
+            server.serve_forever()
+
+
+if __name__ == "__main__":
+    try:
+        if len(sys.argv) != 3 or sys.argv[1] != "serve":
+            raise ProtocolError()
+        serve(sys.argv[2])
+    except Exception:
+        sys.exit(1)  # Do not include config, keys or raw protocol errors in diagnostics.

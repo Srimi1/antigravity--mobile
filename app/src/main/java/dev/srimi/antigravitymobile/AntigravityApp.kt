@@ -4,6 +4,9 @@ import android.app.Application
 import android.content.Context
 import androidx.room.Room
 import dev.srimi.antigravitymobile.runtime.NativeAgentTaskRunner
+import dev.srimi.antigravitymobile.runtime.AgentTaskRouter
+import dev.srimi.antigravitymobile.runtime.AgentBackend
+import dev.srimi.antigravitymobile.bridge.CliAgentTaskRunner
 import dev.srimi.antigravitymobile.runtime.RoomProviderUsageStore
 import dev.srimi.antigravitymobile.providers.CompatProviders
 import dev.srimi.antigravitymobile.providers.ProviderStores
@@ -27,6 +30,7 @@ val Context.container: AppContainer get() = (applicationContext as AntigravityAp
 
 /** Process-wide services. One agent task runs at a time; unfinished work is marked interrupted, never replayed. */
 class AppContainer(context: Context, databaseOverride: SessionStore? = null,
+    private val cliFactory: (AppContainer, Context) -> CliAgentTaskRunner = { services, app -> CliAgentTaskRunner(services, app) },
     private val taskFactory: (AppContainer, Context) -> NativeAgentTaskRunner = { services, app -> NativeAgentTaskRunner(services, app) }) {
     private val app = context.applicationContext
     val database: SessionStore = databaseOverride ?: Room.databaseBuilder(app, SessionStore::class.java, "probe.db")
@@ -60,7 +64,10 @@ class AppContainer(context: Context, databaseOverride: SessionStore? = null,
             .put("baseUrl", id?.let { compat.entry(it)?.descriptor?.baseUrl } ?: JSONObject.NULL).toString()
     }
     val builds = BuildCoordinator(app, database.builds(), projects, scope, database.runtime())
-    val tasks by lazy { taskFactory(this, app) }
+    var agentBackend: AgentBackend
+        get() = runCatching { AgentBackend.valueOf(prefs.getString("agentBackend", AgentBackend.Native.name)!!) }.getOrDefault(AgentBackend.Native)
+        set(value) { prefs.edit().putString("agentBackend", value.name).apply() }
+    val tasks by lazy { AgentTaskRouter(database.runtime(), taskFactory(this, app), cliFactory(this, app), scope) }
     val providerUsage = RoomProviderUsageStore(database.providerUsage())
     val websites = WebsiteService(File(app.filesDir, "website-copies"))
     private val checkpointRoot = File(app.filesDir, "checkpoints")

@@ -251,6 +251,27 @@ class SupervisorTest(unittest.TestCase):
         self.runner.spawn = lambda *a, **k: process
         self.assertTrue(self.runner.start("task-2", "codex"))
 
+    def test_drained_is_reported_only_after_trailing_diagnostics_and_exit_event(self):
+        read_fd, write_fd = bridge.os.pipe()
+        process = FakeProcess(); process.stderr = bridge.os.fdopen(read_fd, "rb")
+        self.runner.spawn = lambda *a, **k: process
+        self.assertTrue(self.runner.start("task-1", "codex"))
+        self.assertFalse(self.runner.status("task-1")["drained"])
+        self.runner.cancel("task-1")
+        stopped = self.runner.status("task-1")
+        self.assertEqual("CANCELLED", stopped["state"])
+        self.assertFalse(stopped["drained"], "helper claimed drained while the stderr reader could still append")
+        with bridge.os.fdopen(write_fd, "wb") as late:
+            late.write(b"approval denied: soft-denied by sandbox\n")
+        deadline = bridge.time.monotonic() + 10
+        while not self.runner.status("task-1")["drained"] and bridge.time.monotonic() < deadline:
+            bridge.time.sleep(0.01)
+        status = self.runner.status("task-1")
+        self.assertTrue(status["drained"]); self.assertFalse(status["cancellationUnconfirmed"])
+        events = self.runner.observe("task-1", 0)["events"]
+        self.assertEqual(["permission_unavailable", "exit"], [event["kind"] for event in events])
+        self.assertEqual(status["events"], len(events))
+
 
 if __name__ == "__main__":
     unittest.main()

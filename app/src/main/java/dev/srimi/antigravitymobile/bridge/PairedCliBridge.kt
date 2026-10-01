@@ -29,7 +29,8 @@ class PairedCliBridge(
         val exit = if (value.isNull("exitCode")) null else value.integer("exitCode").also {
             if (it !in Int.MIN_VALUE..Int.MAX_VALUE) throw BridgeProtocolException()
         }.toInt()
-        CliWorkerState(task, phase, count, exit, value.get("cancellationUnconfirmed") as? Boolean ?: throw BridgeProtocolException())
+        CliWorkerState(task, phase, count, exit, value.get("cancellationUnconfirmed") as? Boolean ?: throw BridgeProtocolException(),
+            value.get("drained") as? Boolean ?: throw BridgeProtocolException())
     }
     override suspend fun prepare(snapshot: CliWorkspaceStore.Snapshot): String = withContext(Dispatchers.IO) {
         check(BuildSnapshot.sha256(snapshot.archive) == snapshot.archiveHash) { "Recorded CLI source archive changed" }

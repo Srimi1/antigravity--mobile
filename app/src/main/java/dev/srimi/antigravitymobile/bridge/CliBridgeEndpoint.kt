@@ -5,8 +5,9 @@ import dev.srimi.antigravitymobile.runtime.ToolOutcome
 import org.json.JSONObject
 import java.io.File
 
+/** [drained] means the helper's readers finished: no further events can follow [eventCount]. */
 data class CliWorkerState(val taskId: String, val state: String, val eventCount: Long,
-    val exitCode: Int?, val cancellationUnconfirmed: Boolean)
+    val exitCode: Int?, val cancellationUnconfirmed: Boolean, val drained: Boolean)
 data class CliPage(val state: CliWorkerState, val events: List<JSONObject>)
 
 /** Native runner controls task identity. Reconnection only observes; callers must never resend uncertain writes. */

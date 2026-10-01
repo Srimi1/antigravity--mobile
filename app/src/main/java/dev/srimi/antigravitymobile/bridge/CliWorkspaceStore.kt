@@ -104,7 +104,23 @@ class CliWorkspaceStore(private val root: File, private val limits: Limits = Lim
             temporary.outputStream().use { output -> output.write(manifest.toString().toByteArray()); output.fd.sync() }
             check(temporary.renameTo(File(target, "manifest.json"))) { "Could not save CLI source baseline" }
             return Snapshot(task, projectId, archive, hash, hashes)
-        } catch (error: Exception) { target.deleteRecursively(); throw error }
+        } catch (error: Exception) { deleteTree(target); throw error }
+    }
+    /** A reservation without a manifest belongs to a creator that died before returning; nothing was sent from it. */
+    fun discardIncomplete(task: String): Boolean {
+        val target = directory(task)
+        if (!target.exists() || File(target, "manifest.json").isFile) return false
+        deleteTree(target); return true
+    }
+    private fun deleteTree(target: File) {
+        if (!Files.exists(target.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS)) return
+        // walkFileTree never follows links: a planted link is removed, not its target.
+        Files.walkFileTree(target.toPath(), object : java.nio.file.SimpleFileVisitor<java.nio.file.Path>() {
+            override fun visitFile(file: java.nio.file.Path, attrs: java.nio.file.attribute.BasicFileAttributes) =
+                java.nio.file.FileVisitResult.CONTINUE.also { Files.delete(file) }
+            override fun postVisitDirectory(dir: java.nio.file.Path, exc: java.io.IOException?) =
+                java.nio.file.FileVisitResult.CONTINUE.also { if (exc != null) throw exc; Files.delete(dir) }
+        })
     }
     fun recorded(task: String): Snapshot {
         val target = directory(task)
@@ -123,6 +139,7 @@ class CliWorkspaceStore(private val root: File, private val limits: Limits = Lim
         check(archive.isFile && archive.length() <= limits.archiveBytes && !Files.isSymbolicLink(archive.toPath()) && BuildSnapshot.sha256(archive) == hash) { "Recorded CLI source archive changed" }
         return Snapshot(task, value.requiredText("projectId", 64), archive, hash, hashes)
     }
+    fun exists(task: String): Boolean = directory(task).exists()
     /** A full bounded archive is compared with the baseline, never extracted into the native project. */
     fun differences(task: String, returnedArchive: File): List<ChangeService.FileDiff> {
         val snapshot = recorded(task)

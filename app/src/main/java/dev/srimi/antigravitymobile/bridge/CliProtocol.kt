@@ -28,6 +28,8 @@ internal fun JSONObject.integer(key: String): Long = when (val value = get(key))
 }
 internal fun JSONObject.nullableObject(key: String): JSONObject? =
     if (!has(key) || isNull(key)) null else get(key) as? JSONObject ?: throw BridgeProtocolException()
+internal fun JSONObject.nullableText(key: String, max: Int = 128): String? =
+    if (!has(key) || isNull(key)) null else requiredText(key, max)
 internal fun rpcId(value: Any): String = when (value) {
     is String -> "s:${value.also { if (it.length !in 1..128 || it.any(Char::isISOControl)) throw BridgeProtocolException() }}"
     is Int, is Long -> "n:$value"
@@ -122,8 +124,8 @@ class CodexProtocol(private val workspace: String, private val prompt: String, p
                             "completed" -> if (tool == "commandExecution" && exitCode != null && exitCode != 0L)
                                 ToolOutcome.Failed("CLI command exited $exitCode: $output") else ToolOutcome.Success(output.ifBlank { "CLI reported completion in its private workspace" })
                             "failed" -> ToolOutcome.Failed("CLI $tool failed${if (output.isBlank()) "" else ": $output"}")
-                            "declined" -> ToolOutcome.RuntimeUnavailable(if (decisions[id] == CliAnswer.Declined)
-                                "The user explicitly declined this CLI action" else "CLI permission unavailable; review this action in Termux")
+                            "declined" -> if (decisions[id] == CliAnswer.Declined) ToolOutcome.Cancelled else
+                                ToolOutcome.RuntimeUnavailable("CLI permission unavailable; review this action in Termux")
                             else -> throw BridgeProtocolException()
                         }
                         CliBatch(listOf(CliEvent.ToolResult(id, tool, outcome)))

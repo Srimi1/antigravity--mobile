@@ -24,7 +24,7 @@ class NativeAgentTaskRunner(
     private val buildFor: (ProjectRecord, String) -> BuildRunner = { project, task -> PhoneBuildRunner(services, project, context, task) },
     private val dispatch: (String) -> Unit = { AgentTaskService.execute(context, it) },
     private val failureDescription: (Throwable) -> RuntimePause = ::providerPause,
-) : AgentTaskRunner {
+) : TaskRunnerLifecycle {
     private val database = services.database
     private val dao = database.runtime()
     private val mutex = Mutex()
@@ -35,7 +35,7 @@ class NativeAgentTaskRunner(
     private fun now() = clock.updateAndGet { maxOf(it + 1, System.currentTimeMillis()) }
     private val stream = MutableStateFlow<Pair<String?, String>>(null to "")
     private val textEvents = MutableSharedFlow<RunnerEvent.Text>(extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-    val view: StateFlow<RuntimeView> = combine(
+    override val view: StateFlow<RuntimeView> = combine(
         dao.observeActive().flatMapLatest { task ->
             if (task == null) flowOf(RuntimeView()) else dao.observeActions(task.id).map { actions ->
                 RuntimeView(task, actions.firstOrNull { it.status == "AWAITING_APPROVAL" && it.decision == null },
@@ -102,10 +102,12 @@ class NativeAgentTaskRunner(
         try { withContext(Dispatchers.Main) { dispatch(id) } }
         catch (error: Exception) { pause(id, RuntimePause("foreground task service unavailable", "Return to the app, then retry this provider.")) }
     }
-    suspend fun retry(id: String) {
+    override suspend fun retry(taskId: String) {
+        val id = taskId
         services.ready.await()
         val previous = mutex.withLock {
             val task = dao.task(id) ?: return
+            if (task.backend != AgentBackend.Native.name) return
             if (task.activeSlot != 1 || task.status != TaskPhase.Paused.name) return
             if (executingId == id) execution else null
         }
@@ -118,7 +120,9 @@ class NativeAgentTaskRunner(
         dispatchSafely(id)
     }
     /** Service entry only. Screens never own or launch the execution coroutine. */
-    suspend fun launchFromService(id: String, scope: CoroutineScope) {
+    override suspend fun awaitIdle() { mutex.withLock { execution?.takeUnless { it.isCompleted } }?.join() }
+    override suspend fun launchFromService(taskId: String, scope: CoroutineScope) {
+        val id = taskId
         services.ready.await()
         val previous = mutex.withLock {
             if (execution?.isCompleted == false && executingId == id) return
@@ -128,6 +132,7 @@ class NativeAgentTaskRunner(
         mutex.withLock {
             if (execution?.isCompleted == false) return
             val task = dao.task(id) ?: return
+            if (task.backend != AgentBackend.Native.name) return
             if (task.activeSlot != 1 || task.status != TaskPhase.Queued.name) return
             executingId = id
             execution = scope.launch { run(id) }
@@ -157,6 +162,7 @@ class NativeAgentTaskRunner(
         services.ready.await()
         val job = mutex.withLock {
             val task = dao.task(taskId) ?: return@withContext
+            if (task.backend != AgentBackend.Native.name) return@withContext
             if (task.activeSlot != 1) return@withContext
             dao.phase(taskId, TaskPhase.Cancelled.name, "Stopped; no user decline recorded", null, 1, now())
             dao.closePending(taskId, "CANCELLED", now())
@@ -175,9 +181,9 @@ class NativeAgentTaskRunner(
         }
     }
     /** Startup restores a paused checkpoint. It never starts a provider request or re-dispatches a tool. */
-    suspend fun recover() {
+    override suspend fun recover() {
         dao.pauseAfterDeath(now())
-        dao.active()?.let { task ->
+        dao.active()?.takeIf { it.backend == AgentBackend.Native.name }?.let { task ->
             val stopped = task.status == TaskPhase.Cancelled.name
             if (stopped) cancelRecordedBuilds(task.id)
             dao.closePending(task.id, if (stopped) "CANCELLED" else "INTERRUPTED", now())

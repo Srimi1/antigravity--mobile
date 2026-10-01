@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
                     Surface(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()) {
                         when (tab) {
                             Tab.PROJECTS -> ProjectsScreen(projects, notify)
-                            Tab.AGENT -> AgentScreen(agent, onOpenProjects = { tab = Tab.PROJECTS }, onOpenAccounts = { tab = Tab.ACCOUNTS })
+                            Tab.AGENT -> AgentScreen(agent, onOpenProjects = { tab = Tab.PROJECTS }, onOpenAccounts = { tab = Tab.ACCOUNTS }, onOpenBuild = { tab = Tab.BUILD })
                             Tab.CHANGES -> ChangesScreen(changes, notify, onOpenProjects = { tab = Tab.PROJECTS })
                             Tab.BUILD -> BuildScreen(build, probe, notify)
                             Tab.ACCOUNTS -> AccountsScreen(accounts, notify)

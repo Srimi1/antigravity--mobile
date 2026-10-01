@@ -20,6 +20,8 @@ data class AgentState(
     val approval: PendingApproval? = null,
     val autoApprove: Boolean = false,
     val account: AccountState? = null,
+    val backend: AgentBackend = AgentBackend.Native,
+    val backendUnavailable: String? = null,
     val task: RuntimeTaskRecord? = null,
     val receipt: String? = null,
     val error: String? = null,
@@ -67,6 +69,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                         (action.buildId?.let { " · build ${it.take(8)}" } ?: "") + "\nRecorded action state: ${action.status}"
                 }
                 mutable.update { it.copy(task = view.task, approval = approval, receipt = receipt, streaming = view.streaming,
+                    backend = view.task?.backend?.let(AgentBackend::valueOf) ?: services.agentBackend,
                     running = view.task?.status in setOf(TaskPhase.Queued.name, TaskPhase.Running.name, TaskPhase.AwaitingApproval.name),
                     autoApprove = view.task?.autoApproveEdits == true) }
             }
@@ -74,7 +77,19 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         refreshAccount()
     }
     fun refreshAccount() {
-        viewModelScope.launch { mutable.update { it.copy(account = withContext(Dispatchers.IO) { services.agentAccount() }) } }
+        viewModelScope.launch {
+            val backend = state.value.task?.backend?.let(AgentBackend::valueOf) ?: services.agentBackend
+            val account = withContext(Dispatchers.IO) { services.agentAccount() }
+            val unavailable = withContext(Dispatchers.IO) { services.tasks.unavailable(backend)?.reason }
+            mutable.update { if ((it.task?.backend ?: services.agentBackend.name) == backend.name)
+                it.copy(account = account, backend = backend, backendUnavailable = unavailable) else it }
+        }
+    }
+    fun selectBackend(backend: AgentBackend) {
+        if (state.value.task != null || state.value.running) return
+        services.agentBackend = backend
+        mutable.update { it.copy(backend = backend, backendUnavailable = if (backend == AgentBackend.Native) null else "Checking CLI availability…", error = null) }
+        refreshAccount()
     }
     fun newConversation() { if (state.value.task == null) conversationId.value = null }
     fun openConversation(id: String) { if (state.value.task == null) conversationId.value = id }
@@ -97,7 +112,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
         mutable.update { it.copy(running = true, error = null) }
         services.scope.launch {
             try {
-                val id = services.tasks.start(TaskStart(project.id, conversationId.value, prompt, services.agentProvider.name))
+                val id = services.tasks.start(TaskStart(project.id, conversationId.value, prompt, services.agentProvider.name, services.agentBackend))
                 conversationId.value = services.database.runtime().task(id)?.conversationId
             } catch (error: Exception) { mutable.update { it.copy(running = false, error = friendly(error)) } }
         }

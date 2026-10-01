@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.srimi.antigravitymobile.runtime.*
 
-@Composable fun AgentScreen(model: AgentViewModel, onOpenProjects: () -> Unit, onOpenAccounts: () -> Unit) {
+@Composable fun AgentScreen(model: AgentViewModel, onOpenProjects: () -> Unit, onOpenAccounts: () -> Unit, onOpenBuild: () -> Unit) {
     val state by model.state.collectAsStateWithLifecycle()
     val project = state.project
     if (project == null) {
@@ -34,10 +34,12 @@ import dev.srimi.antigravitymobile.runtime.*
     }
     var input by rememberSaveable { mutableStateOf("") }
     var picker by remember { mutableStateOf(false) }
+    var backendPicker by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<ConversationRecord?>(null) }
     val list = rememberLazyListState()
     val account = state.account
-    val usable = account?.usable == true
+    val native = state.backend == AgentBackend.Native
+    val usable = if (native) account?.usable == true else state.backendUnavailable == null
     val lastIndex = state.messages.size + if (state.streaming.isNotEmpty()) 1 else 0
     LaunchedEffect(lastIndex, state.streaming.length / 200) { if (lastIndex > 0) list.animateScrollToItem(lastIndex - 1) }
 
@@ -62,15 +64,30 @@ import dev.srimi.antigravitymobile.runtime.*
             }
         }
         Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StatusChip("${when (account?.provider) { ProviderId.GEMINI -> "Gemini"; ProviderId.CLAUDE_KEY -> "Claude"; else -> "ChatGPT" }} ${account?.status?.name?.lowercase() ?: "…"}",
-                account?.status?.name ?: "UNVERIFIED")
+            Box {
+                TextButton(onClick = { backendPicker = true }, enabled = state.task == null && !state.running) {
+                    Text(backendLabel(state.backend)); Icon(Icons.Default.ArrowDropDown, "Choose agent backend")
+                }
+                DropdownMenu(expanded = backendPicker, onDismissRequest = { backendPicker = false }) {
+                    AgentBackend.entries.forEach { backend -> DropdownMenuItem(text = { Text(backendLabel(backend)) },
+                        onClick = { backendPicker = false; model.selectBackend(backend) }) }
+                }
+            }
+            if (native) StatusChip("${when (account?.provider) { ProviderId.GEMINI -> "Gemini"; ProviderId.CLAUDE_KEY -> "Claude";
+                ProviderId.OPENAI_COMPAT -> "Selected API"; else -> "ChatGPT" }} ${account?.status?.name?.lowercase() ?: "…"}", account?.status?.name ?: "UNVERIFIED")
         }
-        if (!usable) Card(Modifier.fillMaxWidth().padding(12.dp)) {
+        if (native && !usable) Card(Modifier.fillMaxWidth().padding(12.dp)) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(account?.detail ?: "Checking account…")
                 Text("Connect ChatGPT, or add a Gemini (Google AI Studio) or Claude (Anthropic) API key, then choose which one the Agent uses in Accounts.",
                     style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = onOpenAccounts) { Text("Open Accounts") }
+            }
+        }
+        if (!native) Card(Modifier.fillMaxWidth().padding(12.dp)) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(state.backendUnavailable ?: "This CLI uses its own sign-in and works in a private copy. Returned changes need import approval.")
+                OutlinedButton(onClick = onOpenBuild) { Text("Open Linux setup") }
             }
         }
         state.error?.let { Text(it, Modifier.padding(12.dp), color = MaterialTheme.colorScheme.error) }
@@ -79,11 +96,20 @@ import dev.srimi.antigravitymobile.runtime.*
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(task.detail.removePrefix("Paused: ").let { "Paused: $it" })
                     task.recoveryAction?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                    Text("Recorded edits and tool outcomes are kept. Retry uses this task's original provider.", style = MaterialTheme.typography.bodySmall)
+                    Text("Recorded edits and tool outcomes are kept. Retry uses this task's original provider and backend.", style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = model::retry) { Text("Retry this provider") }
                         OutlinedButton(onClick = model::stop) { Text("Stop") }
                     }
+                }
+            }
+        }
+        state.task?.takeIf { it.status == TaskPhase.Cancelled.name && it.activeSlot != null }?.let { task ->
+            Card(Modifier.fillMaxWidth().padding(12.dp)) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(task.detail)
+                    task.recoveryAction?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    OutlinedButton(onClick = model::stop) { Text("Retry cancellation") }
                 }
             }
         }
@@ -116,7 +142,9 @@ import dev.srimi.antigravitymobile.runtime.*
             text = {
                 Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(approval.summary, style = MaterialTheme.typography.titleSmall)
-                    if (approval.category == ApprovalCategory.Edit) Text("The edit is recorded in Changes. Builds and installation require separate approval.",
+                    if (approval.category == ApprovalCategory.Edit) Text(if (approval.tool == "cli_file_change")
+                        "This edit affects the CLI's private copy. Import approval is required before it changes your project. Builds and installation require separate approval."
+                        else "The edit is recorded in Changes. Builds and installation require separate approval.",
                         style = MaterialTheme.typography.bodySmall)
                     Text("Action ${approval.key.actionId.take(8)}" + (approval.key.buildId?.let { " · build ${it.take(8)}" } ?: ""),
                         style = MaterialTheme.typography.bodySmall)
@@ -137,6 +165,12 @@ import dev.srimi.antigravitymobile.runtime.*
         ConfirmDialog("Delete conversation?", "\"${conversation.title}\" and its action log will be removed. File changes stay in Changes.",
             "Delete", onDismiss = { deleting = null }) { model.deleteConversation(conversation.id) }
     }
+}
+
+private fun backendLabel(backend: AgentBackend) = when (backend) {
+    AgentBackend.Native -> "Native providers"
+    AgentBackend.Codex -> "Codex CLI"
+    AgentBackend.AntigravityCli -> "Antigravity CLI"
 }
 
 @Composable private fun MessageBubble(message: MessageRecord) {
