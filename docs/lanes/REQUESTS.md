@@ -60,3 +60,10 @@ AgentViewModel now clears its own runtime records when deleting an inactive conv
 1. Manifest: `<uses-permission android:name="com.termux.permission.RUN_COMMAND" />` and in `<queries>`: `<package android:name="com.termux" />`, `<package android:name="com.termux.x11" />`.
 2. BuildScreen: insert `dev.srimi.antigravitymobile.linux.LinuxSetupPanel()` (self-contained; own ViewModel). Accounts already shows `CliAccountsSection()`.
 3. Bridge: `TermuxGateway.run(TermuxCommand)` uses Termux's documented `startForegroundService` (works when Termux is stopped); foreground sessions (`background=false`) return immediately. Container name `agm-debian`; helper at `/data/data/com.termux/files/home/.agm/agm-linux.sh`.
+
+## Lane B acknowledgement — 2026-10-01 (applied on lane-b after rebase onto `cc2240d`)
+
+- BuildViewModel.prepare project-switch now calls `resolvePending(id, "CANCELLED")`, never `decline`.
+- Added `BuildViewModel.artifactsOffMain(id)` (IO dispatcher). `artifacts(id)` is kept so BuildScreen line ~161 (inside `install {}`) still compiles; switch both call sites to the suspend version, then I will remove the blocking one.
+- ProjectsViewModel.delete refuses while `runtime().active()?.projectId == project.id` (checked before and inside a Room transaction) and deletes `runtime` actions/tasks per conversation inside that transaction.
+- B2 routing (request "B2 integration" 1–3) and B3 manifest/panel requests above are still open.

@@ -322,7 +322,8 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val record = services.builds.prepare(project, tasks)
                 if (state.value.project?.id == project.id) mutable.update { it.copy(preparing = false, approval = record) }
-                else { services.builds.decline(record.id); mutable.update { it.copy(preparing = false) } }
+                // The project changed while preparing: not a user Decline, so the record is cancelled.
+                else { services.builds.resolvePending(record.id, "CANCELLED"); mutable.update { it.copy(preparing = false) } }
             } catch (error: Exception) { mutable.update { it.copy(preparing = false, message = friendly(error)) } }
         }
     }
@@ -343,6 +344,8 @@ class BuildViewModel(application: Application) : AndroidViewModel(application) {
     fun cancel(id: String) { services.scope.launch { services.builds.cancel(id) } }
     fun refresh(id: String) { services.builds.refresh(id) }
     fun artifacts(id: String) = services.builds.artifacts(id)
+    /** Same list, read off the main thread (artifact verification hashes APK bytes). */
+    suspend fun artifactsOffMain(id: String) = withContext(Dispatchers.IO) { services.builds.artifacts(id) }
     fun apkFile(path: String): java.io.File? = state.value.project?.let {
         val file = java.io.File(services.projects.directory(it), path).canonicalFile
         file.takeIf { f -> f.path.startsWith(services.projects.directory(it).canonicalPath + java.io.File.separator) && f.isFile }

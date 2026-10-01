@@ -7,6 +7,7 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import dev.srimi.antigravitymobile.runtime.BuildProtocol as P
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -239,9 +240,16 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
         }
     }
     fun delete(project: ProjectRecord) = operation("Delete project") {
+        val runtime = services.database.runtime()
+        check(runtime.active()?.projectId != project.id) { "An agent task (running or paused) uses this project; stop it first" }
         services.changes.forgetProject(project.id)
-        services.database.conversations().apply {
-            deleteMessagesForProject(project.id); deleteActionsForProject(project.id); deleteForProject(project.id)
+        services.database.withTransaction {
+            check(runtime.active()?.projectId != project.id) { "An agent task (running or paused) uses this project; stop it first" }
+            val conversations = services.database.conversations()
+            conversations.observeForProject(project.id).first().forEach {
+                runtime.deleteActionsForConversation(it.id); runtime.deleteTasksForConversation(it.id)
+            }
+            conversations.apply { deleteMessagesForProject(project.id); deleteActionsForProject(project.id); deleteForProject(project.id) }
         }
         services.projects.delete(project)
         if (services.selectedProjectId.value == project.id) services.selectProject(null)
