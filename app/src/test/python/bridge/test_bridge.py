@@ -272,6 +272,34 @@ class SupervisorTest(unittest.TestCase):
         self.assertEqual(["permission_unavailable", "exit"], [event["kind"] for event in events])
         self.assertEqual(status["events"], len(events))
 
+    def probe_with(self, sandbox_writes):
+        calls = []
+        def run(argv, cwd=None, **kwargs):
+            calls.append(argv)
+            if argv[-1] == "--version":
+                return mock.Mock(returncode=0, stdout=b"codex-cli 0.159.3\n\x1b[0m")
+            for target, text in sandbox_writes:
+                (pathlib.Path(cwd) / target).write_text(text)
+            return mock.Mock(returncode=0, stdout=b"")
+        return self.runner.probe("codex", run=run), calls
+
+    def test_probe_confirms_only_a_sandbox_that_refuses_writes_outside_the_workspace(self):
+        confirmed, calls = self.probe_with([("inside", "ok\n")])
+        self.assertEqual("confirmed", confirmed["sandbox"]); self.assertEqual("codex-cli 0.159.3", confirmed["version"])
+        self.assertEqual(["/usr/local/bin/codex", "sandbox", "linux", "--full-auto", "--"], calls[1][:5])
+        escaped, _ = self.probe_with([("inside", "ok\n"), ("../outside", "escaped\n")])
+        self.assertEqual("escaped", escaped["sandbox"])
+        broken, _ = self.probe_with([])
+        self.assertEqual("unavailable", broken["sandbox"])
+        self.assertFalse((self.root / "probe").exists() and any((self.root / "probe").iterdir()))
+
+    def test_probe_refuses_unknown_backend_and_active_task(self):
+        with self.assertRaises(bridge.ProtocolError):
+            self.runner.probe("bash")
+        self.runner.start("task-1", "codex")
+        with self.assertRaises(bridge.ProtocolError):
+            self.runner.probe("codex", run=lambda *a, **k: self.fail("probe ran beside an active task"))
+
 
 if __name__ == "__main__":
     unittest.main()

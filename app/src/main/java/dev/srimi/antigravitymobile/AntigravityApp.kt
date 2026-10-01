@@ -6,7 +6,14 @@ import androidx.room.Room
 import dev.srimi.antigravitymobile.runtime.NativeAgentTaskRunner
 import dev.srimi.antigravitymobile.runtime.AgentTaskRouter
 import dev.srimi.antigravitymobile.runtime.AgentBackend
+import dev.srimi.antigravitymobile.bridge.BridgePairingStore
 import dev.srimi.antigravitymobile.bridge.CliAgentTaskRunner
+import dev.srimi.antigravitymobile.bridge.CliCapabilityGate
+import dev.srimi.antigravitymobile.bridge.PairedCliBridge
+import dev.srimi.antigravitymobile.bridge.TermuxBridgeLauncher
+import dev.srimi.antigravitymobile.linux.AndroidTermuxGateway
+import dev.srimi.antigravitymobile.linux.CliTool
+import dev.srimi.antigravitymobile.linux.TermuxLinuxRuntime
 import dev.srimi.antigravitymobile.runtime.RoomProviderUsageStore
 import dev.srimi.antigravitymobile.providers.CompatProviders
 import dev.srimi.antigravitymobile.providers.ProviderStores
@@ -30,7 +37,8 @@ val Context.container: AppContainer get() = (applicationContext as AntigravityAp
 
 /** Process-wide services. One agent task runs at a time; unfinished work is marked interrupted, never replayed. */
 class AppContainer(context: Context, databaseOverride: SessionStore? = null,
-    private val cliFactory: (AppContainer, Context) -> CliAgentTaskRunner = { services, app -> CliAgentTaskRunner(services, app) },
+    private val cliFactory: (AppContainer, Context) -> CliAgentTaskRunner = { services, app -> CliAgentTaskRunner(services, app,
+        PairedCliBridge({ services.cliLauncher.connect() }, { services.cliGate.unavailable(it) })) },
     private val taskFactory: (AppContainer, Context) -> NativeAgentTaskRunner = { services, app -> NativeAgentTaskRunner(services, app) }) {
     private val app = context.applicationContext
     val database: SessionStore = databaseOverride ?: Room.databaseBuilder(app, SessionStore::class.java, "probe.db")
@@ -67,6 +75,17 @@ class AppContainer(context: Context, databaseOverride: SessionStore? = null,
     var agentBackend: AgentBackend
         get() = runCatching { AgentBackend.valueOf(prefs.getString("agentBackend", AgentBackend.Native.name)!!) }.getOrDefault(AgentBackend.Native)
         set(value) { prefs.edit().putString("agentBackend", value.name).apply() }
+    private val bridgePairing by lazy { BridgePairingStore(CredentialStore(app, "cli-bridge.pairing")) }
+    /** Paired helper inside the user's Termux/Debian. Each CLI backend still needs its own on-device probe to open. */
+    val cliLauncher by lazy {
+        TermuxBridgeLauncher(AndroidTermuxGateway(app), { bridgePairing.current() }, {
+            TermuxLinuxRuntime(app).installedClis().mapNotNull { install ->
+                val id = when (install.tool) { CliTool.CODEX -> "codex"; CliTool.ANTIGRAVITY -> "antigravity"; else -> null }
+                install.binaryPath?.let { path -> id?.let { it to path } }
+            }.toMap()
+        })
+    }
+    val cliGate by lazy { CliCapabilityGate(app.getSharedPreferences("cli-capability", Context.MODE_PRIVATE), cliLauncher) }
     val tasks by lazy { AgentTaskRouter(database.runtime(), taskFactory(this, app), cliFactory(this, app), scope) }
     val providerUsage = RoomProviderUsageStore(database.providerUsage())
     val websites = WebsiteService(File(app.filesDir, "website-copies"))

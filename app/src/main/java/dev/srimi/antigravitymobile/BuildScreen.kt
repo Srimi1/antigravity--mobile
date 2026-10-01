@@ -186,6 +186,7 @@ object ApkInstaller {
             }
         }
         dev.srimi.antigravitymobile.linux.LinuxSetupPanel()
+        dev.srimi.antigravitymobile.bridge.LocalCliPanel()
         SectionCard("Device diagnostics") {
             Text(probe.deviceSummary, style = MaterialTheme.typography.bodySmall)
             Text("Runs the Android/Bionic test executable packaged in this APK. It proves native execution and cancellation, not a compiler.")

@@ -8,6 +8,8 @@ import io
 import json
 import os
 import pathlib
+import platform
+import shutil
 import re
 import secrets
 import select
@@ -694,6 +696,49 @@ class TaskSupervisor:
         else:
             raise ProtocolError()
 
+    def probe(self, backend, run=subprocess.run):
+        """Capability evidence only: architecture, the installed CLI's version and a sandbox escape check.
+
+        Runs fixed argv lists for an installed backend while no task holds the slot. No caller-supplied commands.
+        """
+        binary = self.installations.get(backend)
+        if backend not in {"codex", "antigravity"} or not isinstance(binary, str) or not binary.startswith("/"):
+            raise ProtocolError()
+        with self.lock:
+            if any(r["state"] in {"STARTING", "RUNNING", "CANCEL_REQUESTED"} or r.get("cancellationUnconfirmed", False) for r in self.records.values()):
+                raise ProtocolError()
+
+        def execute(argv, cwd):
+            try:
+                done = run(argv, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                           timeout=30, start_new_session=True)
+                return done.returncode, done.stdout[:400].decode("utf-8", errors="replace")
+            except (OSError, subprocess.SubprocessError):
+                return None, ""
+
+        result = {"backend": backend, "machine": platform.machine()[:32], "version": None, "sandbox": "unsupported"}
+        code, output = execute([binary, "--version"], str(self.root))
+        if code == 0:
+            line = output.strip().splitlines()[0] if output.strip() else ""
+            result["version"] = "".join(ch for ch in line if ch.isprintable())[:120] or None
+        if backend == "codex" and result["version"]:
+            area = self.root / "probe" / secrets.token_hex(8)
+            work, outside = area / "work", area / "outside"
+            work.mkdir(parents=True)
+            try:
+                # Writes inside the workspace must succeed; a write next to it must be refused by Codex's sandbox.
+                code, _ = execute([binary, "sandbox", "linux", "--full-auto", "--", "/bin/sh", "-c",
+                                   "echo ok > inside; echo escaped > ../outside"], str(work))
+                if outside.exists():
+                    result["sandbox"] = "escaped"
+                elif (work / "inside").is_file() and (work / "inside").read_bytes() == b"ok\n":
+                    result["sandbox"] = "confirmed"
+                else:
+                    result["sandbox"] = "unavailable"
+            finally:
+                shutil.rmtree(area, ignore_errors=True)
+        return result
+
     def send(self, task, command, message):
         task, command = self.valid_id(task), self.valid_id(command)
         with self.lock:
@@ -828,6 +873,8 @@ class BridgeHandler(socketserver.StreamRequestHandler):
                     result = self.server.exchange.commit(task)
                 elif op == "capture":
                     result = self.server.exchange.capture(task)
+                elif op == "probe":
+                    result = self.server.supervisor.probe(request.get("backend"))
                 elif op == "download":
                     result = self.server.exchange.download(task, request.get("offset"), request.get("hash"))
                 else:
