@@ -68,7 +68,7 @@ Other important paths:
 - `tools/jvm-harness/`: compile/test fallback for sandboxes without Google Maven. Not a substitute for the real build.
 - `assets/branding/`: finished original app icon, repository cover and generation prompts.
 - `assets/screenshots/`: actual Android 12 ARM64 captures of 0.1.2 and 0.2.0 QA evidence in `qa-20260930/`.
-- `release/`: published 0.1.2 metadata, notes and APK checksum; binary copies are ignored by Git. Do not edit it for unreleased 0.3.0/0.4.0 work.
+- `release/`: published 0.1.2 metadata, notes and APK checksum; binary copies are ignored by Git. Later versions are published directly as GitHub releases (v0.1.0-probe … v0.4.1).
 
 ## Where to continue
 
@@ -89,7 +89,7 @@ The complete product remains unaccepted until all mandatory subscriptions perfor
 - Instrumentation uses a debug signer. A personally signed release on the same test device can cause `INSTALL_FAILED_UPDATE_INCOMPATIBLE`; use a separate test emulator or preserve the device's data before changing installations. Never uninstall the user's phone app just to make tests pass.
 - Keep generated output outside iCloud. Root Gradle configuration uses `~/.cache/antigravity-mobile-build`; generate native libraries/assets using `layout.buildDirectory`, not hard-coded old `app/build` paths.
 - Source archive: `python3 tools/package_source.py`. It excludes build caches, APKs/ZIPs and private signing keys. Published v0.1.2 archives are immutable snapshots; new source work needs its own later release.
-- Application ID is `dev.srimi.antigravitymobile.probe`; changing it breaks the update path. Version code 3 (0.1.2) is published; source is version code 7 (0.4.1), emulator-validated; distributed only as a private GitHub draft release for the user's phone test. Worker source code 2 is required by the client and passed emulator tests (debug-signed, installed by ADB); its Build-tab update path from code 1 passed on emulators (docs/upgrade-qa-2026-10-01.md). Synchronize required worker version and preserve matching signers. Increment version code/name and synchronize build packaging and release metadata for a new APK.
+- Application ID is `dev.srimi.antigravitymobile.probe`; changing it breaks the update path. Version code 3 (0.1.2) is published; source is version code 7 (0.4.1), emulator-validated; published as public GitHub release v0.4.1 (Latest) at the user's request, with all earlier versions also released. See THIRD_PARTY_NOTICES.md. Worker source code 2 is required by the client and passed emulator tests (debug-signed, installed by ADB); its Build-tab update path from code 1 passed on emulators (docs/upgrade-qa-2026-10-01.md). Synchronize required worker version and preserve matching signers. Increment version code/name and synchronize build packaging and release metadata for a new APK.
 - Preserve `.signing/personal.p12` locally. Do not commit, upload or print the key. A checkout on another computer does not contain the original signer; do not claim a newly generated key can update the published APK.
 - Preserve the completed artwork and existing release. Do not recreate the icon, re-upload unchanged APKs or repeat completed Drive replacement work.
 - Consult the checkpoint for the current GitHub release and Drive URL. Verify a replacement before deleting an old file, and use the human user's authorization for publishing or deletion.
