@@ -59,6 +59,28 @@ class BootstrapTest(unittest.TestCase):
             with self.assertRaises(bridge.ProtocolError):
                 bridge.private_root(str(linked))
 
+    def test_outdated_idle_daemon_with_same_pairing_is_replaced(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory).resolve()
+            source = pathlib.Path(bridge.__file__).read_bytes()
+            old = source + b"\n# older helper build\n"
+            base = {"pairId": "fixture-pair", "secret": bridge.b64(bytes(range(32))), "installations": {"codex": "/fixture/codex"}}
+            first = second = None
+            try:
+                first = bridge.bootstrap(dict(base, helperHash=hashlib.sha256(old).hexdigest()), old, str(root), sys.executable)
+                second = bridge.bootstrap(dict(base, helperHash=hashlib.sha256(source).hexdigest()), source, str(root), sys.executable)
+                self.assertNotEqual(first["pid"], second["pid"])
+                self.assertEqual(hashlib.sha256(source).hexdigest(), second["helperHash"])
+                with self.assertRaises(bridge.ProtocolError):
+                    bridge.bootstrap(dict(base, pairId="other-pair", helperHash=hashlib.sha256(old).hexdigest()), old, str(root), sys.executable)
+            finally:
+                for endpoint in (first, second):
+                    if endpoint is not None:
+                        try:
+                            stop_daemon(endpoint["pid"])
+                        except ProcessLookupError:
+                            pass
+
 
 if __name__ == "__main__":
     unittest.main()

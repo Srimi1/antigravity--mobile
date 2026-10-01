@@ -127,8 +127,7 @@ class SupervisorTest(unittest.TestCase):
         with self.assertRaises(bridge.ProtocolError):
             self.runner.send("task-1", "bad", {"method": "thread/start", "id": 3, "params": {"cwd": "/root", "sandbox": "danger-full-access"}})
         (self.root / "workspaces/task-2/source").mkdir(parents=True)
-        with self.assertRaises(bridge.ProtocolError):
-            self.runner.start("task-2", "codex")
+        self.assertFalse(self.runner.start("task-2", "codex"), "busy slot refuses definitively")
         self.assertEqual(1, len(self.spawned))
 
     def test_restart_marks_uncertain_start_interrupted_without_spawning(self):
@@ -217,11 +216,9 @@ class SupervisorTest(unittest.TestCase):
         with mock.patch.object(bridge, "stop_owned", return_value=False):
             self.runner.cancel("task-1")
             self.assertTrue(self.runner.status("task-1")["cancellationUnconfirmed"])
-            with self.assertRaises(bridge.ProtocolError):
-                self.runner.start("task-2", "codex")
+            self.assertFalse(self.runner.start("task-2", "codex"), "busy slot refuses definitively")
             recovered = bridge.TaskSupervisor(self.root, {"codex": "/usr/local/bin/codex"}, spawn=lambda *a, **k: self.fail("unconfirmed process released slot"))
-            with self.assertRaises(bridge.ProtocolError):
-                recovered.start("task-2", "codex")
+            self.assertFalse(recovered.start("task-2", "codex"), "busy slot refuses definitively")
         with mock.patch.object(bridge, "stop_owned", return_value=True):
             self.runner.cancel("task-1")
         self.assertFalse(self.runner.status("task-1")["cancellationUnconfirmed"])
@@ -233,8 +230,7 @@ class SupervisorTest(unittest.TestCase):
         with mock.patch.object(self.runner, "_write_pipe", side_effect=OSError()), mock.patch.object(bridge, "stop_owned", return_value=False):
             with self.assertRaises(bridge.ProtocolError):
                 self.runner.send("task-1", "write-1", {"id":"agm-init", "method":"initialize", "params":{}})
-            with self.assertRaises(bridge.ProtocolError):
-                self.runner.start("task-2", "codex")
+            self.assertFalse(self.runner.start("task-2", "codex"), "busy slot refuses definitively")
         with mock.patch.object(bridge, "stop_owned", return_value=True):
             self.runner.cancel("task-1")
             self.runner._interrupt("task-1", self.spawned[0][1])
@@ -257,17 +253,20 @@ class SupervisorTest(unittest.TestCase):
         self.runner.spawn = lambda *a, **k: process
         self.assertTrue(self.runner.start("task-1", "codex"))
         self.assertFalse(self.runner.status("task-1")["drained"])
+        seen_during_stop = []
+        def late_diagnostic():
+            while self.runner.status("task-1")["state"] == "RUNNING":
+                bridge.time.sleep(0.01)
+            seen_during_stop.append(self.runner.status("task-1")["drained"])
+            with bridge.os.fdopen(write_fd, "wb") as late:
+                late.write(b"approval denied: soft-denied by sandbox\n")
+        writer = threading.Thread(target=late_diagnostic); writer.start()
         self.runner.cancel("task-1")
-        stopped = self.runner.status("task-1")
-        self.assertEqual("CANCELLED", stopped["state"])
-        self.assertFalse(stopped["drained"], "helper claimed drained while the stderr reader could still append")
-        with bridge.os.fdopen(write_fd, "wb") as late:
-            late.write(b"approval denied: soft-denied by sandbox\n")
-        deadline = bridge.time.monotonic() + 10
-        while not self.runner.status("task-1")["drained"] and bridge.time.monotonic() < deadline:
-            bridge.time.sleep(0.01)
+        writer.join(5)
+        self.assertEqual([False], seen_during_stop, "helper claimed drained while the stderr reader could still append")
         status = self.runner.status("task-1")
-        self.assertTrue(status["drained"]); self.assertFalse(status["cancellationUnconfirmed"])
+        self.assertEqual("CANCELLED", status["state"])
+        self.assertTrue(status["drained"], "cancel returns the final drained state"); self.assertFalse(status["cancellationUnconfirmed"])
         events = self.runner.observe("task-1", 0)["events"]
         self.assertEqual(["permission_unavailable", "exit"], [event["kind"] for event in events])
         self.assertEqual(status["events"], len(events))

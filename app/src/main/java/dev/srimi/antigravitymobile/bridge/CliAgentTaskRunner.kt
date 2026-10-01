@@ -166,7 +166,14 @@ class CliAgentTaskRunner(
         task.changeSetId?.let { services.changes.finish(it) }
         val confirmed = try {
             // No start claim means no CLI process was ever dispatched by this task.
-            if (dao.action(taskId, "cli-start") == null) true else withTimeout(15_000) { bridge.cancel(taskId) }.stopped()
+            if (dao.action(taskId, "cli-start") == null) true else withTimeout(15_000) {
+                var state = bridge.cancel(taskId)
+                // Stopped but still draining its output: wait for the final, drained state rather than guessing.
+                while (!state.stopped() && !state.cancellationUnconfirmed && state.state in setOf("CANCELLED", "EXITED", "INTERRUPTED")) {
+                    delay(200); state = bridge.status(taskId)
+                }
+                state.stopped()
+            }
         } catch (_: Exception) { false }
         if (confirmed) {
             dao.cancellationDetail(taskId, "Stopped; no user decline recorded", null, now())

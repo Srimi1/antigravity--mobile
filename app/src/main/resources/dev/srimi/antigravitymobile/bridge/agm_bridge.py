@@ -515,6 +515,7 @@ class TaskSupervisor:
         self.lock = threading.RLock()
         self.records, self.processes, self.threads, self.pipe_locks = {}, {}, [], {}
         self.native_answers, self.native_ready = {}, threading.Condition(self.lock)
+        self.drained_events = {}
         for path in self.root.glob("task-*.json"):
             if path.is_symlink() or path.stat().st_size > MAX_BODY_BYTES:
                 raise ProtocolError()
@@ -523,6 +524,9 @@ class TaskSupervisor:
             if record["state"] in {"STARTING", "RUNNING", "CANCEL_REQUESTED"}:
                 record["cancellationUnconfirmed"] = not stop_owned(record)
                 record["state"] = "INTERRUPTED"
+            elif record.get("cancellationUnconfirmed", False) and record.get("pid") is not None:
+                # Check again with birth stamps: an empty original group proves the old CLI is gone.
+                record["cancellationUnconfirmed"] = not stop_owned(record)
             # Readers belonged to the previous daemon; no further events can be appended for this task.
             record["drained"] = True
             self.records[task] = record
@@ -553,7 +557,7 @@ class TaskSupervisor:
                     raise ProtocolError()
                 return False
             if any(r["state"] in {"STARTING", "RUNNING", "CANCEL_REQUESTED"} or r.get("cancellationUnconfirmed", False) for r in self.records.values()):
-                raise ProtocolError()
+                return False  # Definitive: nothing was recorded or spawned for this task.
             binary = self.installations.get(backend)
             if backend not in {"codex", "antigravity"} or not isinstance(binary, str) or not binary.startswith("/") or "\x00" in binary:
                 raise ProtocolError()
@@ -592,6 +596,7 @@ class TaskSupervisor:
                 readers.append(thread); self.threads.append(thread); thread.start()
             if backend == "codex":
                 self._listen_native(task)
+            self.drained_events[task] = threading.Event()
             thread = threading.Thread(target=self._wait, args=(task, process, readers), daemon=True)
             self.threads.append(thread); thread.start()
             return True
@@ -685,6 +690,7 @@ class TaskSupervisor:
                 self._event(task, {"kind": "exit", "code": code})
                 # Same lock as status(): observers see the exit event and drained=True together.
                 record["drained"] = not readers_open; self._save(task)
+            self.drained_events.get(task, threading.Event()).set()
         except Exception:
             with self.lock:
                 if self.records[task]["state"] in {"RUNNING", "CANCEL_REQUESTED"}:
@@ -927,6 +933,9 @@ class TaskSupervisor:
         with self.lock:
             record["state"] = "CANCELLED" if confirmed else "INTERRUPTED"
             record["cancellationUnconfirmed"] = not confirmed; self._save(task)
+        if confirmed and task in self.drained_events:
+            # Let the exit watcher record trailing output and the exit event, so one status shows the final state.
+            self.drained_events[task].wait(10)
 
     def status(self, task):
         task = self.valid_id(task)
@@ -1001,6 +1010,13 @@ class BridgeHandler(socketserver.StreamRequestHandler):
                     result = self.server.exchange.capture(task)
                 elif op == "native_answer":
                     result = self.server.supervisor.native_answer(task, request.get("requestId"), request.get("text"), request.get("isError"))
+                elif op == "shutdown":
+                    supervisor = self.server.supervisor
+                    with supervisor.lock:
+                        if any(r["state"] in {"STARTING", "RUNNING", "CANCEL_REQUESTED"} or r.get("cancellationUnconfirmed", False) for r in supervisor.records.values()):
+                            raise ProtocolError()  # Never abandon a running or unconfirmed CLI process.
+                    result = {"stopping": True}
+                    threading.Thread(target=self.server.shutdown, daemon=True).start()
                 elif op == "probe":
                     result = self.server.supervisor.probe(request.get("backend"))
                 elif op == "download":
@@ -1051,6 +1067,26 @@ def read_endpoint(root, config):
     return value
 
 
+def replace_outdated(root, config):
+    """Authenticated shutdown of a same-pairing daemon running other helper code. The daemon refuses while busy."""
+    path = root / "endpoint.json"
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 2048:
+        return False
+    value = parse(path.read_bytes(), 2048)
+    if value.get("pairId") != config["pairId"] or value.get("helperHash") == config["helperHash"] or type(value.get("port")) is not int:
+        return False
+    try:
+        with socket.create_connection(("127.0.0.1", value["port"]), timeout=5) as connection:
+            stream = connection.makefile("rwb")
+            client = ClientHandshake(config["pairId"], unb64(config["secret"]), read_line(stream, 1024))
+            stream.write(client.hello.encode("utf-8") + b"\n"); stream.flush()
+            session = client.finish(read_line(stream, 1024))
+            stream.write(session.encode({"op": "shutdown", "taskId": "daemon"}).encode("utf-8") + b"\n"); stream.flush()
+            return session.decode(read_line(stream)).get("stopping") is True
+    except (OSError, ProtocolError, ValueError):
+        return False
+
+
 def bootstrap(config, source, root="/root/agm-work/bridge", python="/usr/bin/python3", in_place=False):
     """Install the verified helper and start (or find) its single daemon.
 
@@ -1066,7 +1102,20 @@ def bootstrap(config, source, root="/root/agm-work/bridge", python="/usr/bin/pyt
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            return read_endpoint(root, config)
+            try:
+                return read_endpoint(root, config)
+            except ProtocolError:
+                # Same pairing, older helper (app update): ask the idle daemon to exit, then take over its lock.
+                if not replace_outdated(root, config):
+                    raise
+                deadline = time.monotonic() + 10
+                while True:
+                    try:
+                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB); break
+                    except BlockingIOError:
+                        if time.monotonic() > deadline:
+                            raise ProtocolError()
+                        time.sleep(0.05)
         helper = root / "agm_bridge.py"
         if helper.is_symlink():
             raise ProtocolError()
