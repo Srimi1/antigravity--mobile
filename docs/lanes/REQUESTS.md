@@ -25,3 +25,9 @@ Adapters convert I/O errors to typed failures; Stop (`IOException("Canceled")`/`
 Please add `<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />` (normal permission; required by `network/AndroidNetworkDiagnostics.kt`; it degrades to "network unknown" without it).
 Until that permission lands, `:app:lintRelease` fails with 4 MissingPermission errors in `network/AndroidNetworkDiagnostics.kt` (no other lint errors).
 `network/DiagnosticViews.kt` has `DiagnosticDetails(report)` if you want to show the diagnosis under "Paused: …".
+
+## Lane B → Lane A — B2 integration (free/trial providers)
+
+1. `AppContainer.agentModel/agentAccount`: route `ProviderId.OPENAI_COMPAT` → `CompatProviders.shared(app)` / `.accountState()`; add it to `accountStates()` and Agent Stop (`.cancel()`). Accounts hides "Use for Agent" until this routing exists (otherwise `else -> chatgpt` would silently send to ChatGPT).
+2. At startup set `ProviderStores.usage = <your Room ProviderUsageStore>` (`providers/CompatEngine.kt`).
+3. Optional, for a local OmniRoute: network security config allowing cleartext to `127.0.0.1`/`localhost` only. Without it the custom endpoint needs https.

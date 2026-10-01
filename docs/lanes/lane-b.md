@@ -11,3 +11,14 @@
 - Tests: `:app:testDebugUnitTest` 94 passed, 0 failed (78 previous + 16 new). `:app:lintRelease`: only the 4 MissingPermission errors above.
 - Pushing is blocked for agents by the owner's git hook; the owner pushes.
 - Not yet verified on a device: AndroidNetworkDiagnostics (needs the manifest permission), the owner's DNS failure (no phone attached, `adb devices` empty).
+
+## B2 — providers (2026-10-01)
+
+- Official pages checked 1 Oct 2026 (WebFetch; quoted in commit/registry): Groq rate limits, OpenRouter limits, Cloudflare Workers AI pricing + OpenAI compatibility, Hugging Face pricing, Z.AI pricing + error codes, Kilo gateway models, Cohere rate limits + compatibility API, OpenCode Zen, Cerebras rate limits, GitHub Models (retired 30 Jul 2026 → excluded), Mistral usage limits, NVIDIA NIM FAQ.
+- Figures seen only on third-party pages are **not** used: Mistral phone/card/training terms and numeric limits, NVIDIA 40 RPM and credit counts, Z.AI Flash concurrency. They show as unknown.
+- Findings that differ from the plan: Cerebras is now a card-required $5 / 30-day trial (Trial, not AccountDependent). Cloudflare and Hugging Face only stop instead of billing on certain plans → AccountDependent; free mode needs the user's plan confirmation. OpenCode Zen free models are time-limited promotions.
+- Code: `providers/ProviderRegistry.kt`, `OpenAiCompat.kt` (Chat Completions wire + SSE/tool-call parser), `CompatEngine.kt` (JVM-testable core), `FreeModePolicy.kt`, `CompatProviders.kt` (keys per provider in CredentialStore, bound to their base URL), `CompatAccountsPanel.kt` (Accounts UI), `ProviderId.OPENAI_COMPAT`.
+- Free mode (default on): Free class; Trial with documented hard stop; AccountDependent only after user confirmation; Paid/custom blocked. Price-based rules re-read the catalog (≤30 min old) and raise PricingChanged before sending.
+- Coding requires a passed tool-calling probe per model (stored per provider/model; recorded through ProviderUsageStore).
+- Tests: 106 JVM tests pass (12 new for B2, including MockWebServer streaming/tool calls/429/quota/pricing change/trial/paid block/truncation/no key in errors). Lint: only the 4 known MissingPermission errors.
+- **No real provider key has been used. Zero models are verified for tool calling.** Verification needs the owner's keys.

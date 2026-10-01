@@ -128,6 +128,8 @@ class AndroidNetworkDiagnostics(context: Context) : NetworkDiagnostics {
     companion object {
         private const val PROBE_TIMEOUT_MS = 8_000
         private const val WINDOW_MS = 3 * 60_000L
+        // Holds only the application context, which lives as long as the process.
+        @android.annotation.SuppressLint("StaticFieldLeak")
         @Volatile private var instance: AndroidNetworkDiagnostics? = null
         /** One instance per process, so the network callback is registered once. */
         fun shared(context: Context): AndroidNetworkDiagnostics =

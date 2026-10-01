@@ -23,6 +23,8 @@ import javax.net.ssl.SSLException
 object FailureClassifier {
     private val quotaCodes = Regex("(?i)insufficient_quota|quota_exceeded|billing_hard_limit|credit|payment_required|out_of_credits")
     private val trialCodes = Regex("(?i)trial[_ -]?(expired|ended|over)|promotion[_ -]?(expired|ended)")
+    /** Out-of-balance wording (for example Z.AI code 1113). Not "exceeded your current quota", which Google also uses per minute. */
+    private val balanceText = Regex("(?i)insufficient (balance|credits?)|no resource package|please recharge|usage limit exceeded")
     private val authCodes = Regex("(?i)invalid_api_key|api_key_invalid|invalid_grant|unauthenticated|authentication_error|permission_denied|invalid_token|expired_token")
 
     /**
@@ -35,7 +37,7 @@ object FailureClassifier {
         return when {
             trialCodes.containsMatchIn(text) -> ProviderFailure.TrialExpired(description)
             status == 402 -> ProviderFailure.QuotaExhausted(description)
-            status == 429 && (dailyQuota || quotaCodes.containsMatchIn(code)) -> ProviderFailure.QuotaExhausted(description)
+            status == 429 && (dailyQuota || quotaCodes.containsMatchIn(code) || balanceText.containsMatchIn(description)) -> ProviderFailure.QuotaExhausted(description)
             status == 429 -> ProviderFailure.RateLimited(description, retryAfterSeconds)
             status == 401 -> ProviderFailure.AuthInvalid(description)
             status == 403 && quotaCodes.containsMatchIn(text) -> ProviderFailure.QuotaExhausted(description)

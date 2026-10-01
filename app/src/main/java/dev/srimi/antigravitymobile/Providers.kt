@@ -2,7 +2,9 @@ package dev.srimi.antigravitymobile
 
 enum class ProviderId(val label: String) {
     CHATGPT("ChatGPT"), GEMINI("Gemini (Google AI Studio key)"), CLAUDE_KEY("Claude (Anthropic API key)"),
-    CLAUDE("Claude Pro/Max subscription"), GOOGLE("Google AI subscription")
+    CLAUDE("Claude Pro/Max subscription"), GOOGLE("Google AI subscription"),
+    /** One of the free/trial providers or the custom endpoint in [dev.srimi.antigravitymobile.providers.CompatProviders]. */
+    OPENAI_COMPAT("Free & trial providers")
 }
 
 /**
