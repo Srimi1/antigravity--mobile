@@ -23,6 +23,8 @@ data class NetworkFacts(
     val tlsOk: Boolean?,
     val tlsError: String? = null,
     val networkChanges: Int = 0,
+    /** Whether a well-known control name resolved on the same network when [host] did not. null = not tried. */
+    val controlDnsOk: Boolean? = null,
 )
 
 /** Turns observations into the first failing stage, a summary and a specific recovery action. Pure. */
@@ -42,7 +44,7 @@ object DiagnosisRules {
                 "Check that the phone's date and time are set automatically. If they are, this ${net(f)} (or a VPN/filter app) is interfering; try ${other(f)}.")
             f.networkChanges > 0 -> Triple(null, "The phone switched networks during the request; the connection to ${f.host} works now.",
                 "Retry the request.")
-            else -> Triple(null, "The network reached ${f.host} normally (DNS, connection and TLS all worked); the failure came from the provider or the app.",
+            else -> Triple(null, "The network reached ${f.host} normally (DNS, connection and TLS all worked). If a request failed, the cause was the provider or the app, not this network.",
                 null)
         }
         return DiagnosticReport(f.host, now, f.transport, f.networkAvailable, f.validated, f.captivePortal, f.vpnActive,
@@ -50,8 +52,14 @@ object DiagnosisRules {
     }
 
     private fun dnsFailure(f: NetworkFacts): Triple<ConnectionStage, String, String> {
-        val base = "The address of ${f.host} could not be looked up (DNS) on ${net(f)}"
+        val base = "The address of ${f.host} could not be looked up (DNS) on the ${net(f)}"
         return when {
+            f.controlDnsOk == true && f.privateDns != PrivateDnsMode.Strict && !f.vpnActive -> Triple(ConnectionStage.Dns,
+                "$base, although other names resolve. The name may be misspelled, may not exist, or this network's DNS blocks it.",
+                "Check the spelling. If it is correct, try ${other(f)}; if it works there, this network is blocking ${f.host} (change Private DNS to a public resolver such as dns.google, or ask the network owner).")
+            f.privateDns == PrivateDnsMode.Strict && f.controlDnsOk == true -> Triple(ConnectionStage.Dns,
+                "$base. Private DNS \"${f.privateDnsServer ?: "custom server"}\" answers for other names but not this one, so it is likely blocking it.",
+                "Private DNS is blocking ${f.host} — open Settings → Network & internet → Private DNS, choose Automatic, then retry.")
             f.privateDns == PrivateDnsMode.Strict -> Triple(ConnectionStage.Dns,
                 "$base. Private DNS is set to \"${f.privateDnsServer ?: "a custom server"}\", which is not answering or is blocking it.",
                 "Private DNS hostname unreachable — open Settings → Network & internet → Private DNS, choose Automatic, then retry.")
@@ -64,6 +72,6 @@ object DiagnosisRules {
         }
     }
 
-    private fun net(f: NetworkFacts) = when (f.transport) { "Wi-Fi" -> "Wi-Fi network"; "Mobile data" -> "mobile network"; null -> "network"; else -> "${f.transport} network" }
+    private fun net(f: NetworkFacts) = when (f.transport) { "Wi-Fi" -> "Wi-Fi network"; "Mobile data" -> "mobile network"; null, "unknown" -> "network"; else -> "${f.transport} network" }
     private fun other(f: NetworkFacts) = when (f.transport) { "Wi-Fi" -> "mobile data"; "Mobile data" -> "a Wi-Fi network"; else -> "another network" }
 }

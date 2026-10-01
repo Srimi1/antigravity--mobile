@@ -22,3 +22,11 @@
 - Coding requires a passed tool-calling probe per model (stored per provider/model; recorded through ProviderUsageStore).
 - Tests: 106 JVM tests pass (12 new for B2, including MockWebServer streaming/tool calls/429/quota/pricing change/trial/paid block/truncation/no key in errors). Lint: only the 4 known MissingPermission errors.
 - **No real provider key has been used. Zero models are verified for tool calling.** Verification needs the owner's keys.
+
+## Verification on emulator-5556 (AgmLaneB_API36, Android 16 / API 36) — 2026-10-01
+
+- `AndroidNetworkDiagnosticsTest` (new instrumentation, live network): 4/4 passed twice — api.openai.com passes DNS/TCP/TLS; `.invalid` fails at DNS with a recovery action; closed port fails at TCP; wrong.host.badssl.com fails at TLS. Run with a **temporary, uncommitted** ACCESS_NETWORK_STATE line (reverted; manifest diff 0) because Lane A owns the manifest.
+- Fixed a defect found there: without the permission, diagnostics reported "no network". Now probes run on the default network and the type shows "unknown". Verified in the UI as shipped (no permission).
+- DNS failures now resolve a control name (www.google.com, lookup only) to separate "this name is blocked/misspelled" from "DNS is broken"; strict Private DNS that answers other names is reported as blocking.
+- Accounts → Free & trial providers renders all 11 providers with allowances/unknowns. **Live provider test (no user credentials):** Kilo Gateway anonymous catalog (398 models, 19 zero-priced; 379 hidden in free mode); tool-calling probe on `cohere/north-mini-code:free` passed through the app on the emulator; usage recorded 1 request, 48 input / 75 output tokens; verification stored; no secret in preferences. Prompt was only the fixed probe text.
+- Still unverified: every other provider (needs the owner's keys), Agent routing (needs Lane A request B2-1), physical phone.

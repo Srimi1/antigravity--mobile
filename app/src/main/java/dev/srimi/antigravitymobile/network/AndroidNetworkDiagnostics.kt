@@ -50,21 +50,26 @@ class AndroidNetworkDiagnostics(context: Context) : NetworkDiagnostics {
 
     override suspend fun diagnose(host: String, port: Int): DiagnosticReport = withContext(Dispatchers.IO) {
         require(host.matches(Regex("[A-Za-z0-9.-]{1,253}"))) { "Not a hostname" }
-        val network = runCatching { connectivity?.activeNetwork }.getOrNull()
+        // Without ACCESS_NETWORK_STATE the network type is unknown; the probes still run on the default network.
+        val stateReadable = app.checkSelfPermission(android.Manifest.permission.ACCESS_NETWORK_STATE) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val network = if (stateReadable) runCatching { connectivity?.activeNetwork }.getOrNull() else null
         val caps = network?.let { runCatching { connectivity?.getNetworkCapabilities(it) }.getOrNull() }
         val link = network?.let { runCatching { connectivity?.getLinkProperties(it) }.getOrNull() }
         val transport = caps?.let(::transport)
         val (privateDns, server) = privateDns(link)
-        var facts = NetworkFacts(host, transport, network != null && caps != null,
+        var facts = NetworkFacts(host, if (stateReadable) transport else "unknown", !stateReadable || (network != null && caps != null),
             caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
             caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true,
             caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true,
             privateDns, server, link?.isPrivateDnsActive == true, emptyList(), null, null, null, networkChanges = recentChanges())
-        if (network == null) return@withContext DiagnosisRules.explain(facts)
+        if (stateReadable && network == null) return@withContext DiagnosisRules.explain(facts)
 
-        val addresses = timed { network.getAllByName(host).toList() }
+        val addresses = timed { (network?.getAllByName(host) ?: InetAddress.getAllByName(host)).toList() }
         facts = facts.copy(dnsOk = !addresses.isNullOrEmpty(), resolvedAddresses = addresses.orEmpty().map { it.hostAddress.orEmpty() }.take(4))
-        if (addresses.isNullOrEmpty()) return@withContext DiagnosisRules.explain(facts)
+        if (addresses.isNullOrEmpty()) {
+            val control = timed { (network?.getAllByName(CONTROL_HOST) ?: InetAddress.getAllByName(CONTROL_HOST)).isNotEmpty() } == true
+            return@withContext DiagnosisRules.explain(facts.copy(controlDnsOk = control))
+        }
 
         val socket = connect(network, addresses, port)
         facts = facts.copy(tcpOk = socket != null)
@@ -84,9 +89,9 @@ class AndroidNetworkDiagnostics(context: Context) : NetworkDiagnostics {
         DiagnosisRules.explain(facts.copy(tlsOk = tlsOk, tlsError = tlsError, networkChanges = recentChanges()))
     }
 
-    private fun connect(network: Network, addresses: List<InetAddress>, port: Int): java.net.Socket? {
+    private fun connect(network: Network?, addresses: List<InetAddress>, port: Int): java.net.Socket? {
         for (address in addresses.take(2)) {
-            val socket = network.socketFactory.createSocket()
+            val socket = network?.socketFactory?.createSocket() ?: java.net.Socket()
             try { socket.connect(InetSocketAddress(address, port), PROBE_TIMEOUT_MS); return socket }
             catch (_: Exception) { runCatching { socket.close() } }
         }
@@ -128,6 +133,8 @@ class AndroidNetworkDiagnostics(context: Context) : NetworkDiagnostics {
     companion object {
         private const val PROBE_TIMEOUT_MS = 8_000
         private const val WINDOW_MS = 3 * 60_000L
+        /** Resolved only to tell "this name fails" from "DNS fails"; no connection is made to it. */
+        private const val CONTROL_HOST = "www.google.com"
         // Holds only the application context, which lives as long as the process.
         @android.annotation.SuppressLint("StaticFieldLeak")
         @Volatile private var instance: AndroidNetworkDiagnostics? = null

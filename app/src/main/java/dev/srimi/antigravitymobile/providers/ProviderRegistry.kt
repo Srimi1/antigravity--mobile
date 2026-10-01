@@ -71,7 +71,7 @@ object ProviderRegistry {
             "Cloudflare's terms apply. Some models (Kimi, GLM, DeepSeek) require a paid billing method.",
             needsPlanConfirmation = "My Cloudflare account is on the Workers Free plan (requests fail instead of billing)"),
         ProviderEntry(ProviderDescriptor("huggingface", "Hugging Face Inference Providers", "https://router.huggingface.co/v1", AuthType.ApiKey,
-            AllowanceClass.AccountDependent, "USD of credits per month (free users)", null, "monthly", null,
+            AllowanceClass.AccountDependent, "US cents of credit per month for free users (subject to change)", 10, "monthly", null,
             BillingRequirement.None, "Free users: \$0.10/month (subject to change); usage beyond it needs purchased credits",
             "https://huggingface.co/docs/inference-providers/pricing", CHECKED),
             FreeRule.AllModels, CompatQuirks(keyPage = "https://huggingface.co/settings/tokens"),

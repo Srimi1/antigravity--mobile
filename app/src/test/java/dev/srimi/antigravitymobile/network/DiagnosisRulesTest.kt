@@ -66,3 +66,17 @@ class NetworkHostsTest {
         assertNull(NetworkHosts.normalize("bad_host.com"))
     }
 }
+
+class DnsControlTest {
+    @Test fun nameSpecificFailureWhenControlResolves() {
+        val f = NetworkFacts("game.example", "Wi-Fi", true, true, false, false, PrivateDnsMode.Automatic, null, true,
+            emptyList(), dnsOk = false, tcpOk = null, tlsOk = null, controlDnsOk = true)
+        val r = DiagnosisRules.explain(f)
+        assertEquals(ConnectionStage.Dns, r.failedStage)
+        assertTrue(r.summary.contains("other names resolve"))
+        assertTrue(r.recovery!!.contains("spelling"))
+        // Strict Private DNS still points at the DNS setting even if the control resolved.
+        assertTrue(DiagnosisRules.explain(f.copy(privateDns = PrivateDnsMode.Strict, privateDnsServer = "x.example")).recovery!!.startsWith("Private DNS is blocking"))
+        assertTrue(DiagnosisRules.explain(f.copy(privateDns = PrivateDnsMode.Strict, controlDnsOk = false)).recovery!!.startsWith("Private DNS hostname unreachable"))
+    }
+}

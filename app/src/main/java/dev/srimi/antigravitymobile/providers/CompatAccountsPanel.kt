@@ -160,7 +160,8 @@ class CompatAccountsViewModel(application: Application) : AndroidViewModel(appli
             Text(d.displayName, style = MaterialTheme.typography.titleSmall)
             Text(allowanceLine(d), style = MaterialTheme.typography.bodySmall)
         }
-        StatusChip(d.allowanceClass.name.lowercase(), when (d.allowanceClass) { AllowanceClass.Free -> "PASSED"; AllowanceClass.Trial, AllowanceClass.AccountDependent -> "UNVERIFIED"; AllowanceClass.Paid -> "FAILED" })
+        StatusChip(when (d.allowanceClass) { AllowanceClass.Free -> "free"; AllowanceClass.Trial -> "trial"
+            AllowanceClass.AccountDependent -> "depends on plan"; AllowanceClass.Paid -> "paid" }, when (d.allowanceClass) { AllowanceClass.Free -> "PASSED"; AllowanceClass.Trial, AllowanceClass.AccountDependent -> "UNVERIFIED"; AllowanceClass.Paid -> "FAILED" })
         TextButton(onClick = { model.expand(if (open) null else id) }) { Text(if (open) "Close" else "Set up") }
     }
     if (!open) return
@@ -187,8 +188,10 @@ class CompatAccountsViewModel(application: Application) : AndroidViewModel(appli
         if (row.hasKey || row.entry.quirks.keyOptional) OutlinedButton(onClick = { model.loadModels(id) }, enabled = idle) { Text("Models") }
         if (row.hasKey) OutlinedButton(onClick = { model.removeKey(id) }, enabled = idle) { Text("Remove key") }
     }
-    val models = state.models[id].orEmpty()
+    val all = state.models[id].orEmpty().sortedBy { if (OpenAiCompatWire.isFree(row.entry.freeRule, it, it.id)) 0 else 1 }
+    val models = if (state.freeOnly) all.filter { OpenAiCompatWire.isFree(row.entry.freeRule, it, it.id) } else all
     val providers = CompatProviders.shared(LocalContext.current.applicationContext)
+    if (all.size > models.size) Text("${all.size - models.size} model(s) that may bill are hidden while free mode is on.", style = MaterialTheme.typography.bodySmall)
     models.forEach { m ->
         val free = OpenAiCompatWire.isFree(row.entry.freeRule, m, m.id)
         val verified = providers.verifiedAt(id, m.id)
