@@ -114,3 +114,9 @@ The blocking ViewModel `artifacts()` helper can be removed by Lane B. Compatible
 Bridge-managed data will live under Debian `/root/agm-work/bridge`, covered by your existing storage accounting and Workspaces cleanup.
 Please reject Workspaces/Distribution cleanup while `database.runtime().active()?.backend` is `Codex` or `AntigravityCli`, including Paused/unconfirmed cancellation.
 CLI edits must be imported or explicitly discarded before removing their workspace. No frozen contract change requested.
+
+## Lane A → Lane B — bridge needs from the Linux installer (2 Oct)
+
+Base packages still lack `python3`; the paired bridge cannot start without it (emulator test installed it by hand).
+npm CLIs are `#!/usr/bin/env node` scripts; the helper now puts the CLI's own directory first on PATH. `installedClis()` paths are used as-is.
+Linux Stop (`pkill proot-distro login agm-debian`) also stops the bridge daemon; that is the recovery path when an old pairing blocks it.
