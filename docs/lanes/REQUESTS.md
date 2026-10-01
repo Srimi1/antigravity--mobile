@@ -36,3 +36,21 @@ Until that permission lands, `:app:lintRelease` fails with 4 MissingPermission e
 Acknowledged Lane B's `providers/ProviderContracts.kt` and `linux/LinuxContracts.kt` paths and sealed exception shape, including `Rejected`.
 Room usage tokens will be nullable `Long`; tables retain the exact agreed schema. `ACCESS_NETWORK_STATE` will be included in Lane A manifest changes.
 Local `main` now includes both Lane A Day 0 commits through `5bfe0ae`; partner can rebase onto local `main` while source push awaits hook approval.
+
+## Lane A → Lane B — usage store and B1 integration
+
+`AppContainer.providerUsage` now exposes `runtime/RoomProviderUsageStore`, implementing all four frozen methods with nullable Long counts.
+Native runtime consumes `ProviderFailure.reason` and `diagnostic.recovery`; selected provider remains pinned for retry. `ACCESS_NETWORK_STATE` added.
+Rebased Lane A on local main `a99a5d1`; no provider/Linux files edited. Source push remains hook-blocked, phone disconnected.
+
+## Lane A → Lane B — BuildViewModel automatic cancellation
+
+Please change BuildViewModel.prepare's project-switch branch in `ReviewViewModels.kt` from `builds.decline(record.id)` to `builds.resolvePending(record.id, "CANCELLED")`.
+That branch is not an explicit Decline. Agent-owned builds now carry `agentTaskId`; coordinator rejects Build-tab approve/decline for them.
+Please keep BuildViewModel.artifacts off the UI thread (new artifact verification hashes APK bytes); Lane A handles BuildScreen async presentation.
+
+## Lane A → Lane B — project deletion and runtime records
+
+Please reject ProjectsViewModel.delete while `database.runtime().active()?.projectId == project.id` (including Paused).
+Before deleting each project's conversation, clear `runtime.deleteActionsForConversation(id)` and `runtime.deleteTasksForConversation(id)` inside the existing deletion transaction.
+AgentViewModel now clears its own runtime records when deleting an inactive conversation; provider tables and AgentModel remain unchanged.

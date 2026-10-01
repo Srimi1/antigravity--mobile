@@ -115,13 +115,14 @@ class AgentBuildTools(private val files: ToolHost, private val runner: BuildRunn
         .takeIf { it.isNotEmpty() }?.also { require(it in build.apks) { "Unknown APK $it" } } ?: build.apks.first()
 }
 
-class PhoneBuildRunner(private val services: AppContainer, private val project: ProjectRecord, private val context: Context) : BuildRunner {
+class PhoneBuildRunner(private val services: AppContainer, private val project: ProjectRecord, private val context: Context,
+    private val taskId: String? = null) : BuildRunner {
     override fun unavailableReason(): String? = when {
         services.builds.client.installed() -> null
         services.builds.client.outdated() -> "Update build tools on the Build tab."
         else -> "Install build tools on the Build tab."
     }
-    override suspend fun prepare(tasks: String) = services.builds.prepare(project, tasks).let { PreparedBuild(it.id, it.tasks, it.snapshotHash) }
+    override suspend fun prepare(tasks: String) = services.builds.prepare(project, tasks, taskId).let { PreparedBuild(it.id, it.tasks, it.snapshotHash) }
     override suspend fun resolvePending(id: String, decision: ApprovalDecision) {
         services.builds.resolvePending(id, when (decision) {
             is ApprovalDecision.Declined -> "DECLINED"
@@ -131,7 +132,7 @@ class PhoneBuildRunner(private val services: AppContainer, private val project: 
         })
     }
     override suspend fun runApproved(id: String): BuildOutcome {
-        services.builds.approve(id)
+        services.builds.approve(id, taskId)
         try { return awaitExisting(id) }
         catch (cancelled: CancellationException) {
             withContext(NonCancellable) { services.builds.cancel(id) }
@@ -167,7 +168,8 @@ class PhoneBuildRunner(private val services: AppContainer, private val project: 
         val build = services.builds.find(buildId) ?: error("Build record missing")
         require(build.projectId == project.id && build.status == "COMPLETED" && build.artifactState == "READY") { "Only a verified successful build from this project can be installed" }
         val file = services.builds.artifacts(buildId).firstOrNull { apk == null || it.name == apk } ?: error("Verified APK not found")
-        return withContext(Dispatchers.Main) { ApkInstaller.install(context) { file.inputStream() } } +
-            " Installer opened; installation and launch are unverified until the user confirms them."
+        val result = withContext(Dispatchers.Main) { ApkInstaller.launch(context) { file.inputStream() } }
+        if (!result.opened) throw RuntimeUnavailableException(result.message)
+        return result.message
     }
 }

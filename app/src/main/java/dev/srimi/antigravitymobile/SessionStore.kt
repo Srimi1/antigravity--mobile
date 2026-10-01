@@ -154,6 +154,7 @@ data class BuildRecord(
     val finishedAt: Long = 0,
     val durationMs: Long = 0,
     @ColumnInfo(defaultValue = "'PENDING'") val artifactState: String = "PENDING",
+    val agentTaskId: String? = null,
 )
 @Dao
 interface BuildDao {
@@ -214,6 +215,7 @@ data class RuntimeActionRecord(
     val resultText: String?,
     val createdAt: Long,
     val updatedAt: Long,
+    @ColumnInfo(defaultValue = "0") val allEdits: Boolean = false,
 )
 
 @Dao
@@ -241,23 +243,30 @@ interface RuntimeDao {
     @Query("SELECT * FROM runtime_actions WHERE taskId=:id ORDER BY createdAt, id") fun observeActions(id: String): Flow<List<RuntimeActionRecord>>
     @Query("UPDATE runtime_actions SET summary=:summary, preview=:preview, category=:category, buildId=:buildId, status=:status, updatedAt=:at WHERE id=:id AND status='PREPARING'")
     suspend fun prepared(id: String, summary: String, preview: String, category: String?, buildId: String?, status: String, at: Long): Int
-    @Query("UPDATE runtime_actions SET decision=:decision, decidedAt=:at, status=:decision, updatedAt=:at WHERE id=:actionId AND taskId=:taskId AND toolCallId=:callId AND ((buildId IS NULL AND :buildId IS NULL) OR buildId=:buildId) AND status='AWAITING_APPROVAL' AND decision IS NULL AND EXISTS (SELECT 1 FROM runtime_tasks WHERE id=:taskId AND activeSlot=1 AND status='AwaitingApproval')")
-    suspend fun decide(taskId: String, actionId: String, callId: String, buildId: String?, decision: String, at: Long): Int
+    @Query("UPDATE runtime_actions SET decision=:decision, allEdits=:allEdits, decidedAt=:at, status=:decision, updatedAt=:at WHERE id=:actionId AND taskId=:taskId AND toolCallId=:callId AND ((buildId IS NULL AND :buildId IS NULL) OR buildId=:buildId) AND status='AWAITING_APPROVAL' AND decision IS NULL AND EXISTS (SELECT 1 FROM runtime_tasks WHERE id=:taskId AND activeSlot=1 AND status='AwaitingApproval')")
+    suspend fun decide(taskId: String, actionId: String, callId: String, buildId: String?, decision: String, allEdits: Boolean, at: Long): Int
     @Query("UPDATE runtime_actions SET status='RUNNING', updatedAt=:at WHERE id=:id AND status IN ('READY','APPROVED') AND (category IS NULL OR decision='APPROVED') AND EXISTS (SELECT 1 FROM runtime_tasks WHERE id=runtime_actions.taskId AND activeSlot=1 AND status IN ('Running','AwaitingApproval'))")
     suspend fun claim(id: String, at: Long): Int
     @Query("UPDATE runtime_actions SET outcome=:outcome, resultText=:text, status=:status, updatedAt=:at WHERE id=:id AND (outcome IS NULL OR (status='INTERRUPTED' AND tool='build_project' AND buildId IS NOT NULL AND :status!='INTERRUPTED'))")
     suspend fun finish(id: String, outcome: String, text: String, status: String, at: Long): Int
     @Query("SELECT * FROM runtime_actions WHERE tool='build_project' AND buildId IS NOT NULL AND (outcome IS NULL OR status='INTERRUPTED') AND status IN ('RUNNING','INTERRUPTED')")
     suspend fun unresolvedBuilds(): List<RuntimeActionRecord>
+    @Query("SELECT * FROM runtime_actions WHERE taskId=:taskId AND buildId=:buildId AND tool='build_project' AND decision='APPROVED' AND status='RUNNING' AND outcome IS NULL LIMIT 1")
+    suspend fun authorizedBuild(taskId: String, buildId: String): RuntimeActionRecord?
     @Query("UPDATE runtime_actions SET decision=:decision, decidedAt=:at WHERE taskId=:id AND status='AWAITING_APPROVAL' AND decision IS NULL")
     suspend fun closePending(id: String, decision: String, at: Long)
     @Query("UPDATE runtime_tasks SET autoApproveEdits=0, status='Paused', detail='App process stopped; recorded actions will be checked before retry', recoveryAction='Review Changes and build receipts, then retry this provider.', updatedAt=:at WHERE activeSlot=1 AND status IN ('Queued','Running','AwaitingApproval')")
     suspend fun pauseAfterDeath(at: Long)
+    @Query("DELETE FROM runtime_actions WHERE taskId IN (SELECT id FROM runtime_tasks WHERE conversationId=:id)")
+    suspend fun deleteActionsForConversation(id: String)
+    @Query("DELETE FROM runtime_tasks WHERE conversationId=:id AND activeSlot IS NULL")
+    suspend fun deleteTasksForConversation(id: String)
 
     @Transaction suspend fun answer(taskId: String, actionId: String, callId: String, buildId: String?, decision: String, allEdits: Boolean, at: Long): Boolean {
+        if (decision !in setOf("APPROVED", "DECLINED", "CANCELLED", "INTERRUPTED")) return false
         val action = action(taskId, callId) ?: return false
         if (allEdits && (decision != "APPROVED" || action.category != "Edit")) return false
-        if (decide(taskId, actionId, callId, buildId, decision, at) != 1) return false
+        if (decide(taskId, actionId, callId, buildId, decision, allEdits, at) != 1) return false
         if (allEdits) approveEdits(taskId)
         return true
     }
@@ -307,9 +316,10 @@ abstract class SessionStore : RoomDatabase() {
         }
         val MIGRATION_3_4_SQL = listOf(
             "ALTER TABLE `build_runs` ADD COLUMN `artifactState` TEXT NOT NULL DEFAULT 'PENDING'",
+            "ALTER TABLE `build_runs` ADD COLUMN `agentTaskId` TEXT",
             "CREATE TABLE IF NOT EXISTS `runtime_tasks` (`id` TEXT NOT NULL, `projectId` TEXT NOT NULL, `conversationId` TEXT NOT NULL, `providerId` TEXT NOT NULL, `backend` TEXT NOT NULL, `prompt` TEXT NOT NULL, `status` TEXT NOT NULL, `detail` TEXT NOT NULL, `recoveryAction` TEXT, `transcript` TEXT NOT NULL, `completedSteps` INTEGER NOT NULL, `nextStep` TEXT NOT NULL, `historySize` INTEGER NOT NULL, `changeSetId` TEXT, `autoApproveEdits` INTEGER NOT NULL, `activeSlot` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
             "CREATE UNIQUE INDEX IF NOT EXISTS `index_runtime_tasks_activeSlot` ON `runtime_tasks` (`activeSlot`)",
-            "CREATE TABLE IF NOT EXISTS `runtime_actions` (`id` TEXT NOT NULL, `taskId` TEXT NOT NULL, `toolCallId` TEXT NOT NULL, `tool` TEXT NOT NULL, `arguments` TEXT NOT NULL, `summary` TEXT NOT NULL, `preview` TEXT NOT NULL, `category` TEXT, `buildId` TEXT, `status` TEXT NOT NULL, `decision` TEXT, `decidedAt` INTEGER, `outcome` TEXT, `resultText` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+            "CREATE TABLE IF NOT EXISTS `runtime_actions` (`id` TEXT NOT NULL, `taskId` TEXT NOT NULL, `toolCallId` TEXT NOT NULL, `tool` TEXT NOT NULL, `arguments` TEXT NOT NULL, `summary` TEXT NOT NULL, `preview` TEXT NOT NULL, `category` TEXT, `buildId` TEXT, `status` TEXT NOT NULL, `decision` TEXT, `decidedAt` INTEGER, `outcome` TEXT, `resultText` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `allEdits` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
             "CREATE UNIQUE INDEX IF NOT EXISTS `index_runtime_actions_taskId_toolCallId` ON `runtime_actions` (`taskId`, `toolCallId`)",
             "CREATE TABLE IF NOT EXISTS `provider_models` (`providerId` TEXT NOT NULL, `modelId` TEXT NOT NULL, `toolCallingVerified` INTEGER NOT NULL, `verifiedAt` INTEGER NOT NULL, PRIMARY KEY(`providerId`, `modelId`))",
             "CREATE TABLE IF NOT EXISTS `provider_usage` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `providerId` TEXT NOT NULL, `modelId` TEXT NOT NULL, `taskId` TEXT, `inputTokens` INTEGER, `outputTokens` INTEGER, `requests` INTEGER NOT NULL, `recordedAt` INTEGER NOT NULL)",

@@ -14,7 +14,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 class BuildCoordinator(private val context: Context, private val dao: BuildDao,
-    private val projects: ProjectRepository, private val scope: CoroutineScope) {
+    private val projects: ProjectRepository, private val scope: CoroutineScope, private val runtime: RuntimeDao? = null) {
     val client = BuildWorkerClient(context)
     val output = MutableStateFlow<Map<String, String>>(emptyMap())
     private val monitors = ConcurrentHashMap<String, Job>()
@@ -27,7 +27,7 @@ class BuildCoordinator(private val context: Context, private val dao: BuildDao,
     fun logReference(id: String) = evidence.logReference(id)
     suspend fun log(id: String): String = withContext(Dispatchers.IO) { evidence.log(id) }
 
-    suspend fun prepare(project: ProjectRecord, text: String): BuildRecord = withContext(Dispatchers.IO) {
+    suspend fun prepare(project: ProjectRecord, text: String, agentTaskId: String? = null): BuildRecord = withContext(Dispatchers.IO) {
         val tasks = text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }; P.validateTasks(tasks)
         val id = UUID.randomUUID().toString()
         val directory = projects.directory(project).canonicalFile
@@ -36,17 +36,22 @@ class BuildCoordinator(private val context: Context, private val dao: BuildDao,
         try {
             val hash = BuildSnapshot.write(directory, target)
             BuildRecord(id, project.id, tasks.joinToString(" "), "AWAITING_APPROVAL",
-                "Project snapshot prepared", hash, System.currentTimeMillis()).also { dao.save(it) }
+                "Project snapshot prepared", hash, System.currentTimeMillis(), agentTaskId = agentTaskId).also { dao.save(it) }
         } catch (error: Exception) { target.delete(); throw error }
     }
     suspend fun find(id: String) = dao.find(id)
-    suspend fun decline(id: String) = resolvePending(id, "DECLINED")
+    suspend fun decline(id: String) {
+        check(dao.find(id)?.agentTaskId == null) { "Answer this build's approval in Agent" }
+        resolvePending(id, "DECLINED")
+    }
     suspend fun resolvePending(id: String, status: String) {
         require(status in setOf("DECLINED", "CANCELLED", "INTERRUPTED"))
         dao.resolvePending(id, status, "Approval ${status.lowercase()}; command was not dispatched", System.currentTimeMillis())
     }
-    suspend fun approve(id: String) {
+    suspend fun approve(id: String, agentTaskId: String? = null) {
         val record = dao.find(id) ?: error("Build record missing")
+        check(record.agentTaskId == agentTaskId) { "Answer this build's approval in Agent" }
+        if (agentTaskId != null) check(runtime?.authorizedBuild(agentTaskId, id) != null) { "Agent approval is missing or not claimed" }
         check(record.status == "AWAITING_APPROVAL") { "Approval already consumed" }
         check(BuildEvidenceStore.hash(archive(id)) == record.snapshotHash) { "Approved snapshot changed; prepare a new build" }
         check(dao.claimApproval(id) == 1) { "Approval already consumed" }

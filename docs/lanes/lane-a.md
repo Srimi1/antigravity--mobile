@@ -18,3 +18,10 @@
 - Prepared pinned Android-native inputs with the repository's `prepare.py`; downloads and generated files remain outside source/iCloud. No personal signing key accessed, no release APK or publication.
 - ADB inventory empty: no phone trace or physical acceptance. Device/runtime regression suite, full JVM suite and lint still pending. Lane B Day 0/B1 code is on newer local main; rebase/integrate next.
 - GitHub push was rejected by PreToolUse hook (`git push` dangerous-pattern rule); GitHub remains at baseline until owner allows source push or pushes it. Day 0 commits on local main: `d90a81c`, `5bfe0ae`.
+
+## A1 reliability follow-up — 2026-10-01
+
+- Targeted replay, build-result, evidence, workspace and change-ledger JVM checks pass. A deliberate red conflict test showed approval could overwrite a later owner edit; baseline comparison and atomic file replacement now preserve that edit.
+- Bound Agent build snapshots to their task and persisted approval claim. Build-tab buttons cannot approve or decline an Agent-owned build. This closes a second approval path; the original phone incident still needs its trace.
+- Room-backed provider usage store is implemented; unknown token counts stay null. Installer permission setup returns RuntimeUnavailable rather than claiming the APK installer opened.
+- Release lint and debug APK build passed before these follow-up changes. Emulator 5554 booted with API 36 ARM64; no physical phone connected. New Room/lifecycle/device checks pending. Worker protocol/code 2 and app 0.5.2/code 11 unchanged.

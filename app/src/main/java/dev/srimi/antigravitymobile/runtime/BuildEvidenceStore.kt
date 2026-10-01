@@ -16,7 +16,7 @@ class BuildEvidenceStore(private val root: File) {
         val parent = File(folder(id), "apks").canonicalFile
         val entries = JSONArray()
         files.forEach { file ->
-            require(file.parentFile?.canonicalFile == parent && file.canonicalFile == file.absoluteFile && file.isFile)
+            require(file.parentFile?.canonicalFile == parent && file.canonicalFile == File(parent, file.name) && file.isFile)
             require(file.name.matches(Regex("artifact-[0-9]+\\.apk")))
             entries.put(JSONObject().put("name", file.name).put("size", file.length()).put("sha256", hash(file)))
         }

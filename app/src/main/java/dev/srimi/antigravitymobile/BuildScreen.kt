@@ -27,12 +27,14 @@ import java.io.File
 import java.io.InputStream
 
 object ApkInstaller {
+    data class Launch(val opened: Boolean, val message: String)
     /** Copies an APK into the FileProvider-shared install folder and opens Android's installer. */
-    suspend fun install(context: Context, open: () -> InputStream): String {
+    suspend fun install(context: Context, open: () -> InputStream): String = launch(context, open).message
+    suspend fun launch(context: Context, open: () -> InputStream): Launch {
         if (!context.packageManager.canRequestPackageInstalls()) {
             context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            return "Allow installs from this app, return, then try again."
+            return Launch(false, "Allow installs from this app, return, then request installation again.")
         }
         val apk = withContext(Dispatchers.IO) {
             val target = File(context.filesDir, "install/${java.util.UUID.randomUUID()}.apk")
@@ -60,7 +62,7 @@ object ApkInstaller {
         val content = FileProvider.getUriForFile(context, "${context.packageName}.files", apk)
         context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(content, "application/vnd.android.package-archive")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK))
-        return "Android's installer opened. Confirm there to install."
+        return Launch(true, "Android's installer opened. Confirm there to install; installation and launch are not yet verified.")
     }
 }
 
@@ -142,14 +144,23 @@ object ApkInstaller {
                 Text(record.tasks, fontFamily = FontFamily.Monospace)
                 Text(record.detail, style = MaterialTheme.typography.bodySmall)
                 if (record.durationMs > 0) Text("Elapsed: ${record.durationMs / 1000}s", style = MaterialTheme.typography.bodySmall)
-                if (record.status == "AWAITING_APPROVAL") OutlinedButton(onClick = { build.review(record) }) { Text("Review command") }
+                if (record.status == "AWAITING_APPROVAL") {
+                    if (record.agentTaskId == null) OutlinedButton(onClick = { build.review(record) }) { Text("Review command") }
+                    else Text("Answer this build's approval in Agent.", style = MaterialTheme.typography.bodySmall)
+                }
                 if (record.status in setOf("RUNNING", "DISPATCHING", "CANCEL_REQUESTED")) {
                     OutlinedButton(onClick = { build.cancel(record.id) }, enabled = record.status != "CANCEL_REQUESTED") { Text("Stop build") }
                 }
                 if (record.status != "AWAITING_APPROVAL" && record.status != "DECLINED")
                     OutlinedButton(onClick = { build.refresh(record.id) }) { Text("Refresh result") }
-                if (record.status == "COMPLETED") build.artifacts(record.id).forEach { apk ->
-                    OutlinedButton(onClick = { install { apk.inputStream() } }) { Text("Install ${apk.name}") }
+                val apks by produceState<List<File>>(emptyList(), record.id, record.artifactState) {
+                    value = if (record.status == "COMPLETED" && record.artifactState == "READY") withContext(Dispatchers.IO) { build.artifacts(record.id) } else emptyList()
+                }
+                apks.forEach { apk ->
+                    OutlinedButton(onClick = { install {
+                        check(build.artifacts(record.id).any { it == apk }) { "Recorded APK changed; refresh the build result" }
+                        apk.inputStream()
+                    } }) { Text("Install ${apk.name}") }
                     OutlinedButton(onClick = {
                         val packageName = context.packageManager.getPackageArchiveInfo(apk.path, 0)?.packageName
                         val intent = packageName?.let { context.packageManager.getLaunchIntentForPackage(it) }
@@ -157,7 +168,10 @@ object ApkInstaller {
                         else context.startActivity(intent)
                     }) { Text("Open installed app") }
                 }
-                val output = state.output[record.id].orEmpty()
+                val output by produceState(state.output[record.id].orEmpty(), record.id, record.status, state.output[record.id]) {
+                    value = state.output[record.id].takeIf { !it.isNullOrBlank() }
+                        ?: withContext(Dispatchers.IO) { context.container.builds.log(record.id) }
+                }
                 var show by remember(record.id) { mutableStateOf(false) }
                 if (output.isNotBlank()) {
                     TextButton(onClick = { show = !show }) { Text(if (show) "Hide output" else "Show output") }

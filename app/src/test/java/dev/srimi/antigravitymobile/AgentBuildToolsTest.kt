@@ -58,6 +58,22 @@ class AgentBuildToolsTest {
         assertEquals(listOf("prepare :app:testDebugUnitTest", "decline build-0"), runner.log)
         assertTrue((model.requests[1].input.last() as AgentItem.ToolResult).output.contains("declined"))
     }
+    @Test fun stopCancelsApprovalWithoutReportingUserDeclineOrStartingBuild() = runBlocking {
+        val runner = FakeRunner()
+        val model = Script(listOf(listOf(call("b", "build_project"), ProviderEvent.Completed), done))
+        val finished = mutableListOf<RecordedExecution>()
+        assertThrows(kotlinx.coroutines.CancellationException::class.java) {
+            runBlocking {
+                AgentOrchestrator(model, AgentBuildTools(NoFiles, runner), { key, _, _ -> ApprovalDecision.Cancelled(key) }, object : AgentListener {
+                    override suspend fun onToolFinished(call: AgentItem.ToolCall, preview: ToolPreview, result: RecordedExecution) { finished += result }
+                }).run("", emptyList(), "build")
+            }
+        }
+        assertEquals(listOf("prepare :app:assembleDebug", "resolve build-0"), runner.log)
+        assertEquals("CANCELLED", finished.single().status)
+        assertFalse(finished.single().output.contains("user declined", ignoreCase = true))
+        assertEquals(1, model.requests.size)
+    }
     @Test fun failedBuildReturnsLogAndCannotBeInstalled() = runBlocking {
         val runner = FakeRunner(status = "FAILED")
         val statuses = mutableListOf<String>()

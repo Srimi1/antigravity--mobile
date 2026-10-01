@@ -3,6 +3,7 @@ package dev.srimi.antigravitymobile
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import dev.srimi.antigravitymobile.runtime.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -80,7 +81,12 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteConversation(id: String) {
         if (state.value.task?.conversationId == id) return
         viewModelScope.launch {
-            dao.deleteMessages(id); dao.deleteActions(id); dao.delete(id)
+            services.database.withTransaction {
+                val runtime = services.database.runtime()
+                if (runtime.active()?.conversationId == id) return@withTransaction
+                runtime.deleteActionsForConversation(id); runtime.deleteTasksForConversation(id)
+                dao.deleteMessages(id); dao.deleteActions(id); dao.delete(id)
+            }
             if (conversationId.value == id) conversationId.value = null
         }
     }

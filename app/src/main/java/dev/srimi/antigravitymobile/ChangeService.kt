@@ -44,12 +44,13 @@ class ChangeService(private val dao: ChangeDao, private val snapshotRoot: File, 
      * Order matters for crash safety: the before snapshot and a provisional record are saved first,
      * so an interrupted write can only make a later revert refuse, never silently lose data.
      */
-    suspend fun apply(setId: String, workspace: WorkspaceService, path: String, content: ByteArray?) {
+    suspend fun apply(setId: String, workspace: WorkspaceService, path: String, content: ByteArray?, expected: FileBaseline? = null) {
         workspace.normalize(path)
         val set = dao.findSet(setId) ?: error("Change set was not found")
         check(set.status == "OPEN") { "Change set is no longer open" }
         val current = if (workspace.exists(path) && !workspace.isDirectory(path)) workspace.readBytes(path) else null
         check(!workspace.exists(path) || current != null) { "$path is a directory" }
+        if (expected != null) check(current.contentEqualsNullable(expected.bytes)) { "Later edit detected in $path; approved action refused" }
         var record = dao.file(setId, path)
         if (record == null) {
             store(setId, "before", path, current)
@@ -57,7 +58,7 @@ class ChangeService(private val dao: ChangeDao, private val snapshotRoot: File, 
             record = ChangeFileRecord(setId, path, current != null, current != null, clock())
             dao.saveFile(record)
         }
-        if (content == null) { if (current != null) workspace.delete(path) } else workspace.writeBytes(path, content)
+        workspace.compareAndApply(path, current, content)
         store(setId, "after", path, content)
         dao.saveFile(record.copy(afterExists = content != null, updatedAt = clock()))
     }

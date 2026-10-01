@@ -173,6 +173,8 @@ class WorkspaceTools(
     private val changeSet: suspend () -> String,
     private val gitStatus: (() -> String)? = null,
 ) : ToolHost {
+    private val reviewed = java.util.concurrent.ConcurrentHashMap<String, Pair<String, FileBaseline>>()
+    override suspend fun resolve(call: AgentItem.ToolCall, decision: ApprovalDecision) { reviewed.remove(call.callId) }
     override val specs = listOf(
         ToolSpec("list_files", "List files in the project (recursive, excluding .git). Optionally limit to a directory.",
             """{"type":"object","properties":{"path":{"type":"string","description":"Directory relative to the project root; empty for the root"}},"additionalProperties":false}"""),
@@ -214,12 +216,15 @@ class WorkspaceTools(
                 require(content.length <= MAX_FILE) { "Content is larger than ${MAX_FILE / 1024} KB" }
                 val before = if (workspace.exists(path)) workspace.readBytes(path) else null
                 require(before == null || !workspace.isDirectory(path)) { "$path is a directory" }
+                reviewed[call.callId] = path to FileBaseline(before)
                 ToolPreview("${if (before == null) "Create" else "Edit"} $path", TextDiff.unified(path, before, content.toByteArray()))
             }
             "delete_file" -> {
                 val path = path(args.getString("path"))
                 require(workspace.exists(path) && !workspace.isDirectory(path)) { "$path is not an existing file" }
-                ToolPreview("Delete $path", TextDiff.unified(path, workspace.readBytes(path), null))
+                val before = workspace.readBytes(path)
+                reviewed[call.callId] = path to FileBaseline(before)
+                ToolPreview("Delete $path", TextDiff.unified(path, before, null))
             }
             else -> throw IllegalArgumentException("Unknown tool ${call.name}")
         }
@@ -265,12 +270,16 @@ class WorkspaceTools(
                 val path = path(args.getString("path"))
                 val content = args.getString("content")
                 require(content.length <= MAX_FILE) { "Content is larger than ${MAX_FILE / 1024} KB" }
-                changes.apply(changeSet(), workspace, path, content.toByteArray())
+                val expected = reviewed.remove(call.callId) ?: error("Edit was not prepared for approval")
+                require(expected.first == path)
+                changes.apply(changeSet(), workspace, path, content.toByteArray(), expected.second)
                 "Wrote $path (${content.lines().size} lines). The change is recorded for review."
             }
             "delete_file" -> {
                 val path = path(args.getString("path"))
-                changes.apply(changeSet(), workspace, path, null)
+                val expected = reviewed.remove(call.callId) ?: error("Delete was not prepared for approval")
+                require(expected.first == path)
+                changes.apply(changeSet(), workspace, path, null, expected.second)
                 "Deleted $path. The change is recorded for review."
             }
             else -> throw IllegalArgumentException("Unknown tool ${call.name}")

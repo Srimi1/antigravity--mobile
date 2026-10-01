@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.room.Room
 import dev.srimi.antigravitymobile.runtime.NativeAgentTaskRunner
+import dev.srimi.antigravitymobile.runtime.RoomProviderUsageStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,16 +17,17 @@ import org.eclipse.jgit.lib.PersonIdent
 import org.json.JSONObject
 import java.io.File
 
-class AntigravityApp : Application() {
-    val container: AppContainer by lazy { AppContainer(this) }
+open class AntigravityApp : Application() {
+    open val container: AppContainer by lazy { AppContainer(this) }
 }
 
 val Context.container: AppContainer get() = (applicationContext as AntigravityApp).container
 
 /** Process-wide services. One agent task runs at a time; unfinished work is marked interrupted, never replayed. */
-class AppContainer(context: Context) {
+class AppContainer(context: Context, databaseOverride: SessionStore? = null,
+    private val taskFactory: (AppContainer, Context) -> NativeAgentTaskRunner = { services, app -> NativeAgentTaskRunner(services, app) }) {
     private val app = context.applicationContext
-    val database: SessionStore = Room.databaseBuilder(app, SessionStore::class.java, "probe.db")
+    val database: SessionStore = databaseOverride ?: Room.databaseBuilder(app, SessionStore::class.java, "probe.db")
         .addMigrations(SessionStore.MIGRATION_1_2, SessionStore.MIGRATION_2_3, SessionStore.MIGRATION_3_4).build()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val prefs = app.getSharedPreferences("app", Context.MODE_PRIVATE)
@@ -43,8 +45,9 @@ class AppContainer(context: Context) {
         ProviderId.GEMINI -> gemini; ProviderId.CLAUDE_KEY -> claude; else -> chatgpt }
     fun agentAccount(provider: ProviderId = agentProvider): AccountState = when (provider) {
         ProviderId.GEMINI -> gemini.accountState(); ProviderId.CLAUDE_KEY -> claude.accountState(); else -> chatgpt.accountState() }
-    val builds = BuildCoordinator(app, database.builds(), projects, scope)
-    val tasks by lazy { NativeAgentTaskRunner(this, app) }
+    val builds = BuildCoordinator(app, database.builds(), projects, scope, database.runtime())
+    val tasks by lazy { taskFactory(this, app) }
+    val providerUsage = RoomProviderUsageStore(database.providerUsage())
     val websites = WebsiteService(File(app.filesDir, "website-copies"))
     private val checkpointRoot = File(app.filesDir, "checkpoints")
     private val gitCredentialStore = CredentialStore(app, "git.credentials")

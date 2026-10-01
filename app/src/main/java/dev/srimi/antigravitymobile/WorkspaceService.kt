@@ -7,6 +7,9 @@ import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+
+data class FileBaseline(val bytes: ByteArray?)
 
 /** Owns one app-private workspace. This is not a shell sandbox. */
 class WorkspaceService(private val root: File, private val checkpointRoot: File) {
@@ -27,11 +30,26 @@ class WorkspaceService(private val root: File, private val checkpointRoot: File)
     fun read(path: String): String = resolve(path).readText()
     fun readBytes(path: String): ByteArray = resolve(path).readBytes()
     fun write(path: String, text: String) = writeBytes(path, text.toByteArray())
-    fun writeBytes(path: String, bytes: ByteArray) {
+    private fun fileLock(path: String) = fileLocks.getOrPut(resolve(path).path) { Any() }
+    fun writeBytes(path: String, bytes: ByteArray) = synchronized(fileLock(path)) {
         val file = resolve(path)
         file.parentFile!!.mkdirs()
         // Resolve again after parent creation, preserving the symlink boundary check.
-        resolve(path).writeBytes(bytes)
+        val target = resolve(path)
+        val temporary = File.createTempFile(".agm-write-", ".tmp", target.parentFile)
+        try {
+            temporary.outputStream().use { output -> output.write(bytes); output.fd.sync() }
+            if (target.canExecute()) temporary.setExecutable(true, false)
+            check(temporary.renameTo(target)) { "Could not save $path" }
+        } finally { temporary.delete() }
+    }
+    /** Compare the reviewed bytes and atomically apply while all WorkspaceService writers share this lock. */
+    fun compareAndApply(path: String, expected: ByteArray?, content: ByteArray?) = synchronized(fileLock(path)) {
+        val file = resolve(path)
+        check(!file.isDirectory) { "$path is a directory" }
+        val current = if (file.exists()) file.readBytes() else null
+        check(current.contentEqualsNullable(expected)) { "Later edit detected in $path; approved action refused" }
+        if (content == null) delete(path) else writeBytes(path, content)
     }
     fun createDirectory(path: String) {
         val file = resolve(path)
@@ -40,19 +58,25 @@ class WorkspaceService(private val root: File, private val checkpointRoot: File)
         resolve(path)
     }
     /** Deletes one file, or a directory tree when [recursive] is set. Symlinks are removed, never followed. */
-    fun delete(path: String, recursive: Boolean = false) {
+    fun delete(path: String, recursive: Boolean = false) = synchronized(fileLockForDelete(path)) {
         require(path.isNotBlank() && path.split('/').none { it == ".." || it == "." || it.isEmpty() }) { "Use a normalized workspace path" }
         val link = File(root, path)
         if (Files.isSymbolicLink(link.toPath())) {
             path.substringBeforeLast('/', "").takeIf { it.isNotEmpty() }?.let(::resolve)
             check(link.delete()) { "Could not delete $path" }
-            return
+            return@synchronized
         }
         val file = resolve(path)
         if (file.isDirectory) {
             check(recursive || file.list().isNullOrEmpty()) { "Directory $path is not empty" }
             deleteTree(file.toPath())
         } else if (file.exists()) check(file.delete()) { "Could not delete $path" }
+    }
+    private fun fileLockForDelete(path: String): Any {
+        // Use the lexical path for symlink removal; resolve() intentionally rejects links outside the root.
+        require(path.isNotBlank() && !File(path).isAbsolute && path.split('/').none { it == ".." || it == "." || it.isEmpty() })
+        val file = File(root, path)
+        return fileLocks.getOrPut(if (Files.isSymbolicLink(file.toPath())) file.absolutePath else resolve(path).path) { Any() }
     }
     /** Removes a tree without following symbolic links. */
     private fun deleteTree(start: Path) {
@@ -66,6 +90,7 @@ class WorkspaceService(private val root: File, private val checkpointRoot: File)
             }
         })
     }
+    companion object { private val fileLocks = ConcurrentHashMap<String, Any>() }
     fun list(): List<String> = root.walkTopDown().filter { it.isFile }.map {
         val relative = it.relativeTo(root).invariantSeparatorsPath
         resolve(relative)

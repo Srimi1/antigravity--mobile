@@ -72,6 +72,19 @@ class AgentLoopTest {
         assertTrue(result.output.contains("declined"))
         assertNull(setId)
     }
+    @Test fun approvalCannotOverwriteEditMadeAfterPreview() = runBlocking {
+        workspace.write("A.kt", "before")
+        val model = ScriptedModel(listOf(
+            listOf(call("c1", "write_file", JSONObject().put("path", "A.kt").put("content", "agent edit")), ProviderEvent.Completed),
+            listOf(ProviderEvent.Item(AgentItem.Assistant("done")), ProviderEvent.Completed),
+        ))
+        AgentOrchestrator(model, tools, { key, _, _ ->
+            workspace.write("A.kt", "owner edit")
+            ApprovalDecision.Approved(key)
+        }, object : AgentListener {}).run("", emptyList(), "edit")
+        assertEquals("owner edit", workspace.read("A.kt"))
+        assertTrue((model.requests[1].input.last() as AgentItem.ToolResult).output.contains("Later edit"))
+    }
 
     @Test fun toolErrorsAreReportedNotThrownAndGitIsOffLimits() = runBlocking {
         val model = ScriptedModel(listOf(

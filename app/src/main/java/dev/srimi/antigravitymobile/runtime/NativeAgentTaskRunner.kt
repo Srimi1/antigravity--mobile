@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.withTransaction
 import dev.srimi.antigravitymobile.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -20,9 +21,9 @@ class NativeAgentTaskRunner(
     private val services: AppContainer,
     private val context: Context,
     private val modelFor: (String) -> AgentModel = { services.agentModel(ProviderId.valueOf(it)) },
-    private val buildFor: (ProjectRecord) -> BuildRunner = { PhoneBuildRunner(services, it, context) },
+    private val buildFor: (ProjectRecord, String) -> BuildRunner = { project, task -> PhoneBuildRunner(services, project, context, task) },
     private val dispatch: (String) -> Unit = { AgentTaskService.execute(context, it) },
-    private val failureDescription: (Throwable) -> RuntimePause = { RuntimePause("the provider request did not finish", "Check the selected provider in Accounts, then retry this provider.") },
+    private val failureDescription: (Throwable) -> RuntimePause = ::providerPause,
 ) : AgentTaskRunner {
     private val database = services.database
     private val dao = database.runtime()
@@ -33,6 +34,7 @@ class NativeAgentTaskRunner(
     private val clock = AtomicLong()
     private fun now() = clock.updateAndGet { maxOf(it + 1, System.currentTimeMillis()) }
     private val stream = MutableStateFlow<Pair<String?, String>>(null to "")
+    private val textEvents = MutableSharedFlow<RunnerEvent.Text>(extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val view: StateFlow<RuntimeView> = combine(
         dao.observeActive().flatMapLatest { task ->
             if (task == null) flowOf(RuntimeView()) else dao.observeActions(task.id).map { actions ->
@@ -115,14 +117,15 @@ class NativeAgentTaskRunner(
             execution = scope.launch { run(id) }
         }
     }
-    override fun observe(taskId: String): Flow<RunnerEvent> = dao.observeTask(taskId).filterNotNull().flatMapLatest { task ->
+    override fun observe(taskId: String): Flow<RunnerEvent> = merge(recordedEvents(taskId), textEvents.filter { it.taskId == taskId })
+    private fun recordedEvents(taskId: String): Flow<RunnerEvent> = dao.observeTask(taskId).filterNotNull().flatMapLatest { task ->
         dao.observeActions(taskId).transform { actions ->
             emit(RunnerEvent.State(taskId, TaskPhase.valueOf(task.status), task.detail, task.recoveryAction))
             actions.forEach { action ->
                 val key = action.key()
                 if (action.status == "AWAITING_APPROVAL" && action.decision == null) emit(RunnerEvent.Approval(taskId, key,
                     ApprovalCategory.valueOf(action.category!!), action.tool, action.summary, action.preview))
-                action.decision?.let { emit(RunnerEvent.Receipt(taskId, decision(key, it))) }
+                action.decision?.let { emit(RunnerEvent.Receipt(taskId, decision(key, it, action.allEdits))) }
                 action.outcome?.let { emit(RunnerEvent.ToolResult(taskId, action.id, action.toolCallId, RuntimeCodec.outcome(it), action.buildId)) }
             }
         }
@@ -175,7 +178,7 @@ class NativeAgentTaskRunner(
             settleActions(id, stopping = false, waitForBuilds = true)
             val current = dao.task(id) ?: error("Task record missing")
             val project = services.projects.find(current.projectId) ?: error("Project not found")
-            val runner = buildFor(project)
+            val runner = buildFor(project, id)
             val fileTools = WorkspaceTools(services.workspace(project), services.changes, {
                 val record = dao.task(id) ?: error("Task record missing")
                 val existing = record.changeSetId?.let { database.changes().findSet(it) }
@@ -195,10 +198,13 @@ class NativeAgentTaskRunner(
                 val resolved = dao.observeActions(id).map { list -> list.first { it.id == key.actionId } }.first { it.decision != null }
                 receipt(resolved)
                 dao.phase(id, TaskPhase.Running.name, "Approval ${resolved.decision?.lowercase()}; observing execution", null, 1, now())
-                decision(key, resolved.decision!!)
+                decision(key, resolved.decision!!, resolved.allEdits)
             }
             val listener = object : AgentListener {
-                override suspend fun onTextDelta(delta: String) { stream.update { id to (it.second + delta).takeLast(64_000) } }
+                override suspend fun onTextDelta(delta: String) {
+                    stream.update { id to (it.second + delta).takeLast(64_000) }
+                    textEvents.emit(RunnerEvent.Text(id, delta))
+                }
                 override suspend fun onAssistantMessage(text: String) { stream.value = id to "" }
                 override suspend fun onNotice(text: String) { note(current.conversationId, "notice", text) }
             }
@@ -248,7 +254,7 @@ class NativeAgentTaskRunner(
             if (action.status == "AWAITING_APPROVAL" && action.decision == null && !stopping) continue
             if (action.status == "RUNNING" && action.tool == "build_project" && action.buildId != null && project != null) {
                 if (!waitForBuilds) continue
-                val outcome = buildFor(project).awaitExisting(action.buildId).toolOutcome()
+                val outcome = buildFor(project, id).awaitExisting(action.buildId).toolOutcome()
                 journal.finish(action.key(), RecordedExecution(outcome)); continue
             }
             if (action.decision == "DECLINED") {
@@ -271,7 +277,7 @@ class NativeAgentTaskRunner(
                 try {
                     val task = dao.task(action.taskId) ?: return@launch
                     val project = services.projects.find(task.projectId) ?: return@launch
-                    val outcome = buildFor(project).awaitExisting(action.buildId!!).toolOutcome()
+                    val outcome = buildFor(project, task.id).awaitExisting(action.buildId!!).toolOutcome()
                     RoomAgentJournal(database, task.id, ::now).finish(action.key(), RecordedExecution(outcome))
                 } catch (_: Exception) { /* Remain unconfirmed; an observer never dispatches a build. */ }
                 finally { synchronized(buildObservations) { buildObservations.remove(action.id) } }
@@ -281,7 +287,7 @@ class NativeAgentTaskRunner(
     private suspend fun receipt(action: RuntimeActionRecord) {
         val task = dao.task(action.taskId) ?: return
         database.conversations().saveMessage(MessageRecord("${action.id}:approval", task.conversationId, "notice",
-            "Approval receipt: ${action.decision}. ${action.summary} · action ${action.id.take(8)}" +
+            "Approval receipt: ${action.decision}${if (action.allEdits) " (all edits only)" else ""}. ${action.summary} · action ${action.id.take(8)}" +
                 (action.buildId?.let { " · build ${it.take(8)}" } ?: ""), action.decidedAt ?: action.updatedAt))
     }
     private suspend fun finishChanges(id: String) {
@@ -310,8 +316,8 @@ fun ApprovalDecision.name(): String = when (this) {
     is ApprovalDecision.Cancelled -> "CANCELLED"
     is ApprovalDecision.Interrupted -> "INTERRUPTED"
 }
-fun decision(key: ApprovalKey, value: String): ApprovalDecision = when (value) {
-    "APPROVED" -> ApprovalDecision.Approved(key)
+fun decision(key: ApprovalKey, value: String, allEdits: Boolean = false): ApprovalDecision = when (value) {
+    "APPROVED" -> ApprovalDecision.Approved(key, allEdits)
     "DECLINED" -> ApprovalDecision.Declined(key)
     "CANCELLED" -> ApprovalDecision.Cancelled(key)
     "INTERRUPTED" -> ApprovalDecision.Interrupted(key)
