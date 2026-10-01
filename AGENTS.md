@@ -7,11 +7,11 @@
 3. `docs/provider-evidence.md` — supported subscription routes and missing evidence.
 4. `README.md` — setup and build instructions.
 
-These files describe the state saved on 30 September 2026. Verify the current checkout and newer changes before relying on version numbers, provider availability or test counts. Update the checkpoint when completing substantive work so the next agent can continue.
+These files describe the state saved on 1 October 2026 (see CONTINUE_WITH_ANY_AI.md). Verify the current checkout and newer changes before relying on version numbers, provider availability or test counts. Update the checkpoint when completing substantive work so the next agent can continue.
 
 ## User's current objective
 
-Build a **full native Android app** with Projects, Agent chat, Changes, Build and Accounts screens. The latest user-reported target is OnePlus 7 Pro, 12 GB RAM, 256 GB storage (earlier records said 7T Pro); verify the physical model and Android version. Current source is **0.4.0** with a static-website workflow (create, edit, approve one-use copy, preview in the worker UID, console, export ZIP). On 1 October 2026 it passed `./tools/build.sh` (56 JVM tests, release lint, signed release), worker release lint, **20/20 device tests on an API 36 emulator** and website device tests on API 31 (WebView 91), plus manual emulator QA; see `docs/website-qa-2026-10-01.md`. Known gap: WebRTC is only JavaScript-guarded (bypassable via `srcdoc` on old WebView). Read [CONTINUE_WITH_ANY_AI.md](CONTINUE_WITH_ANY_AI.md) for the portable handoff. Earlier real-toolchain/emulator results are historical. Physical-phone/live-account acceptance and the earlier first-upgrade ANR remain unresolved.
+Build a **full native Android app** with Projects, Agent chat, Changes, Build and Accounts screens. Target phone: OnePlus 7 Pro, 12 GB RAM, 256 GB storage. Current source and Latest GitHub release is **0.5.2 (code 11)**: GitHub support, agent build/install tools, ChatGPT plus Gemini (AI Studio key) and Claude (Anthropic API key) providers. The owner reports the app working on the phone; see **[CONTINUE_WITH_ANY_AI.md](CONTINUE_WITH_ANY_AI.md)** for the complete 1 Oct 2026 handoff, decisions and next steps.
 
 Continue from there. Keep unresolved capabilities clearly marked. The request for a full app does not make the mandatory dependencies available.
 
@@ -64,7 +64,7 @@ Other important paths:
 - `app/src/main/cpp/execution_probe.c`: genuine Android/Bionic test executable, not a compiler.
 - `samples/HelloPhone/`: complete Compose template; integrated Android-native emulator build/install/launch passed for 0.3.0. Physical phone remains untested.
 - `samples/HelloWeb/`, `WebsiteService.kt`, `WebsitePanel.kt`, shared `WebFiles`/`WebGuard`, worker `WebPreviewStore`/`WebPreviewActivity`: 0.4.0 static-website workflow (Projects Website template/tab, editor preview, one-use approval, preview, console, export). Emulator-validated only; static sites only; WebRTC not fully denied. Current client requires matching worker code 2.
-- `app/src/test/`: 56 JVM tests pass for 0.4.0. 20 instrumentation tests passed for 0.4.0 on the API 36 emulator (16 from 0.3.0 plus 4 website tests); the 0.3.0 run on Android 12 is in `docs/build-worker-qa-2026-09-30.md`.
+- `app/src/test/`: 78 JVM tests pass for 0.5.2. 21 instrumentation tests passed for 0.5.1 on the API 36 emulator (including a real on-device Compose build through the agent runner).
 - `tools/android-runtime-lab/`: separate credential-free Android-native build validation. Five device tests passed and a Java Android APK built/installed/launched on the emulator; a later full Compose build/install/launch and Count interaction passed. Not integrated into the main app. Read `docs/native-runtime-qa-2026-09-30.md` before continuing.
 - `tools/jvm-harness/`: compile/test fallback for sandboxes without Google Maven. Not a substitute for the real build.
 - `assets/branding/`: finished original app icon, repository cover and generation prompts.
@@ -73,15 +73,9 @@ Other important paths:
 
 ## Where to continue
 
-1. **Validate the embedded companion update (code 1→2) and signed in-place upgrade, and diagnose the first-upgrade ANR.** The earlier 0.2.0 build, lint, 46 tests and in-place migration passed; current worker/migration checks are in the integration QA report. Start tracing before launch and compare a lone emulator against controlled host contention; the observed 10,410 ms focus timeout remains unresolved. See the QA report. Preserve phone data before physical validation.
-2. **Live ChatGPT agent task.** With the user's consent, sign in, run "Test request", then a small agent edit on a scratch project. Record outcome only (no tokens or prompts) in `docs/provider-evidence.md`.
-3. **Durability gaps.** Agent tasks run in the ViewModel; a background kill ends them (recorded as interrupted). A foreground service would keep long tasks alive. In-flight tool history is not persisted between app restarts; only user/assistant text is replayed.
-4. **Build coverage.** The experimental ARM64 Bionic Java 17/Gradle 8.13/SDK 36 profile is now integrated into an approved foreground companion. Check integration QA before claiming compatibility. Physical phone, wider repositories/languages, websites, native health/MTE/security maintenance and complete redistribution notices remain open. Ordinary Linux ARM64 or desktop SDK binaries are not Android executables.
-5. **Claude and Google subscriptions.** Remain BLOCKED until a supported, approved subscription route exists. The user-approved API-key providers (Gemini, Claude) are not subscription acceptance. No token lifting.
+Follow section 9 of [CONTINUE_WITH_ANY_AI.md](CONTINUE_WITH_ANY_AI.md): collect the owner's phone results for 0.5.0–0.5.2 and fix failures; keep agent tasks alive in a foreground service; speed up on-phone builds; storage management; WebRTC-free preview. Claude Pro/Max and Google subscriptions remain BLOCKED; no token lifting or bypass (owner's bypass request was declined). Do not add a Termux launcher or desktop-remote wrapper.
 
-JGit is integrated; init/commit/status/log passed on ART, while device clone/pull/push remain unverified. Broader Android-host tool distribution remains unresolved. Do not add a Termux launcher or desktop-remote wrapper as a substitute for the requested native app.
-
-The complete product remains unaccepted until all mandatory subscriptions perform real coding tasks and the phone alone can edit/review/test/commit an existing repository and generate/build/install/launch a Compose app, with cancellation and recoverable failure states.
+The complete product remains unaccepted until real coding tasks succeed on the phone and the phone alone can edit/review/test/commit/push an existing repository and build/install/launch apps, with cancellation and recoverable failure states.
 
 ## Build, validation and persistence
 

@@ -4,6 +4,10 @@ Last updated **1 October 2026** (0.4.1 private phone-test build; signed upgrade 
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
+## Handoff saved — 1 October 2026
+
+At the owner's request the full context was saved for another AI in [CONTINUE_WITH_ANY_AI.md](../CONTINUE_WITH_ANY_AI.md): state, version history, owner decisions, code map, build/release procedure, environment incident and next steps. `AGENTS.md` and `HANDOFF_STATE.json` were refreshed to 0.5.2. No code changed.
+
 ## Latest: 0.5.2 — Claude via the user's Anthropic API key — 1 October 2026
 
 User asked why there was no Claude API key option. Explained that an Anthropic API key is billed per use and is separate from a Claude Pro/Max subscription; the user chose to add it.
