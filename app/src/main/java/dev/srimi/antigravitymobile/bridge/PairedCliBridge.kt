@@ -77,6 +77,11 @@ class PairedCliBridge(
         return CliPage(status, result)
     }
     override suspend fun status(taskId: String) = state(taskId, call(taskId, "status"))
+    override suspend fun nativeAnswer(taskId: String, requestId: Long, text: String, isError: Boolean): Boolean {
+        val reply = call(taskId, "native_answer", JSONObject().put("requestId", requestId).put("text", text.take(60_000)).put("isError", isError))
+        if (reply.opt("answered") != true) throw BridgeProtocolException()
+        return true
+    }
     override suspend fun cancel(taskId: String) = state(taskId, call(taskId, "cancel"))
     override suspend fun capture(taskId: String, destination: File): File = withContext(Dispatchers.IO) {
         val meta = call(taskId, "capture")

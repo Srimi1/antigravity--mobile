@@ -20,4 +20,6 @@ interface CliBridgeEndpoint {
     suspend fun status(taskId: String): CliWorkerState
     suspend fun cancel(taskId: String): CliWorkerState
     suspend fun capture(taskId: String, destination: File): File
+    /** Answers one native tool request from the CLI's MCP server. Never resent: a lost answer is a failed call. */
+    suspend fun nativeAnswer(taskId: String, requestId: Long, text: String, isError: Boolean): Boolean
 }

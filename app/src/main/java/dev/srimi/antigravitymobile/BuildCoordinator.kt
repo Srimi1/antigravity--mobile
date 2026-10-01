@@ -28,12 +28,21 @@ class BuildCoordinator(private val context: Context, private val dao: BuildDao,
     suspend fun log(id: String): String = withContext(Dispatchers.IO) { evidence.log(id) }
 
     suspend fun prepare(project: ProjectRecord, text: String, agentTaskId: String? = null): BuildRecord = withContext(Dispatchers.IO) {
-        val tasks = text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }; P.validateTasks(tasks)
-        val id = UUID.randomUUID().toString()
         val directory = projects.directory(project).canonicalFile
         check(directory.path.startsWith(projects.root.canonicalPath + File.separator)) { "Project escapes workspace storage" }
+        snapshot(project, directory, text, agentTaskId)
+    }
+    /** A CLI agent's private copy, materialized in app storage, recorded against the project it came from. */
+    suspend fun prepareFrom(project: ProjectRecord, copy: File, text: String, agentTaskId: String): BuildRecord = withContext(Dispatchers.IO) {
+        val directory = copy.canonicalFile
+        check(directory.path.startsWith(File(context.noBackupFilesDir, "cli-builds").canonicalPath + File.separator)) { "CLI build copy escapes app storage" }
+        snapshot(project, directory, text, agentTaskId)
+    }
+    private suspend fun snapshot(project: ProjectRecord, directory: File, text: String, agentTaskId: String?): BuildRecord {
+        val tasks = text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }; P.validateTasks(tasks)
+        val id = UUID.randomUUID().toString()
         val target = archive(id).apply { parentFile!!.mkdirs() }
-        try {
+        return try {
             val hash = BuildSnapshot.write(directory, target)
             BuildRecord(id, project.id, tasks.joinToString(" "), "AWAITING_APPROVAL",
                 "Project snapshot prepared", hash, System.currentTimeMillis(), agentTaskId = agentTaskId).also { dao.save(it) }

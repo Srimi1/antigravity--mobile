@@ -14,6 +14,7 @@ import re
 import secrets
 import select
 import signal
+import socket
 import socketserver
 import stat
 import subprocess
@@ -506,6 +507,7 @@ class TaskSupervisor:
         self.installations, self.spawn = dict(installations), spawn
         self.lock = threading.RLock()
         self.records, self.processes, self.threads, self.pipe_locks = {}, {}, [], {}
+        self.native_answers, self.native_ready = {}, threading.Condition(self.lock)
         for path in self.root.glob("task-*.json"):
             if path.is_symlink() or path.stat().st_size > MAX_BODY_BYTES:
                 raise ProtocolError()
@@ -549,7 +551,15 @@ class TaskSupervisor:
             if backend not in {"codex", "antigravity"} or not isinstance(binary, str) or not binary.startswith("/") or "\x00" in binary:
                 raise ProtocolError()
             workspace = self._workspace(task)
-            argv = [binary, "app-server"] if backend == "codex" else [binary, "--input-format", "stream-json", "--output-format", "stream-json", "--sandbox"]
+            if backend == "codex":
+                # Per-process override: the user's Codex config is never edited. Paths are validated, so no TOML quoting issues.
+                helper, python = self.root / "agm_bridge.py", sys.executable
+                if not re.fullmatch(r"/[A-Za-z0-9_./-]{1,255}", python) or not re.fullmatch(r"/[A-Za-z0-9_./-]{1,255}", str(helper)):
+                    raise ProtocolError()
+                argv = [binary, "-c", 'mcp_servers.agm_native.command="%s"' % python,
+                        "-c", 'mcp_servers.agm_native.args=["%s","mcp","%s","%s"]' % (helper, self.root, task), "app-server"]
+            else:
+                argv = [binary, "--input-format", "stream-json", "--output-format", "stream-json", "--sandbox"]
             if conversation is not None and backend == "antigravity":
                 if not isinstance(conversation, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", conversation):
                     raise ProtocolError()
@@ -572,6 +582,8 @@ class TaskSupervisor:
             for stream, kind in ((process.stdout, "cli"), (process.stderr, "diagnostic")):
                 thread = threading.Thread(target=self._read, args=(task, process, stream, kind), daemon=True)
                 readers.append(thread); self.threads.append(thread); thread.start()
+            if backend == "codex":
+                self._listen_native(task)
             thread = threading.Thread(target=self._wait, args=(task, process, readers), daemon=True)
             self.threads.append(thread); thread.start()
             return True
@@ -695,6 +707,80 @@ class TaskSupervisor:
                 raise ProtocolError()
         else:
             raise ProtocolError()
+
+    NATIVE_TOOLS = {"build_project": {"tasks"}, "install_apk": {"build_id", "apk"}}
+
+    def native_socket(self, task):
+        return self.root / "mcp" / (self.valid_id(task) + ".sock")
+
+    def _listen_native(self, task):
+        """Unix socket for this task's MCP server process. Requests become journal events the phone app answers."""
+        path = self.native_socket(task)
+        path.parent.mkdir(mode=0o700, exist_ok=True); os.chmod(path.parent, 0o700)
+        if path.is_symlink():
+            raise ProtocolError()
+        with contextlib.suppress(FileNotFoundError):
+            path.unlink()
+        listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        listener.bind(str(path)); os.chmod(path, 0o600); listener.listen(4); listener.settimeout(0.5)
+
+        def accept():
+            try:
+                while self.records[task]["state"] == "RUNNING":
+                    try:
+                        connection, _ = listener.accept()
+                    except socket.timeout:
+                        continue
+                    threading.Thread(target=self._native_request, args=(task, connection), daemon=True).start()
+            finally:
+                listener.close()
+                with contextlib.suppress(OSError):
+                    path.unlink()
+        thread = threading.Thread(target=accept, daemon=True); self.threads.append(thread); thread.start()
+
+    def _native_request(self, task, connection):
+        with connection:
+            try:
+                connection.settimeout(10)
+                raw = b""
+                while not raw.endswith(b"\n"):
+                    chunk = connection.recv(4096)
+                    if not chunk or len(raw) + len(chunk) > 16_384:
+                        raise ProtocolError()
+                    raw += chunk
+                message = parse(raw, 16_384)
+                tool, arguments = message.get("tool"), message.get("arguments")
+                if set(message) != {"tool", "arguments"} or tool not in self.NATIVE_TOOLS or not isinstance(arguments, dict) \
+                        or not set(arguments) <= self.NATIVE_TOOLS[tool] \
+                        or any(not isinstance(v, str) or len(v) > 200 or not v.isprintable() for v in arguments.values()):
+                    raise ProtocolError()
+                with self.native_ready:
+                    record = self.records[task]
+                    if record["state"] != "RUNNING" or sum(1 for k, v in self.native_answers.items() if k[0] == task and v is None) >= 4:
+                        raise ProtocolError()
+                    request = record.get("nativeRequests", 0) + 1
+                    record["nativeRequests"] = request; self._save(task)
+                    self.native_answers[(task, request)] = None
+                    self._event(task, {"kind": "native_request", "requestId": request, "tool": tool, "arguments": arguments})
+                    # Builds take minutes; the owner may also take time to approve. Stop/exit ends the wait.
+                    while self.native_answers[(task, request)] is None and self.records[task]["state"] == "RUNNING":
+                        self.native_ready.wait(1)
+                    reply = self.native_answers.pop((task, request)) or {"text": "The task stopped before Antigravity Mobile answered.", "isError": True}
+                connection.settimeout(10)
+                connection.sendall(dump(reply).encode("utf-8") + b"\n")
+            except Exception:
+                pass  # The MCP server reports a failed tool call; nothing is retried.
+
+    def native_answer(self, task, request, text, is_error):
+        task = self.valid_id(task)
+        if type(request) is not int or not isinstance(text, str) or len(text) > 60_000 or type(is_error) is not bool:
+            raise ProtocolError()
+        with self.native_ready:
+            if self.native_answers.get((task, request), False) is not None:
+                raise ProtocolError()  # Unknown, already answered, or lost with an earlier daemon: never replayed.
+            self.native_answers[(task, request)] = {"text": text, "isError": is_error}
+            self.native_ready.notify_all()
+        return {"answered": True}
 
     def probe(self, backend, run=subprocess.run):
         """Capability evidence only: architecture, the installed CLI's version and a sandbox escape check.
@@ -873,6 +959,8 @@ class BridgeHandler(socketserver.StreamRequestHandler):
                     result = self.server.exchange.commit(task)
                 elif op == "capture":
                     result = self.server.exchange.capture(task)
+                elif op == "native_answer":
+                    result = self.server.supervisor.native_answer(task, request.get("requestId"), request.get("text"), request.get("isError"))
                 elif op == "probe":
                     result = self.server.supervisor.probe(request.get("backend"))
                 elif op == "download":
@@ -962,6 +1050,70 @@ def bootstrap(config, source, root="/root/agm-work/bridge", python="/usr/bin/pyt
         process.stdout.close()
 
 
+MCP_TOOLS = [
+    {"name": "build_project", "description": "Build this task's current private workspace on the phone with Android Gradle "
+        "(default :app:assembleDebug; :app:testDebugUnitTest runs unit tests). The phone owner approves each build in "
+        "Antigravity Mobile; one approval runs one build. Returns the recorded worker outcome and log tail.",
+     "inputSchema": {"type": "object", "properties": {"tasks": {"type": "string"}}, "additionalProperties": False}},
+    {"name": "install_apk", "description": "Open Android's installer for an APK from a successful build_project in this task. "
+        "Requires the owner's separate approval. Opening the installer is not proof of installation or launch.",
+     "inputSchema": {"type": "object", "properties": {"build_id": {"type": "string"}, "apk": {"type": "string"}}, "additionalProperties": False}},
+]
+
+
+def mcp(root, task, stdin=None, stdout=None):
+    """Minimal MCP stdio server started by Codex. It can only forward the two native tools to this task's helper."""
+    stdin, stdout = stdin or sys.stdin.buffer, stdout or sys.stdout.buffer
+    path = pathlib.Path(root) / "mcp" / (TaskSupervisor.valid_id(task) + ".sock")
+
+    def call(name, arguments):
+        if name not in TaskSupervisor.NATIVE_TOOLS or not isinstance(arguments, dict):
+            return {"text": "Unknown tool", "isError": True}
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+                connection.connect(str(path))
+                connection.sendall(dump({"tool": name, "arguments": arguments}).encode("utf-8") + b"\n")
+                raw = b""
+                while not raw.endswith(b"\n"):
+                    chunk = connection.recv(65536)
+                    if not chunk or len(raw) > 200_000:
+                        raise ProtocolError()
+                    raw += chunk
+            reply = parse(raw, 200_000)
+            return {"text": str(reply["text"]), "isError": bool(reply["isError"])}
+        except Exception:
+            return {"text": "Antigravity Mobile did not answer; the request was not retried.", "isError": True}
+
+    while True:
+        raw = stdin.readline(MAX_BODY_BYTES + 1)
+        if not raw:
+            return
+        try:
+            message = parse(raw, MAX_BODY_BYTES)
+        except Exception:
+            continue
+        method, ident = message.get("method"), message.get("id")
+        if ident is None:
+            continue  # Notifications need no reply.
+        if method == "initialize":
+            requested = (message.get("params") or {}).get("protocolVersion")
+            result = {"protocolVersion": requested if requested in {"2024-11-05", "2025-03-26", "2025-06-18"} else "2025-06-18",
+                      "capabilities": {"tools": {"listChanged": False}},
+                      "serverInfo": {"name": "antigravity-mobile-native", "version": "1"}}
+        elif method == "tools/list":
+            result = {"tools": MCP_TOOLS}
+        elif method == "tools/call":
+            params = message.get("params") or {}
+            reply = call(params.get("name"), params.get("arguments") or {})
+            result = {"content": [{"type": "text", "text": reply["text"]}], "isError": reply["isError"]}
+        elif method == "ping":
+            result = {}
+        else:
+            stdout.write(dump({"jsonrpc": "2.0", "id": ident, "error": {"code": -32601, "message": "Method not found"}}).encode("utf-8") + b"\n")
+            stdout.flush(); continue
+        stdout.write(dump({"jsonrpc": "2.0", "id": ident, "result": result}).encode("utf-8") + b"\n"); stdout.flush()
+
+
 def serve(root):
     config = daemon_config(parse(sys.stdin.buffer.readline(4097), 4096))
     root = private_root(root)
@@ -986,8 +1138,11 @@ def serve(root):
 
 if __name__ == "__main__":
     try:
-        if len(sys.argv) != 3 or sys.argv[1] != "serve":
+        if len(sys.argv) == 4 and sys.argv[1] == "mcp":
+            mcp(sys.argv[2], sys.argv[3])
+        elif len(sys.argv) == 3 and sys.argv[1] == "serve":
+            serve(sys.argv[2])
+        else:
             raise ProtocolError()
-        serve(sys.argv[2])
     except Exception:
         sys.exit(1)  # Do not include config, keys or raw protocol errors in diagnostics.

@@ -141,6 +141,9 @@ class CliAgentTaskRunner(
         dao.active()?.takeIf(::isCli)?.let { task ->
             val stopping = task.status == TaskPhase.Cancelled.name
             dao.closePending(task.id, if (stopping) "CANCELLED" else "INTERRUPTED", now())
+            if (stopping) stopNativeBuilds(task.id, "CANCELLED")
+            else dao.actions(task.id).filter { it.tool == "build_project" && it.buildId != null && it.status != "RUNNING" && it.outcome == null }
+                .forEach { services.builds.resolvePending(it.buildId!!, "INTERRUPTED") }
             settle(task.id, stopping)
             if (stopping) dao.cancellationDetail(task.id, "Stop was interrupted; CLI termination is unconfirmed",
                 "Retry cancellation to confirm termination before starting another task.", now())
@@ -157,6 +160,7 @@ class CliAgentTaskRunner(
             if (executingId == taskId) execution else null
         }
         job?.cancel(); job?.join()
+        stopNativeBuilds(taskId, "CANCELLED")
         settle(taskId, true)
         val task = dao.task(taskId) ?: return@withContext
         task.changeSetId?.let { services.changes.finish(it) }
@@ -250,6 +254,72 @@ class CliAgentTaskRunner(
         try { dao.observeActions(taskId).map { list -> list.first { it.id == actionId } }.first { it.decision != null || it.outcome != null } }
         finally { watcher.cancel() }
     }
+    /** The CLI's MCP server asked for a native build/install. Same prompts, claims and worker as the native agent. */
+    private suspend fun nativeRequest(task: RuntimeTaskRecord, record: JSONObject) {
+        BridgeSecurity.fields(record, setOf("sequence", "kind", "requestId", "tool", "arguments"))
+        val request = record.integer("requestId").also { if (it !in 1..10_000) throw BridgeProtocolException() }
+        val tool = record.requiredText("tool", 32)
+        val arguments = record.get("arguments") as? JSONObject ?: throw BridgeProtocolException()
+        val allowed = mapOf("build_project" to setOf("tasks"), "install_apk" to setOf("build_id", "apk"))[tool] ?: throw BridgeProtocolException()
+        if (!allowed.containsAll(arguments.keys().asSequence().toSet())) throw BridgeProtocolException()
+        val outcome = nativeOutcome(task, AgentItem.ToolCall("cli-native-$request", tool, arguments.toString()))
+        val row = action(task.id, "cli-native-answer-$request", "cli_send", JSONObject().put("request", request).toString(),
+            ToolPreview("Native tool result delivery"), null)
+        // An answer whose delivery outcome is unknown is never resent; the CLI sees a failed tool call instead.
+        if (row.status != "READY" || row.outcome != null || dao.claim(row.id, now()) != 1) return
+        val sent = try { bridge.nativeAnswer(task.id, request, outcome.text(), outcome !is ToolOutcome.Success) }
+            catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { false }
+        RoomAgentJournal(database, task.id, ::now).finish(row.key(), RecordedExecution(
+            if (sent) ToolOutcome.Success("Native tool result delivered to the CLI") else ToolOutcome.Interrupted))
+    }
+    private suspend fun nativeOutcome(task: RuntimeTaskRecord, call: AgentItem.ToolCall): ToolOutcome {
+        val project = services.projects.find(task.projectId) ?: return ToolOutcome.RuntimeUnavailable("Project not found")
+        val phone = PhoneBuildRunner(services, project, context, task.id)
+        val journal = RoomAgentJournal(database, task.id, ::now)
+        dao.action(task.id, call.callId)?.let { existing ->
+            existing.outcome?.let { return RuntimeCodec.outcome(it) }
+            // Recovered without its in-memory preparation: observe a dispatched build; never prepare or dispatch again.
+            if (existing.tool == "build_project" && existing.buildId != null && existing.status == "RUNNING")
+                return phone.awaitExisting(existing.buildId).toolOutcome().also { journal.finish(existing.key(), RecordedExecution(it)) }
+            existing.buildId?.let { services.builds.resolvePending(it, "INTERRUPTED") }
+            journal.finish(existing.key(), RecordedExecution(ToolOutcome.Interrupted))
+            return ToolOutcome.Interrupted
+        }
+        val tools = AgentBuildTools(NoFileTools, CliBuildRunner(services, project, task.id, phone, workspaces,
+            { bridge.capture(task.id, it) }, File(context.noBackupFilesDir, "cli-builds")))
+        val key = journal.begin(call)
+        val preview = try { tools.describe(call) } catch (cancelled: CancellationException) { throw cancelled } catch (error: Exception) {
+            val outcome = if (error is RuntimeUnavailableException) ToolOutcome.RuntimeUnavailable(error.message ?: "Build tools unavailable")
+                else ToolOutcome.Failed(error.message ?: "Could not prepare ${call.name}")
+            journal.finish(key, RecordedExecution(outcome)); return outcome
+        }
+        val prepared = journal.prepared(key, preview, tools.approvalCategory(call.name))
+        check(dao.phase(task.id, TaskPhase.AwaitingApproval.name, "Waiting for approval: ${preview.summary}", null, 1, now()) == 1)
+        val resolved = try { awaitLiveDecision(task.id, prepared.actionId) } catch (error: Exception) {
+            withContext(NonCancellable) { tools.resolve(call, ApprovalDecision.Interrupted(prepared)) }; throw error
+        }
+        dao.phase(task.id, TaskPhase.Running.name, "Native ${call.name.replace('_', ' ')} decision recorded", null, 1, now())
+        val outcome = when {
+            resolved.decision == "APPROVED" && journal.claim(prepared) -> try { tools.execute(call) }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (unavailable: RuntimeUnavailableException) { ToolOutcome.RuntimeUnavailable(unavailable.message ?: "Unavailable") }
+                catch (error: Exception) { ToolOutcome.Failed(error.message ?: "${call.name} failed") }
+            resolved.decision == "DECLINED" -> {
+                tools.resolve(call, ApprovalDecision.Declined(prepared))
+                journal.finish(prepared, RecordedExecution(ToolOutcome.Cancelled, "The phone owner declined this ${call.name.replace('_', ' ')}.", "DECLINED"))
+                return ToolOutcome.Failed("The phone owner declined this ${call.name.replace('_', ' ')}. Do not retry unless asked.")
+            }
+            resolved.decision == "CANCELLED" -> { tools.resolve(call, ApprovalDecision.Cancelled(prepared)); ToolOutcome.Cancelled }
+            else -> { tools.resolve(call, ApprovalDecision.Interrupted(prepared)); ToolOutcome.Interrupted }
+        }
+        journal.finish(prepared, RecordedExecution(outcome))
+        return outcome
+    }
+    private suspend fun stopNativeBuilds(taskId: String, decision: String) {
+        dao.actions(taskId).filter { it.tool == "build_project" && it.buildId != null && it.outcome == null }.forEach { action ->
+            if (action.status == "RUNNING") services.builds.cancel(action.buildId!!) else services.builds.resolvePending(action.buildId!!, decision)
+        }
+    }
     private suspend fun toolResult(task: RuntimeTaskRecord, event: CliEvent.ToolResult) {
         val approved = dao.actions(task.id).lastOrNull { it.tool in setOf("cli_file_change", "cli_command") &&
             BridgeSecurity.json(it.arguments).requiredText("item", 128) == event.itemId }
@@ -308,12 +378,13 @@ class CliAgentTaskRunner(
                 val sequence = record.integer("sequence")
                 val batch = when (record.requiredText("kind", 32)) {
                     "cli" -> codex?.receive(record.getJSONObject("message")) ?: antigravity!!.receive(record.getJSONObject("message"))
+                    "native_request" -> { nativeRequest(task, record); CliBatch() }
                     "permission_unavailable" -> { antigravity?.stderr("permission unavailable"); data.put("denied", true); CliBatch() }
                     "exit" -> {
                         val code = record.integer("code").also { if (it !in Int.MIN_VALUE..Int.MAX_VALUE) throw BridgeProtocolException() }.toInt()
                         CliBatch(listOf(codex?.exited(code) ?: antigravity!!.exited(code)))
                     }
-                    else -> throw BridgeProtocolException() // Native MCP requests need their own approved handler.
+                    else -> throw BridgeProtocolException()
                 }
                 batch.events.forEach { event -> when (event) {
                     is CliEvent.Session -> data.put("session", event.id)
@@ -470,4 +541,5 @@ object DisabledCliBridge : CliBridgeEndpoint {
     override suspend fun status(taskId: String): CliWorkerState = unavailable()
     override suspend fun cancel(taskId: String): CliWorkerState = unavailable()
     override suspend fun capture(taskId: String, destination: File): File = unavailable()
+    override suspend fun nativeAnswer(taskId: String, requestId: Long, text: String, isError: Boolean): Boolean = unavailable()
 }

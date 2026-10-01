@@ -147,6 +147,27 @@ class CliWorkspaceStore(private val root: File, private val limits: Limits = Lim
         val target = directory(task)
         val after = File(target, "returned-${UUID.randomUUID()}").apply { mkdirs() }
         try {
+            val files = extract(returnedArchive, after)
+            return (snapshot.hashes.keys + files).sorted().mapNotNull { path ->
+                val beforeFile = File(target, "before/$path")
+                val before = snapshot.hashes[path]?.let { hash ->
+                    check(beforeFile.isFile && beforeFile.canonicalPath.startsWith(File(target, "before").canonicalPath + File.separator) &&
+                        !Files.isSymbolicLink(beforeFile.toPath()) && beforeFile.length() <= limits.fileBytes && BuildSnapshot.sha256(beforeFile) == hash) { "Recorded CLI baseline changed" }
+                    beforeFile.readBytes()
+                }
+                val content = if (path in files) File(after, path).readBytes() else null
+                if (before.contentEqualsNullable(content)) null else ChangeService.FileDiff(path, before, content)
+            }
+        } finally { deleteTree(after) }
+    }
+    /** Writes a validated copy of a returned archive into an empty [target], for example to build the CLI's current workspace. */
+    fun materialize(returnedArchive: File, target: File): Set<String> {
+        check(returnedArchive.isFile && returnedArchive.length() <= limits.archiveBytes && !Files.isSymbolicLink(returnedArchive.toPath())) { "CLI result archive unavailable or exceeds limits" }
+        Files.createDirectories(target.toPath())
+        check(!Files.isSymbolicLink(target.toPath()) && target.list().isNullOrEmpty()) { "Build copy target must be a new directory" }
+        return try { extract(returnedArchive, target) } catch (error: Exception) { deleteTree(target); throw error }
+    }
+    private fun extract(returnedArchive: File, after: File): Set<String> {
             val paths = linkedSetOf<String>()
             val files = linkedSetOf<String>()
             var total = 0L
@@ -175,17 +196,7 @@ class CliWorkspaceStore(private val root: File, private val limits: Limits = Lim
                     check(size == entry.size && crc.value == entry.crc) { "CLI result archive is corrupt" }
                 }
             }
-            return (snapshot.hashes.keys + files).sorted().mapNotNull { path ->
-                val beforeFile = File(target, "before/$path")
-                val before = snapshot.hashes[path]?.let { hash ->
-                    check(beforeFile.isFile && beforeFile.canonicalPath.startsWith(File(target, "before").canonicalPath + File.separator) &&
-                        !Files.isSymbolicLink(beforeFile.toPath()) && beforeFile.length() <= limits.fileBytes && BuildSnapshot.sha256(beforeFile) == hash) { "Recorded CLI baseline changed" }
-                    beforeFile.readBytes()
-                }
-                val content = if (path in files) File(after, path).readBytes() else null
-                if (before.contentEqualsNullable(content)) null else ChangeService.FileDiff(path, before, content)
-            }
-        } finally { after.deleteRecursively() }
+            return files
     }
     /** Check the complete import before any native write, then each write also uses compare-and-apply. */
     fun checkConflicts(workspace: WorkspaceService, differences: List<ChangeService.FileDiff>) {

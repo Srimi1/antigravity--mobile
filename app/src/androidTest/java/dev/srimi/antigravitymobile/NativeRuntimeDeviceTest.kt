@@ -52,7 +52,8 @@ class NativeRuntimeDeviceTest {
         try { block(services, project, model, worker, execution) }
         finally {
             services.database.runtime().active()?.let { services.tasks.cancel(it.id) }
-            execution.cancel(); services.scope.cancel()
+            // Join before closing Room: a cancelled coroutine may still finish one query on its IO thread.
+            withTimeoutOrNull(10_000) { execution.coroutineContext.job.cancelAndJoin(); services.scope.coroutineContext.job.cancelAndJoin() }
             services.projects.delete(project); store.close()
         }
     }

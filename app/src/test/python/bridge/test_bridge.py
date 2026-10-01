@@ -300,6 +300,57 @@ class SupervisorTest(unittest.TestCase):
         with self.assertRaises(bridge.ProtocolError):
             self.runner.probe("codex", run=lambda *a, **k: self.fail("probe ran beside an active task"))
 
+    def mcp_session(self, *messages):
+        stdin = io.BytesIO(b"".join((bridge.dump(m) + "\n").encode() for m in messages))
+        stdout = io.BytesIO()
+        thread = threading.Thread(target=bridge.mcp, args=(str(self.root), "task-1", stdin, stdout), daemon=True)
+        thread.start()
+        return thread, stdout
+
+    def test_codex_gets_native_mcp_server_by_per_process_override(self):
+        self.runner.start("task-1", "codex")
+        argv = self.spawned[0][0]
+        self.assertEqual("app-server", argv[-1])
+        self.assertIn('mcp_servers.agm_native.args=["%s","mcp","%s","task-1"]' % (self.root.resolve() / "agm_bridge.py", self.root.resolve()), argv)
+
+    def test_native_build_request_round_trips_once_through_journal(self):
+        self.runner.start("task-1", "codex")
+        call = {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "build_project", "arguments": {"tasks": ":app:assembleDebug"}}}
+        thread, stdout = self.mcp_session({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}},
+                                          {"jsonrpc": "2.0", "method": "notifications/initialized"},
+                                          {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, call)
+        deadline = bridge.time.monotonic() + 5
+        events = []
+        while not events and bridge.time.monotonic() < deadline:
+            events = [e for e in self.runner.observe("task-1", 0)["events"] if e["kind"] == "native_request"]
+            bridge.time.sleep(0.01)
+        self.assertEqual({"kind": "native_request", "requestId": 1, "tool": "build_project", "arguments": {"tasks": ":app:assembleDebug"}},
+                         {k: v for k, v in events[0].items() if k != "sequence"})
+        self.assertEqual({"answered": True}, self.runner.native_answer("task-1", 1, "Build abc COMPLETED", False))
+        with self.assertRaises(bridge.ProtocolError):
+            self.runner.native_answer("task-1", 1, "again", False)
+        thread.join(5)
+        replies = [json.loads(line) for line in stdout.getvalue().splitlines()]
+        self.assertEqual([1, 2, 3], [r["id"] for r in replies])
+        self.assertEqual(["build_project", "install_apk"], [tool["name"] for tool in replies[1]["result"]["tools"]])
+        self.assertEqual({"content": [{"type": "text", "text": "Build abc COMPLETED"}], "isError": False}, replies[2]["result"])
+
+    def test_native_requests_reject_unknown_tools_and_end_when_task_stops(self):
+        self.runner.start("task-1", "codex")
+        thread, stdout = self.mcp_session({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "run_shell", "arguments": {"cmd": "id"}}},
+                                          {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "install_apk", "arguments": {"path": "/x"}}},
+                                          {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "install_apk", "arguments": {}}})
+        deadline = bridge.time.monotonic() + 5
+        while not any(e["kind"] == "native_request" for e in self.runner.observe("task-1", 0)["events"]) and bridge.time.monotonic() < deadline:
+            bridge.time.sleep(0.01)
+        self.runner.cancel("task-1")
+        thread.join(5)
+        replies = [json.loads(line)["result"] for line in stdout.getvalue().splitlines()]
+        self.assertTrue(all(reply["isError"] for reply in replies))
+        self.assertIn("stopped", replies[2]["content"][0]["text"])
+        requests = [e for e in self.runner.observe("task-1", 0)["events"] if e["kind"] == "native_request"]
+        self.assertEqual(["install_apk"], [e["tool"] for e in requests], "invalid requests must not reach the journal")
+
 
 if __name__ == "__main__":
     unittest.main()

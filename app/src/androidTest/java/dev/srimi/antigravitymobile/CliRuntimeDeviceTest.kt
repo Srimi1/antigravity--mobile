@@ -45,11 +45,17 @@ class CliRuntimeDeviceTest {
         var dieWhileAwaiting = false
         var cancels = 0
         var captureViolations = 0
+        /** Native tool requests the fixture CLI's MCP server sends right after the turn starts. */
+        val nativeRequests = mutableListOf<JSONObject>()
+        val answers = mutableListOf<Triple<Long, String, Boolean>>()
+        var liveCaptures = 0
+        var cliEdit: String? = null
         private val lock = Any()
         override suspend fun unavailable(backend: AgentBackend) = unavailableReason?.let(ToolOutcome::RuntimeUnavailable)
         override suspend fun prepare(snapshot: CliWorkspaceStore.Snapshot): String {
             id = snapshot.taskId; cwd = "/root/fixture/$id/source"
             ZipFile(snapshot.archive).use { zip -> content = zip.getInputStream(zip.getEntry("Game.kt")).bufferedReader().use { it.readText() } }
+            cliEdit?.let { content = it } // The CLI edits its private copy before asking for a build.
             return cwd
         }
         override suspend fun start(taskId: String, backend: AgentBackend, sessionId: String?): Boolean = synchronized(lock) {
@@ -70,6 +76,10 @@ class CliRuntimeDeviceTest {
                     .put("approvalPolicy", "on-request").put("approvalsReviewer", "user")))
                 "turn/start" -> {
                     event(response("agm-turn", JSONObject().put("turn", JSONObject().put("id", "turn-1"))))
+                    nativeRequests.forEachIndexed { index, request ->
+                        eventList += JSONObject().put("sequence", eventList.size + 1).put("kind", "native_request")
+                            .put("requestId", index + 1).put("tool", request.getString("tool")).put("arguments", request.getJSONObject("arguments"))
+                    }
                     event(notification("item/commandExecution/requestApproval", JSONObject().put("threadId", "thread-1")
                         .put("turnId", "turn-1").put("itemId", "command-1").put("command", "fixture command").put("cwd", cwd)).put("id", 7))
                     if (dieWhileAwaiting) {
@@ -95,6 +105,10 @@ class CliRuntimeDeviceTest {
         }
         private fun state(task: String) = CliWorkerState(task, phase, eventList.size.toLong(), null, unconfirmed,
             drained || phase !in setOf("EXITED", "CANCELLED", "INTERRUPTED"))
+        override suspend fun nativeAnswer(taskId: String, requestId: Long, text: String, isError: Boolean): Boolean = synchronized(lock) {
+            assertEquals(id, taskId); assertTrue("native answer resent", answers.none { it.first == requestId })
+            answers += Triple(requestId, text, isError); true
+        }
         override suspend fun observe(taskId: String, after: Long): CliPage = synchronized(lock) {
             if (disconnect && after >= 4) { disconnect = false; throw IOException("fixture disconnection") }
             CliPage(state(taskId), eventList.drop(after.toInt()).toList())
@@ -110,8 +124,9 @@ class CliRuntimeDeviceTest {
             state(taskId)
         }
         override suspend fun capture(taskId: String, destination: File): File {
-            // Capturing while the CLI may still write would import a moving target.
-            if (phase !in setOf("CANCELLED", "EXITED") || !drained) { captureViolations++; throw IOException("capture before termination") }
+            // Capturing while the CLI may still write would import a moving target; a native build copy is the exception.
+            if (phase == "RUNNING" && nativeRequests.isNotEmpty()) liveCaptures++
+            else if (phase !in setOf("CANCELLED", "EXITED") || !drained) { captureViolations++; throw IOException("capture before termination") }
             destination.parentFile!!.mkdirs()
             ZipOutputStream(destination.outputStream()).use { zip -> zip.putNextEntry(ZipEntry("Game.kt")); zip.write(content.toByteArray()); zip.closeEntry() }
             return destination
@@ -139,15 +154,23 @@ class CliRuntimeDeviceTest {
         finally {
             bridge.unconfirmed = false
             services.database.runtime().active()?.let { services.tasks.cancel(it.id) }
-            execution.cancel(); services.scope.cancel(); services.projects.delete(project); store.close(); root.deleteRecursively()
+            // Join before closing Room: a cancelled coroutine may still finish one query on its IO thread.
+            withTimeoutOrNull(10_000) { execution.coroutineContext.job.cancelAndJoin(); services.scope.coroutineContext.job.cancelAndJoin() }
+            services.projects.delete(project); store.close(); root.deleteRecursively()
         }
     }
-    private suspend fun waitFor(services: AppContainer, id: String, phase: TaskPhase) = withTimeout(15_000) {
-        services.database.runtime().observeTask(id).filterNotNull().first { it.status == phase.name }
+    private suspend fun state(services: AppContainer, id: String): String {
+        val dao = services.database.runtime()
+        return "task=${dao.task(id)?.let { "${it.status}: ${it.detail}" }} actions=${dao.actions(id).map { "${it.tool}/${it.status}/${it.decision}/${it.resultText?.take(120)}" }}"
     }
-    private suspend fun prompt(services: AppContainer, id: String, tool: String) = withTimeout(15_000) {
-        services.database.runtime().observeActions(id).map { list -> list.firstOrNull { it.tool == tool && it.status == "AWAITING_APPROVAL" } }.filterNotNull().first()
-    }
+    private suspend fun waitFor(services: AppContainer, id: String, phase: TaskPhase) = try {
+        withTimeout(15_000) { services.database.runtime().observeTask(id).filterNotNull().first { it.status == phase.name } }
+    } catch (error: TimeoutCancellationException) { throw AssertionError("Waiting for $phase; ${state(services, id)}", error) }
+    private suspend fun prompt(services: AppContainer, id: String, tool: String) = try {
+        withTimeout(15_000) {
+            services.database.runtime().observeActions(id).map { list -> list.firstOrNull { it.tool == tool && it.status == "AWAITING_APPROVAL" } }.filterNotNull().first()
+        }
+    } catch (error: TimeoutCancellationException) { throw AssertionError("Waiting for $tool prompt; ${state(services, id)}", error) }
     private suspend fun start(services: AppContainer, project: ProjectRecord, scope: CoroutineScope) =
         services.tasks.start(TaskStart(project.id, null, "CLI fixture task", "fixture", AgentBackend.Codex)).also { services.tasks.launchFromService(it, scope) }
 
@@ -300,6 +323,38 @@ class CliRuntimeDeviceTest {
             assertNull(failed.activeSlot)
             assertTrue(failed.detail, failed.detail.contains("permission", true))
             assertFalse(services.database.conversations().messages(failed.conversationId).any { it.content.contains("user declined", true) && it.content.contains("permission", true) })
+        }
+    }
+    @Test fun nativeBuildRequestUsesNativeApprovalOnCliCopyAndAnswersOnce() = runBlocking {
+        fixture { services, project, bridge, scope ->
+            bridge.cliEdit = "cli copy"
+            bridge.nativeRequests += JSONObject().put("tool", "build_project").put("arguments", JSONObject().put("tasks", ":app:assembleDebug"))
+            bridge.nativeRequests += JSONObject().put("tool", "install_apk").put("arguments", JSONObject())
+            val id = start(services, project, scope)
+            val build = prompt(services, id, "build_project"); waitFor(services, id, TaskPhase.AwaitingApproval)
+            assertEquals("Build", build.category); assertNotNull(build.buildId)
+            val record = services.builds.find(build.buildId!!)!!
+            assertEquals(id, record.agentTaskId); assertEquals("AWAITING_APPROVAL", record.status)
+            ZipFile(services.builds.archive(record.id)).use { zip ->
+                assertEquals("CLI copy is built, not the native project", "cli copy", zip.getInputStream(zip.getEntry("Game.kt")).bufferedReader().readText())
+            }
+            assertEquals("before", services.workspace(project).read("Game.kt"))
+            assertFalse("Build tab cannot answer an agent build", runCatching { services.builds.decline(record.id) }.isSuccess)
+            assertTrue("build decline accepted", services.tasks.answerApproval(ApprovalDecision.Declined(build.key())))
+            val command = prompt(services, id, "cli_command"); waitFor(services, id, TaskPhase.AwaitingApproval)
+            assertEquals("DECLINED", services.builds.find(record.id)!!.status)
+            assertEquals(listOf(1L, 2L), bridge.answers.map { it.first })
+            assertTrue("answers are errors: ${bridge.answers}", bridge.answers.all { it.third })
+            assertTrue("decline text: ${bridge.answers}", bridge.answers[0].second.contains("declined"))
+            assertTrue("install without a build of this task", bridge.answers[1].second.contains("No successful build"))
+            assertEquals(1, bridge.liveCaptures)
+            assertTrue("command decline accepted", services.tasks.answerApproval(ApprovalDecision.Declined(command.key())))
+            val returned = prompt(services, id, "import_cli_changes"); waitFor(services, id, TaskPhase.AwaitingApproval)
+            assertTrue("import decline accepted", services.tasks.answerApproval(ApprovalDecision.Declined(returned.key())))
+            waitFor(services, id, TaskPhase.Completed)
+            assertEquals("before", services.workspace(project).read("Game.kt"))
+            services.tasks.retry(id); delay(100)
+            assertEquals("answers are never resent", 2, bridge.answers.size)
         }
     }
 }
