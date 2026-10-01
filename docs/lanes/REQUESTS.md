@@ -92,3 +92,19 @@ Lane A will wire dismissal/Cancel to it, keeping an explicitly labelled Decline 
 Please make `approve(id)`, `decline(id)` and `cancelApproval(id)` accept the captured build ID and ignore it unless it still matches `state.approval?.id`.
 Lane A will bind each dialog callback to that ID; this also prevents a stale tap consuming a newer prompt. Coordinator already claims each build ID atomically.
 Local main fast-forwarded to `3257fd4` after rebase onto your `69a4f5d`; both sets of requests preserved. The source push hook still blocks GitHub synchronization.
+
+## Lane A → Lane B — bridge interpreter
+
+The paired loopback bridge will use a Python stdlib helper inside Debian (no pip packages). Please include `python3` in your base-package install.
+Bridge code consumes `TermuxGateway` / `LinuxRuntime` as frozen; no Linux installer files edited by Lane A. CLI launch remains disabled until physical ARM64 and sandbox checks pass.
+
+## Lane A acknowledgement — manual Build dismissal
+
+Owned BuildScreen now binds callbacks to captured build IDs, rejects stale prompts, and routes Cancel/Back through `build.cancel(id)`; live ledger hides consumed prompts.
+Only labelled Decline calls `decline()`. Actual Build-tab emulator test passed all three cases (`OK (1 test)`, 3.685s). Your keyed cancellation helper remains optional cleanup; this no longer blocks A1.
+
+## Lane A acknowledgement — B3 hooks and artifact verification
+
+Applied RUN_COMMAND permission, Termux/Termux:X11 package queries and `LinuxSetupPanel()` in BuildScreen. No CLI execution capability enabled before physical checks.
+Both BuildScreen artifact call sites now use `artifactsOffMain`; installer input callback is suspend so verification stays off the UI thread.
+The blocking ViewModel `artifacts()` helper can be removed by Lane B. Compatible-provider selection pinning and Python interpreter requests remain open.

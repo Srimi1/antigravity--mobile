@@ -1,0 +1,232 @@
+import concurrent.futures
+import importlib.util
+import io
+import json
+import pathlib
+import secrets
+import socket
+import tempfile
+import threading
+import unittest
+from unittest import mock
+
+SOURCE = pathlib.Path(__file__).resolve().parents[3] / "main/resources/dev/srimi/antigravitymobile/bridge/agm_bridge.py"
+spec = importlib.util.spec_from_file_location("agm_bridge", SOURCE)
+bridge = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(bridge)
+
+
+class SecurityTest(unittest.TestCase):
+    def test_unpaired_forged_and_replayed_frames_fail(self):
+        key = secrets.token_bytes(32)
+        server = bridge.ServerHandshake("pair-1", key)
+        client = bridge.ClientHandshake("pair-1", key, server.challenge)
+        reply, incoming = server.accept(client.hello)
+        outgoing = client.finish(reply)
+        frame = outgoing.encode({"op": "observe", "taskId": "task-1"})
+        self.assertEqual("task-1", incoming.decode(frame)["taskId"])
+        with self.assertRaises(bridge.ProtocolError):
+            incoming.decode(frame)
+        stranger = bridge.ClientHandshake("pair-1", secrets.token_bytes(32), server.challenge)
+        with self.assertRaises(bridge.ProtocolError):
+            server.accept(stranger.hello)
+        altered = json.loads(outgoing.encode({"op": "cancel"}))
+        altered["body"] = bridge.b64(b'{"op":"start"}')
+        with self.assertRaises(bridge.ProtocolError):
+            incoming.decode(json.dumps(altered))
+
+    def test_duplicate_keys_invalid_sequences_and_oversize_are_rejected(self):
+        with self.assertRaises(bridge.ProtocolError):
+            bridge.parse('{"op":"cancel","op":"start"}')
+        with self.assertRaises(bridge.ProtocolError):
+            bridge.parse('{"number":NaN}')
+        with self.assertRaises(bridge.ProtocolError):
+            bridge.read_line(io.BytesIO(b"x" * (bridge.MAX_FRAME_BYTES + 1)))
+        with self.assertRaises(bridge.ProtocolError):
+            bridge.TaskSupervisor.valid_id("../../other")
+
+    def test_loopback_server_rejects_unpaired_client_before_dispatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            supervisor = bridge.TaskSupervisor(directory, {}, spawn=lambda *a, **k: self.fail("unpaired dispatch"))
+            key = secrets.token_bytes(32)
+            with bridge.LoopbackServer(0, "pair-1", key, supervisor) as server:
+                thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+                try:
+                    with socket.create_connection(server.server_address, timeout=2) as client:
+                        stream = client.makefile("rwb", buffering=0)
+                        challenge = bridge.read_line(stream, 1024)
+                        wrong = bridge.ClientHandshake("pair-1", secrets.token_bytes(32), challenge)
+                        stream.write((wrong.hello + "\n").encode())
+                        self.assertEqual(b"", stream.readline(1024))
+                        stream.close()
+                    self.assertFalse(supervisor.records)
+                finally:
+                    server.shutdown(); thread.join(2)
+
+
+class FakeProcess:
+    pid = None
+
+    def __init__(self):
+        self.stdin = io.BytesIO()
+        self.stdout = io.BytesIO()
+        self.stderr = io.BytesIO()
+        self.done = threading.Event()
+
+    def poll(self):
+        return 0 if self.done.is_set() else None
+
+    def wait(self, timeout=None):
+        if not self.done.wait(timeout):
+            raise TimeoutError()
+        return 0
+
+    def terminate(self):
+        self.done.set()
+
+    def kill(self):
+        self.done.set()
+
+
+class SupervisorTest(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.directory.name)
+        self.spawned = []
+
+        def spawn(argv, **kwargs):
+            process = FakeProcess()
+            self.spawned.append((argv, process))
+            return process
+
+        self.runner = bridge.TaskSupervisor(self.root, {"codex": "/usr/local/bin/codex", "antigravity": "/usr/local/bin/agy"}, spawn=spawn)
+        (self.root / "workspaces/task-1/source").mkdir(parents=True)
+
+    def tearDown(self):
+        for _, process in self.spawned:
+            process.kill()
+        for thread in self.runner.threads:
+            thread.join(timeout=2)
+        self.directory.cleanup()
+
+    def test_duplicate_start_and_send_claim_before_process_write(self):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+            list(pool.map(lambda _: self.runner.start("task-1", "codex"), range(20)))
+        self.assertEqual(1, len(self.spawned))
+        message = {"id": "agm-init", "method": "initialize", "params": {"capabilities": {"experimentalApi": False}}}
+        self.assertTrue(self.runner.send("task-1", "write-1", message))
+        self.assertFalse(self.runner.send("task-1", "write-1", message))
+        self.assertEqual(1, self.spawned[0][1].stdin.getvalue().count(b'"initialize"'))
+        with self.assertRaises(bridge.ProtocolError):
+            self.runner.send("task-1", "write-1", {"method": "process/spawn"})
+
+    def test_unsafe_rpc_other_workspace_and_second_active_task_fail_closed(self):
+        self.runner.start("task-1", "codex")
+        with self.assertRaises(bridge.ProtocolError):
+            self.runner.send("task-1", "bad", {"method": "process/spawn", "id": 2})
+        with self.assertRaises(bridge.ProtocolError):
+            self.runner.send("task-1", "bad", {"method": "thread/start", "id": 3, "params": {"cwd": "/root", "sandbox": "danger-full-access"}})
+        (self.root / "workspaces/task-2/source").mkdir(parents=True)
+        with self.assertRaises(bridge.ProtocolError):
+            self.runner.start("task-2", "codex")
+        self.assertEqual(1, len(self.spawned))
+
+    def test_restart_marks_uncertain_start_interrupted_without_spawning(self):
+        # Persisted claim at the crash boundary before/after Popen, with no surviving pipe owner.
+        bridge.atomic(self.root / "task-task-1.json", {"id": "task-1", "backend": "codex", "state": "STARTING", "writes": {}, "events": 0, "requests": {}})
+        recovered = bridge.TaskSupervisor(self.root, {"codex": "/usr/local/bin/codex"}, spawn=lambda *a, **k: self.fail("uncertain task replayed"))
+        self.assertFalse(recovered.start("task-1", "codex"))
+        self.assertEqual("INTERRUPTED", recovered.status("task-1")["state"])
+
+    def test_cancellation_is_recorded_and_only_owned_process_stops(self):
+        self.runner.start("task-1", "antigravity")
+        self.runner.cancel("task-1")
+        self.assertTrue(self.spawned[0][1].done.is_set())
+        self.assertEqual("CANCELLED", self.runner.status("task-1")["state"])
+        self.assertEqual(["/usr/local/bin/agy", "--input-format", "stream-json", "--output-format", "stream-json", "--sandbox"], self.spawned[0][0])
+
+    def test_first_large_event_is_delivered_or_rejected_before_journaling(self):
+        self.runner.start("task-1", "codex")
+        try:
+            self.runner._event("task-1", {"kind": "cli", "message": {"text": "x" * 95_000}})
+        except bridge.ProtocolError:
+            return
+        self.assertEqual(1, len(self.runner.observe("task-1", 0)["events"]))
+
+    def test_blocked_pipe_does_not_hold_cancellation_lock(self):
+        self.runner.start("task-1", "codex")
+        process = self.spawned[0][1]
+        entered, release, cancelled = threading.Event(), threading.Event(), threading.Event()
+
+        class Blocked(io.BytesIO):
+            def write(self, value):
+                entered.set(); release.wait(2)
+                return super().write(value)
+
+        process.stdin = Blocked()
+        def send():
+            try:
+                self.runner.send("task-1", "write-1", {"id": "agm-init", "method": "initialize", "params": {}})
+            except bridge.ProtocolError:
+                pass
+        writer = threading.Thread(target=send, daemon=True); writer.start()
+        self.assertTrue(entered.wait(1))
+        def cancel():
+            self.runner.cancel("task-1"); cancelled.set()
+        stopper = threading.Thread(target=cancel, daemon=True); stopper.start()
+        try:
+            self.assertTrue(cancelled.wait(0.5), "blocked stdin held cancellation lock")
+        finally:
+            release.set(); writer.join(2); stopper.join(2)
+
+    def test_confirmed_group_cancellation_stops_child_after_leader_exit(self):
+        self.runner.start("task-1", "codex")
+        process = self.spawned[0][1]
+        process.pid = 42
+        self.runner.records["task-1"].update(pid=42, startTime="leader")
+        alive = {42: ("S", "leader"), 43: ("S", "child")}
+        signals = []
+        def kill_group(group, value):
+            self.assertEqual(42, group); signals.append(value)
+            alive.pop(42, None); process.done.set()
+            if value == bridge.signal.SIGKILL:
+                alive.clear()
+        with mock.patch.object(bridge, "group_members", create=True, side_effect=lambda _: dict(alive)), mock.patch.object(bridge.os, "killpg", side_effect=kill_group):
+            self.runner.cancel("task-1")
+        self.assertFalse(alive, "CLI child kept running after leader exited")
+        self.assertIn(bridge.signal.SIGKILL, signals)
+        self.assertEqual("CANCELLED", self.runner.status("task-1")["state"])
+
+    def test_approval_previews_do_not_expand_state_and_resolved_requests_are_pruned(self):
+        self.runner.start("task-1", "codex")
+        process = self.spawned[0][1]
+        self.runner.records["task-1"].update(thread="thread-1", turn="turn-1")
+        messages = [{"id": number, "method": "item/commandExecution/requestApproval", "params": {
+            "threadId": "thread-1", "turnId": "turn-1", "itemId": "command-%d" % number,
+            "command": "x" * 55_000, "cwd": str(self.runner._workspace("task-1"))}} for number in (8, 9, 10)]
+        stream = io.BytesIO(b"".join((bridge.dump(message) + "\n").encode() for message in messages))
+        self.runner._read("task-1", process, stream, "cli")
+        self.assertLess((self.root / "task-task-1.json").stat().st_size, bridge.MAX_BODY_BYTES)
+        self.runner.send("task-1", "answer-1", {"id": 8, "result": {"decision": "cancel"}})
+        self.assertNotIn("8", self.runner.records["task-1"]["requests"])
+        self.assertFalse(self.runner.send("task-1", "answer-1", {"id": 8, "result": {"decision": "cancel"}}))
+
+    def test_unconfirmed_cancellation_keeps_single_task_slot_on_restart(self):
+        self.runner.start("task-1", "codex")
+        (self.root / "workspaces/task-2/source").mkdir(parents=True)
+        with mock.patch.object(bridge, "stop_owned", return_value=False):
+            self.runner.cancel("task-1")
+            self.assertTrue(self.runner.status("task-1")["cancellationUnconfirmed"])
+            with self.assertRaises(bridge.ProtocolError):
+                self.runner.start("task-2", "codex")
+            recovered = bridge.TaskSupervisor(self.root, {"codex": "/usr/local/bin/codex"}, spawn=lambda *a, **k: self.fail("unconfirmed process released slot"))
+            with self.assertRaises(bridge.ProtocolError):
+                recovered.start("task-2", "codex")
+        with mock.patch.object(bridge, "stop_owned", return_value=True):
+            self.runner.cancel("task-1")
+        self.assertFalse(self.runner.status("task-1")["cancellationUnconfirmed"])
+        self.assertTrue(self.runner.start("task-2", "codex"))
+
+
+if __name__ == "__main__":
+    unittest.main()

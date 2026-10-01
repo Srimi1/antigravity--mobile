@@ -6,8 +6,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="dev.srimi.antigravitymobile.permission.BUILD_WORKER" />
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
     <queries>
         <package android:name="dev.srimi.antigravitymobile.worker" />
+        <package android:name="com.termux" />
+        <package android:name="com.termux.x11" />
         <intent><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent>
     </queries>
     <application android:name=".AntigravityApp" android:label="Antigravity Mobile" android:allowBackup="false"

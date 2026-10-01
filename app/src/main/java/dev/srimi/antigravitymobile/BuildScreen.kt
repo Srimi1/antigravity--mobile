@@ -29,8 +29,8 @@ import java.io.InputStream
 object ApkInstaller {
     data class Launch(val opened: Boolean, val message: String)
     /** Copies an APK into the FileProvider-shared install folder and opens Android's installer. */
-    suspend fun install(context: Context, open: () -> InputStream): String = launch(context, open).message
-    suspend fun launch(context: Context, open: () -> InputStream): Launch {
+    suspend fun install(context: Context, open: suspend () -> InputStream): String = launch(context, open).message
+    suspend fun launch(context: Context, open: suspend () -> InputStream): Launch {
         if (!context.packageManager.canRequestPackageInstalls()) {
             context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -79,7 +79,7 @@ object ApkInstaller {
     }
     LaunchedEffect(state.message) { state.message?.let { notify(it); build.dismissMessage() } }
     var tasks by remember(state.project?.id) { mutableStateOf(":app:assembleDebug") }
-    fun install(open: () -> InputStream) = scope.launch {
+    fun install(open: suspend () -> InputStream) = scope.launch {
         notify(try { ApkInstaller.install(context, open) } catch (error: Exception) { "Could not open this APK: ${friendly(error)}" })
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -154,11 +154,11 @@ object ApkInstaller {
                 if (record.status != "AWAITING_APPROVAL" && record.status != "DECLINED")
                     OutlinedButton(onClick = { build.refresh(record.id) }) { Text("Refresh result") }
                 val apks by produceState<List<File>>(emptyList(), record.id, record.artifactState) {
-                    value = if (record.status == "COMPLETED" && record.artifactState == "READY") withContext(Dispatchers.IO) { build.artifacts(record.id) } else emptyList()
+                    value = if (record.status == "COMPLETED" && record.artifactState == "READY") build.artifactsOffMain(record.id) else emptyList()
                 }
                 apks.forEach { apk ->
                     OutlinedButton(onClick = { install {
-                        check(build.artifacts(record.id).any { it == apk }) { "Recorded APK changed; refresh the build result" }
+                        check(build.artifactsOffMain(record.id).any { it == apk }) { "Recorded APK changed; refresh the build result" }
                         apk.inputStream()
                     } }) { Text("Install ${apk.name}") }
                     OutlinedButton(onClick = {
@@ -185,6 +185,7 @@ object ApkInstaller {
                 Text("Select APK from storage")
             }
         }
+        dev.srimi.antigravitymobile.linux.LinuxSetupPanel()
         SectionCard("Device diagnostics") {
             Text(probe.deviceSummary, style = MaterialTheme.typography.bodySmall)
             Text("Runs the Android/Bionic test executable packaged in this APK. It proves native execution and cancellation, not a compiler.")
@@ -209,14 +210,20 @@ object ApkInstaller {
             }
         }
     }
-    state.approval?.let { record ->
-        AlertDialog(onDismissRequest = build::decline, title = { Text("Approve build command") },
+    // BuildViewModel owns the prompt; the live ledger owns whether it can still be answered.
+    state.approval?.takeIf { prompt -> state.records.any { it.id == prompt.id && it.status == "AWAITING_APPROVAL" } }?.let { record ->
+        fun current() = build.state.value.approval?.id == record.id
+        fun cancelPrompt() { if (current()) build.cancel(record.id) }
+        AlertDialog(onDismissRequest = ::cancelPrompt, title = { Text("Approve build command") },
             text = { Text("Run Gradle ${record.tasks} on the prepared copy of ${state.project?.name}?\n\n" +
                 "Snapshot SHA-256: ${record.snapshotHash}\n\n" +
                 "Project build scripts can execute code, download dependencies and access the build app’s storage and internet. " +
                 "Anti Gravity account storage stays in the main app. This approval runs once; interrupted commands are never replayed.") },
-            confirmButton = { TextButton(onClick = build::approve) { Text("Approve and build") } },
-            dismissButton = { TextButton(onClick = build::decline) { Text("Cancel") } })
+            confirmButton = { TextButton(onClick = { if (current()) build.approve() }) { Text("Approve and build") } },
+            dismissButton = { Row {
+                TextButton(onClick = { if (current()) build.decline() }) { Text("Decline") }
+                TextButton(onClick = ::cancelPrompt) { Text("Cancel") }
+            } })
     }
     checks.approval?.let { argument ->
         AlertDialog(onDismissRequest = probe::declineCommand, title = { Text("Approve command") },
