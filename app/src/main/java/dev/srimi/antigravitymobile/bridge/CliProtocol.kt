@@ -291,7 +291,19 @@ class AntigravityProtocol(private val workspace: String, private val resumeConve
                 }
             }
             "result" -> {
-                val result = message.getJSONObject("result"); scope(result)
+                val result = message.getJSONObject("result")
+                if (conversation == null) {
+                    // agy reports startup failures (for example missing sign-in) as an ERROR result with no init and
+                    // no conversation. Only that exact shape is accepted; its error text is never shown or trusted.
+                    if (!awaiting || terminal != null || result.optString("conversation_id", "x") != "" ||
+                        result.requiredText("status", 32) != "ERROR" || result.integer("num_turns") != 0L) throw BridgeProtocolException()
+                    awaiting = false
+                    val blocked = CliEvent.Finished(ToolOutcome.RuntimeUnavailable(
+                        "Antigravity CLI could not start a conversation; sign in with agy in Termux, then retry"))
+                    terminal = blocked
+                    return@guard CliBatch(listOf(blocked))
+                }
+                scope(result)
                 val count = result.integer("num_turns")
                 if (count < 0 || turns?.let { count <= it } == true) throw BridgeProtocolException()
                 val outcome = when (result.requiredText("status", 32)) {

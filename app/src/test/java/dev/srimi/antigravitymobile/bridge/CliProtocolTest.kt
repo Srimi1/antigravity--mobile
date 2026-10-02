@@ -83,6 +83,27 @@ class CliProtocolTest {
         assertTrue((blocked.events.single() as CliEvent.Finished).outcome is ToolOutcome.RuntimeUnavailable)
     }
 
+    @Test fun antigravityStartupErrorBeforeInitIsRuntimeUnavailable() {
+        // Verbatim stdout of real agy 1.2.14 (ARM64 Debian 12 under proot, emulator-5554) without sign-in.
+        val unsignedIn = """{"event":"result","result":{"conversation_id":"","status":"ERROR","response":"","error":"authentication failed or timed out","duration_seconds":0,"num_turns":0,"usage":{"input_tokens":0,"output_tokens":0,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":0}}}"""
+        val agy = AntigravityProtocol(workspace)
+        agy.user("Build game")
+        val finished = agy.receive(json(unsignedIn)).events.single() as CliEvent.Finished
+        assertTrue(finished.outcome is ToolOutcome.RuntimeUnavailable)
+        assertTrue(agy.exited(1).outcome is ToolOutcome.RuntimeUnavailable)
+
+        // Only an empty-conversation startup error is accepted before init; nothing can claim success or a session.
+        for (forged in listOf(
+            """{"event":"result","result":{"conversation_id":"","status":"SUCCESS","response":"done","num_turns":1}}""",
+            """{"event":"result","result":{"conversation_id":"cli-9","status":"ERROR","response":"","num_turns":0}}""",
+            """{"event":"result","result":{"conversation_id":"","status":"ERROR","response":"","num_turns":1}}""")) {
+            val fresh = AntigravityProtocol(workspace); fresh.user("Build game")
+            assertThrows(BridgeProtocolException::class.java) { fresh.receive(json(forged)) }
+        }
+        val resumed = AntigravityProtocol(workspace, "cli-1"); resumed.user("Continue")
+        assertTrue((resumed.receive(json(unsignedIn)).events.single() as CliEvent.Finished).outcome is ToolOutcome.RuntimeUnavailable)
+    }
+
     @Test fun zeroProcessExitCannotOverwriteRecordedFailedTurn() {
         val codex = running()
         val failed = codex.receive(json("""{"method":"turn/completed","params":{"threadId":"thread-1","turn":{"id":"turn-1","status":"failed","items":[]}}}"""))
