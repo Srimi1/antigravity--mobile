@@ -77,7 +77,7 @@ The owner runs `docs/PHONE_TEST_0.6.0.md` and sends pass/fail per step, screensh
 6. Commit on `lane-a/runtime`. Check `.git` for dataless files, then run `git merge --ff-only lane-a/runtime` into local `main`.
 7. Hand the owner the push and release commands (see "Hand-off format").
 
-### Task 5 — Gate 0.8.0 (code 14): CLI backends
+### Task 5 — Gate 0.8.0 (code 15; 0.7.1 used code 14): CLI backends
 Start only after 0.7.0 is built.
 
 1. Re-run the full JVM suite, release lint, the Python bridge tests and these emulator classes: CliRuntime, NativeRuntime, CliRealTermux, TermuxBridge, RuntimeStore, FullApp, AgentBackendSelector.

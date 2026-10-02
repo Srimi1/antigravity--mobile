@@ -56,7 +56,8 @@ data class TermuxResult(
 /** Why Termux cannot be used; shown as a runtime limitation, never as a user decision. */
 sealed class TermuxUnavailable(message: String) : Exception(message) {
     class NotInstalled : TermuxUnavailable("Termux is not installed")
-    class PermissionDenied : TermuxUnavailable("Antigravity Mobile is not allowed to run commands in Termux (RUN_COMMAND permission)")
+    class PermissionDenied : TermuxUnavailable("Antigravity Mobile is not allowed to run commands in Termux. Build → Linux on this phone → Allow, " +
+        "or Android Settings → Apps → Antigravity Mobile → Permissions → Additional permissions → Run commands in Termux environment → Allow")
     class ExternalAppsDisabled : TermuxUnavailable("Termux is not accepting commands from other apps (allow-external-apps is off)")
     class TimedOut(val afterMs: Long) : TermuxUnavailable("Termux did not answer within ${afterMs / 1000}s")
     class Failed(message: String) : TermuxUnavailable(message)
@@ -133,4 +134,26 @@ interface LinuxRuntime {
     suspend fun cleanup(selection: Set<CleanupItem>): CleanupResult
     suspend fun installedClis(): List<CliInstall>
     suspend fun installCli(tool: CliTool, onProgress: (String) -> Unit = {}): CliInstall
+}
+
+/**
+ * What the Allow button does for Termux's RUN_COMMAND runtime permission. Once Android stops showing its dialog
+ * (two denials or a dismissed dialog mark it user-fixed), requesting again returns at once with no UI, so the only
+ * working path is the app's Settings page (Permissions → Additional permissions).
+ */
+enum class TermuxPermissionStep {
+    Done, RequestDialog, OpenSettings, Explain;
+
+    companion object {
+        fun onAllow(granted: Boolean, askedBefore: Boolean, showRationale: Boolean): TermuxPermissionStep = when {
+            granted -> Done
+            !askedBefore || showRationale -> RequestDialog
+            else -> OpenSettings
+        }
+        fun afterResult(granted: Boolean, showRationale: Boolean): TermuxPermissionStep = when {
+            granted -> Done
+            showRationale -> Explain
+            else -> OpenSettings
+        }
+    }
 }

@@ -1,12 +1,17 @@
 package dev.srimi.antigravitymobile.linux
 
+import android.app.Activity
 import android.app.Application
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.Settings
+import androidx.core.app.ActivityCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -54,10 +59,9 @@ class LinuxViewModel(application: Application) : AndroidViewModel(application) {
     fun refresh() = run("Checking", quiet = true) {
         val termux = gateway.status()
         mutable.update { it.copy(termux = termux) }
-        val linux = runtime.status()
-        mutable.update { it.copy(linux = linux) }
-        if (linux.state == LinuxState.Stopped || linux.state == LinuxState.Running)
-            mutable.update { it.copy(storage = runtime.storageUsage(), clis = runtime.installedClis()) }
+        try { refreshNow() }
+        // The first command is what reveals allow-external-apps, so show that result in step 3 as well.
+        finally { mutable.update { it.copy(termux = gateway.status()) } }
         null
     }
 
@@ -81,6 +85,7 @@ class LinuxViewModel(application: Application) : AndroidViewModel(application) {
 
     fun cancel() { job?.cancel() }
     fun dismiss() = mutable.update { it.copy(message = null) }
+    fun note(text: String) = mutable.update { it.copy(message = text) }
     fun install(desktop: Boolean) = run(if (desktop) "Install Debian with desktop" else "Install Debian", block = afterwards {
         runtime.ensureInstalled(desktop, ::progress).detail
     })
@@ -102,6 +107,14 @@ class LinuxViewModel(application: Application) : AndroidViewModel(application) {
 private fun copy(context: Context, text: String) =
     context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("command", text))
 private fun open(context: Context, url: String) = runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+private fun openAppSettings(context: Context) = runCatching {
+    context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+}
+private tailrec fun Context.activity(): Activity? = when (this) { is Activity -> this; is ContextWrapper -> baseContext.activity(); else -> null }
+private fun showRationale(context: Context) =
+    context.activity()?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, TermuxProtocol.PERMISSION) } == true
+private const val SETTINGS_PATH = "Permissions → Additional permissions → Run commands in Termux environment → Allow"
 
 /** Build-tab panel: guided Termux + Debian 12 + XFCE setup. Lane A inserts it into BuildScreen. */
 @Composable fun LinuxSetupPanel() {
@@ -109,7 +122,20 @@ private fun open(context: Context, url: String) = runCatching { context.startAct
     val state by model.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val idle = state.busy == null
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { model.refresh() }
+    val prefs = remember { context.getSharedPreferences("termux", Context.MODE_PRIVATE) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        when (TermuxPermissionStep.afterResult(granted, showRationale(context))) {
+            TermuxPermissionStep.OpenSettings -> {
+                model.note("Android did not show its permission dialog. In the Settings page that opened: $SETTINGS_PATH, then come back.")
+                openAppSettings(context)
+            }
+            TermuxPermissionStep.Explain -> model.note("Not allowed. Tap Allow again and choose Allow in Android's dialog.")
+            else -> Unit
+        }
+        model.refresh()
+    }
+    // Coming back from Settings or Termux re-checks the permission and whether Termux now accepts commands.
+    LifecycleResumeEffect(Unit) { model.refresh(); onPauseOrDispose { } }
     var confirm by remember { mutableStateOf<Set<CleanupItem>?>(null) }
 
     SectionCard("Linux on this phone (Termux)") {
@@ -135,14 +161,35 @@ private fun open(context: Context, url: String) = runCatching { context.startAct
         if (termux?.installed == true) {
             StepRow("2. Permission to run commands in Termux", termux.runCommandPermission,
                 if (termux.runCommandPermission) "Granted" else "Not granted (runtime limitation until you allow it)")
-            if (!termux.runCommandPermission) Button(onClick = {
-                if (context.checkSelfPermission(TermuxProtocol.PERMISSION) != PackageManager.PERMISSION_GRANTED) permission.launch(TermuxProtocol.PERMISSION)
-            }, enabled = idle) { Text("Allow") }
+            if (!termux.runCommandPermission) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        val granted = context.checkSelfPermission(TermuxProtocol.PERMISSION) == PackageManager.PERMISSION_GRANTED
+                        when (TermuxPermissionStep.onAllow(granted, prefs.getBoolean("runCommandAsked", false), showRationale(context))) {
+                            TermuxPermissionStep.RequestDialog -> {
+                                prefs.edit().putBoolean("runCommandAsked", true).apply()
+                                permission.launch(TermuxProtocol.PERMISSION)
+                            }
+                            TermuxPermissionStep.OpenSettings -> {
+                                model.note("Android no longer shows its dialog for this permission. In the Settings page that opened: $SETTINGS_PATH, then come back.")
+                                openAppSettings(context)
+                            }
+                            else -> model.refresh()
+                        }
+                    }, enabled = idle) { Text("Allow") }
+                    OutlinedButton(onClick = { openAppSettings(context) }) { Text("Open settings") }
+                }
+                Text("If no Android dialog appears, allow it in Settings: $SETTINGS_PATH.", style = MaterialTheme.typography.bodySmall)
+            }
             // Step 3: allow-external-apps
             StepRow("3. Termux accepts commands from this app", termux.externalAppsAllowed == true, when (termux.externalAppsAllowed) {
                 true -> "Allowed"; false -> "Off in Termux settings"; null -> "Unknown until the first command" })
             if (termux.externalAppsAllowed != true) {
                 Text("Open Termux, paste and run this once:", style = MaterialTheme.typography.bodySmall)
+                Text("It prints nothing when it works. Then come back here; this step updates by itself" +
+                    (if (!termux.runCommandPermission) " once step 2 is allowed" else "") +
+                    ". If Termux asks \"Display all … possibilities?\", press n: the Tab key was pressed, nothing is wrong.",
+                    style = MaterialTheme.typography.bodySmall)
                 Text(TermuxProtocol.ALLOW_EXTERNAL_APPS_COMMAND, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { copy(context, TermuxProtocol.ALLOW_EXTERNAL_APPS_COMMAND) }) { Text("Copy") }
