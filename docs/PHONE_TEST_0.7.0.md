@@ -1,6 +1,6 @@
-# Physical checks for the 0.7.0 candidate
+# Physical checks for 0.7.0
 
-0.7.0/code 13 is currently unsigned and unpublished. Wait for a release signed with the original key; an unsigned or debug-signed APK cannot safely update the owner's release installation. Never uninstall Antigravity Mobile or Termux.
+0.7.0/code 13 is [published with the original signer](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.0). Download [antigravity-mobile-0.7.0.apk](https://github.com/Srimi1/antigravity--mobile/releases/download/v0.7.0/antigravity-mobile-0.7.0.apk) and install it as an update. Both the main app and embedded Build Tools match the previous release certificate. Physical acceptance is still unverified. Never uninstall Antigravity Mobile or Termux; an unsigned or debug-signed APK cannot safely update the owner's release installation.
 
 ## Preserve the update path
 

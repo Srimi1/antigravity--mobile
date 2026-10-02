@@ -1,5 +1,7 @@
 # 0.7.0/code 13 — unsigned bug-fix candidate
 
+**Historical preparation record.** The owner subsequently requested original-key signing and publication. Signed [v0.7.0](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.0) is now GitHub Latest; see [RELEASE_0.7.0.md](RELEASE_0.7.0.md) for fresh build output, signed hashes and emulator update evidence. Physical acceptance and the remaining isolated real-Termux rerun are still unverified. Unsigned hashes and approval status below describe preparation before publication.
+
 Prepared on 2 October 2026 from `main`/`origin/main` `246a55d8f27378cd8cf836fe77848c530c25d2e3`. Latest published release remains [v0.6.0](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.6.0), built from `13368e7ede732d0c23a5f3cccfe18f24ff7438b9`. This candidate is not signed, published or physically accepted.
 
 Implementation commit: `cd2222407b5703164e161ad6a51d558c7e6d44c4` on `fix/0.7.0-bugs`. Initial backup: `~/dev/agm-bugfix-backup-20261002-144953.bundle`. Free space stayed above 61 GiB. iCloud had evicted 23 Git files; targeted hydration brought the required `find .git -flags +dataless | wc -l` check to 0 before any main fast-forward.
