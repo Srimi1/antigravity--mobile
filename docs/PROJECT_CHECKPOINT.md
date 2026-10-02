@@ -1,14 +1,23 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **1 October 2026** (0.4.1 private phone-test build; signed upgrade chain and companion update validated on emulators; full app still not accepted).
+Last updated **2 October 2026** (0.6.0 published for owner phone testing; physical phone and CLI acceptance still open).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
+
+## Latest: 0.6.0 — reliable approvals, keyed builds, CLI bridge groundwork — 2 October 2026
+
+- **0.6.0/code 12** from `lane-a/runtime` (Lanes A1/A2 plus Lane B's integrated providers and Linux setup already on `main`): persisted keyed approvals (one approval → one build), separate build/install prompts, foreground `AgentTaskService`, Paused card with reason and **Retry this provider**, recorded build outcomes/logs/APK hashes, Room v4 (`MIGRATION_3_4`), durable CLI runner/event journal and Termux pairing. Codex and Antigravity CLI backends stay **disabled** by the per-device capability gate.
+- **Tests:** JVM 34 classes/150 tests, 0 failures; release lint; Python bridge 29 OK. Release APK signed with the original key (SHA-256 cert `791980ed…10b5`, same as 0.5.2), bundled worker code 2 same signer. `antigravity-mobile-0.6.0.apk` 306,233,310 bytes, SHA-256 `912dbce38349b5fd8f892b4f0120ac5e96df1de61e30a6f9cfc2b7403ac06b08`.
+- **Upgrade on emulator-5554:** published release 0.5.2 installed, a project created (Room v3), then `adb install -r` 0.6.0 → versionCode 12, project kept, all five tabs open, crash buffer empty.
+- **Not verified:** physical OnePlus 7 Pro (owner tests without ADB using [PHONE_TEST_0.6.0.md](PHONE_TEST_0.6.0.md)); the original "approved but reported as declined" trace on the phone; CLI sign-in/inference; game acceptance. Owner authorized building and publishing this APK on 2 Oct 2026 without the phone gate.
+
+**Next:** owner runs PHONE_TEST_0.6.0.md and reports; then Lane B Gate 0.7.0 (needs `python3` in the Linux base packages) and Gate 0.8.0.
 
 ## Handoff saved — 1 October 2026
 
 At the owner's request the full context was saved for another AI in [CONTINUE_WITH_ANY_AI.md](../CONTINUE_WITH_ANY_AI.md): state, version history, owner decisions, code map, build/release procedure, environment incident and next steps. `AGENTS.md` and `HANDOFF_STATE.json` were refreshed to 0.5.2. No code changed.
 
-## Latest: 0.5.2 — Claude via the user's Anthropic API key — 1 October 2026
+## Earlier: 0.5.2 — Claude via the user's Anthropic API key — 1 October 2026
 
 User asked why there was no Claude API key option. Explained that an Anthropic API key is billed per use and is separate from a Claude Pro/Max subscription; the user chose to add it.
 

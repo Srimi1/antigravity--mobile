@@ -105,3 +105,10 @@
 - Still unverified: `init` field names (`cwd`, `permission_mode: request-review`), `step_update`/`tool_info` shapes and soft-denial wording — they need a signed-in run. Antigravity CLI stays disabled by the capability gate (no headless sandbox probe).
 - Tests: JVM 34 classes/150 tests, 0 failures; release lint, debug and androidTest APKs `BUILD SUCCESSFUL in 35s`; Python bridge `Ran 29 tests`, OK; `test_bootstrap` 20/20 OK. Emulator-5554 via `am instrument`: CliRuntime `OK (11 tests)`, NativeRuntime `OK (5 tests)`, CliRealTermux `OK (4 tests)` (denied-permission case not re-run).
 - Phone: ADB lists no physical device, so the A1 trace, upgrade check, phone ARM64/sandbox checks and game acceptance remain not done. Lane B Gate 0.7.0 not done (Lane B paused). No version bump, signing or publication.
+
+## Gate 0.6.0 build for owner phone testing — 2026-10-02
+
+- Owner cannot connect the phone over ADB today and authorized building and publishing a GitHub release so they can install it directly. Phone gate items (approval trace, real-data upgrade) move to the owner checklist `docs/PHONE_TEST_0.6.0.md`; they remain **unverified** until the owner reports.
+- Version 0.6.0 / code 12 (also the Codex `clientInfo.version`). Worker stays code 2. Original key (iCloud `.signing/personal.p12`, linked into the worktree only for the build and then removed) matches the published 0.5.2 signer `791980edfce3d623dfe1ba2e3209a506b01c4be7da74065805d400a5051210b5`.
+- `:app:testDebugUnitTest :app:lintRelease :app:assembleRelease` → `BUILD SUCCESSFUL in 1m 2s`; 34 classes/150 tests/0 failures. APK 306,233,310 bytes, SHA-256 `912dbce38349b5fd8f892b4f0120ac5e96df1de61e30a6f9cfc2b7403ac06b08`; `aapt2` shows `versionCode='12' versionName='0.6.0'`; bundled `build-worker.apk` code 2, same signer.
+- Emulator-5554 upgrade: debug app/test/worker uninstalled (test emulator only), published 0.5.2 installed and a "Hello Phone" project created, then `adb install -r` 0.6.0 → `Success`, versionCode 12, project still listed, Projects/Agent/Changes/Build/Accounts open, crash buffer 0 lines.

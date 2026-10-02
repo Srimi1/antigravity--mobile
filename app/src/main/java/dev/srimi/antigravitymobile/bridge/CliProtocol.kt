@@ -55,7 +55,7 @@ class CodexProtocol(private val workspace: String, private val prompt: String, p
         check(phase == Phase.New)
         phase = Phase.Initializing
         return rpc("initialize", "agm-init", JSONObject().put("clientInfo", JSONObject()
-            .put("name", "antigravity_mobile").put("title", "Antigravity Mobile").put("version", "0.5.2"))
+            .put("name", "antigravity_mobile").put("title", "Antigravity Mobile").put("version", "0.6.0"))
             .put("capabilities", JSONObject().put("experimentalApi", false)))
     }
     fun receive(message: JSONObject): CliBatch = BridgeSecurity.guard {

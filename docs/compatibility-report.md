@@ -4,6 +4,10 @@ Status: **CURRENT SOURCE 0.4.0 WEBSITE WORK IN PROGRESS; full-product gate BLOCK
 
 Latest user-reported target: OnePlus 7 Pro, 12 GB RAM, 256 GB storage (earlier records said 7T Pro). Physical model, current Android and free storage remain uninspected. No physical device was used in QA. Android 10+ and `arm64-v8a` remain the app requirements.
 
+## 0.6.0 validation — 2 October 2026
+
+JVM 150/150, release lint, Python bridge 29/29. Emulator-5554: CliRuntime 11, NativeRuntime 5, CliRealTermux 4 OK; release 0.5.2 → 0.6.0 in-place update kept a Room v3 project and opened all tabs without a crash. Real `codex-cli 0.159.3` and `agy 1.2.14` execute on ARM64 Debian 12 under proot on the emulator; Codex sandbox check fails (exit 182), so both CLI backends stay disabled. **Physical phone: untested.**
+
 ## Current 0.3.0 validation — 30 September 2026
 
 Real AGP/kapt, **37 JVM tests**, main/worker release lint, signed release build and **16 device tests** passed. Through Antigravity's UI, a Compose project was approved, compiled in the separate Android foreground worker, transferred back, installed and launched. Main restart retained a live build; worker death interrupted/refused replay. One-shot approval, immutable source copy, private-account-storage isolation and Room v1/v2→v3 migrations passed. Companion installation was done with ADB for QA; its embedded installer still needs validation.
