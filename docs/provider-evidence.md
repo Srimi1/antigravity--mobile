@@ -1,4 +1,10 @@
-# Subscription evidence — 2026-09-30 (updated 2026-10-01)
+# Subscription evidence — updated 2 October 2026
+
+## Google account route — 2 October 2026
+
+Consumer Google login should use the **official Antigravity CLI (`agy`)**, with the owner signing in inside that client. [Google's transition announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/) says consumer Gemini CLI requests stopped on 18 June 2026; enterprise and API-key access are separate. [Official authentication](https://antigravity.google/docs/cli/install/) and [headless/model selection](https://antigravity.google/docs/cli/headless/) document the client route. See [GEMINI_LOGIN.md](GEMINI_LOGIN.md).
+
+This corrects any older blanket claim that no Google account route exists. A supported direct native subscription adapter has not been established. **The app's Antigravity CLI backend remains disabled:** no documented headless sandbox self-test has been established and passed on the physical phone. No owner sign-in, real model response or signed-in protocol trace was collected. Gemini AI Studio keys remain a separate user-selected API provider.
 
 ## Claude via Anthropic API key — 1 October 2026 (0.5.2)
 

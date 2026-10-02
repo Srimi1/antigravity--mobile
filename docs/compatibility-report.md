@@ -1,8 +1,16 @@
 # Compatibility report
 
-Status: **CURRENT SOURCE 0.4.0 WEBSITE WORK IN PROGRESS; full-product gate BLOCKED**. Main/worker debug Kotlin compilation and the existing 37 JVM tests passed. Website UI/wiring, website-specific tests, 0.4.0 release lint/main APK and device validation are not done. See [complete handoff](../CONTINUE_WITH_ANY_AI.md) and [current compile evidence](handoff-validation-2026-09-30.txt). **0.3.0** is the last complete integrated-worker emulator-tested milestone; its [integration evidence](build-worker-qa-2026-09-30.md) is historical. Physical phone, subscriptions, wider development and the earlier ANR remain unaccepted.
+Status: **CURRENT SOURCE 0.7.0/code 13 unsigned candidate; latest published 0.6.0; full-product gate BLOCKED**. Current evidence is below and in the [candidate notes](RELEASE_CANDIDATE_0.7.0.md). Older milestone sections are historical. Physical-phone acceptance and live subscriptions remain unverified.
 
 Latest user-reported target: OnePlus 7 Pro, 12 GB RAM, 256 GB storage (earlier records said 7T Pro). Physical model, current Android and free storage remain uninspected. No physical device was used in QA. Android 10+ and `arm64-v8a` remain the app requirements.
+
+## 0.7.0 candidate validation — 2 October 2026
+
+35 JVM classes/155 tests, 0 failures/errors/skips; app and worker release lint; debug and androidTest builds; unsigned app and embedded unsigned worker. Python bridge: 31 tests OK. Linux installer/helper: `passed=22 failed=0`. Regression coverage includes real Python/Kotlin native-request delivery and upload retry, upload commit crash recovery without replacing files, failed/interrupted install status, and endpoint verification reset/serialization. [Candidate notes](RELEASE_CANDIDATE_0.7.0.md) record commands, output, artifacts and emulator evidence.
+
+Room remains v4 and worker remains code 2. No physical phone was connected; no physical migration, live subscription response or game acceptance is claimed. Antigravity CLI stays disabled without a passing documented headless sandbox check; Codex stays disabled when its sandbox probe fails. The new version is prepared for signing approval, not published.
+
+26 emulator checks completed before the combined run was stopped. The real-Termux restart case failed due to mismatched **temporary QA** launcher/client roots. Production paths match. QA correction/rerun awaits owner approval after repeated failures; the full candidate device suite is **not passed**. Actual Codex probe: `aarch64`, `codex-cli 0.159.3`, sandbox `unavailable`. See candidate notes for real output and setup details.
 
 ## 0.6.0 validation — 2 October 2026
 

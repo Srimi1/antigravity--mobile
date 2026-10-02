@@ -1,17 +1,32 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **2 October 2026** (0.6.0 published for owner phone testing; physical phone and CLI acceptance still open).
+Last updated **2 October 2026** (0.7.0 unsigned bug-fix candidate; latest published APK remains 0.6.0; physical phone and CLI acceptance still open).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## Latest: 0.6.0 — reliable approvals, keyed builds, CLI bridge groundwork — 2 October 2026
+## Current source: 0.7.0/code 13 candidate — 2 October 2026
+
+The owner requested fixes for the reviewed bugs and a new app version, authorizing the provider/Linux fixes along with bridge work. Candidate notes: [RELEASE_CANDIDATE_0.7.0.md](RELEASE_CANDIDATE_0.7.0.md). Gate 0.7.0 and full-product acceptance are not complete.
+
+Implementation commit `cd2222407b5703164e161ad6a51d558c7e6d44c4`; fetched GitHub `origin/main` remained `246a55d8f27378cd8cf836fe77848c530c25d2e3`. Source push is performed by the owner; release v0.6.0 remains unchanged.
+
+- Fixed `native_request` delivery, repeated upload preparation after a lost checkpoint, helper crash after workspace rename, missing base `python3`, misleading failed/interrupted Linux status, inherited custom-endpoint tool verification (including a concurrent probe), and stale model catalogs after endpoint changes.
+- Worker stays code 2; Room stays v4. Added `-PagmUnsignedRelease=true` to build a release candidate without accessing the personal signer; the embedded companion is unsigned too.
+- Current validation: 35 JVM classes/155 tests/0 failures or errors, both release lints, debug/test APKs and unsigned release build; Python bridge 31 OK; Linux helper 22 OK. Device evidence and artifact hashes are recorded in the candidate notes.
+- Emulator QA: 26 checks completed across CliRuntime/NativeRuntime/TermuxBridge/RuntimeStore/FullApp. The combined suite did not pass: real-Termux startup tests encountered a temporary QA launcher/client root mismatch. Production roots match. Correcting QA copies and rerunning awaits owner approval under the repeated-failure stop rule. The actual Codex probe reports `aarch64`, `codex-cli 0.159.3`, sandbox `unavailable`.
+- Google login guidance now points to the official `agy` client ([guide](GEMINI_LOGIN.md)). CLI capability gates remain closed unless a device sandbox probe passes. No credentials or live inference were used.
+- **Unverified:** physical 0.6.0→0.7.0 upgrade with real data, approval bug trace, signed-in CLI/protocol behavior, game build/install/play and phone-only Git acceptance. No phone is listed by ADB. Candidate remains unsigned and unpublished; ask the owner before personal signing and release publication.
+
+**Next:** obtain the pending QA approval, finish the isolated real-Termux rerun, then request original-key signing approval and collect [phone results](PHONE_TEST_0.7.0.md). Physical gates remain open; do not advance to 0.8.0 on local tests alone.
+
+## Latest published: 0.6.0 — reliable approvals, keyed builds, CLI bridge groundwork — 2 October 2026
 
 - **0.6.0/code 12** from `lane-a/runtime` (Lanes A1/A2 plus Lane B's integrated providers and Linux setup already on `main`): persisted keyed approvals (one approval → one build), separate build/install prompts, foreground `AgentTaskService`, Paused card with reason and **Retry this provider**, recorded build outcomes/logs/APK hashes, Room v4 (`MIGRATION_3_4`), durable CLI runner/event journal and Termux pairing. Codex and Antigravity CLI backends stay **disabled** by the per-device capability gate.
 - **Tests:** JVM 34 classes/150 tests, 0 failures; release lint; Python bridge 29 OK. Release APK signed with the original key (SHA-256 cert `791980ed…10b5`, same as 0.5.2), bundled worker code 2 same signer. `antigravity-mobile-0.6.0.apk` 306,233,310 bytes, SHA-256 `912dbce38349b5fd8f892b4f0120ac5e96df1de61e30a6f9cfc2b7403ac06b08`.
 - **Upgrade on emulator-5554:** published release 0.5.2 installed, a project created (Room v3), then `adb install -r` 0.6.0 → versionCode 12, project kept, all five tabs open, crash buffer empty.
 - **Not verified:** physical OnePlus 7 Pro (owner tests without ADB using [PHONE_TEST_0.6.0.md](PHONE_TEST_0.6.0.md)); the original "approved but reported as declined" trace on the phone; CLI sign-in/inference; game acceptance. Owner authorized building and publishing this APK on 2 Oct 2026 without the phone gate.
 
-**Next:** owner runs PHONE_TEST_0.6.0.md and reports; then Lane B Gate 0.7.0 (needs `python3` in the Linux base packages) and Gate 0.8.0.
+The pending phone checks continue in [PHONE_TEST_0.7.0.md](PHONE_TEST_0.7.0.md). The candidate now includes `python3`; its physical gate and Gate 0.8.0 remain open.
 
 ## Handoff saved — 1 October 2026
 

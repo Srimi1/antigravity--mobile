@@ -10,7 +10,7 @@ For agents continuing this project, read [AGENTS.md](AGENTS.md) and the [saved c
 
 A native Kotlin/Compose coding app for one Android phone: open or clone a repository, ask an agent for changes, review every edit, and commit locally.
 
-**Status:** Latest release **0.5.2** adds Claude with your own Anthropic API key (paid per use; [phone test](docs/PHONE_TEST_0.5.2.md)). **0.5.1**: the Agent can now build your Android project on the phone and open the installer, with your approval ([phone test](docs/PHONE_TEST_0.5.1.md)). 0.5.0 added GitHub (token sign-in, your repositories, branches, push, pull requests, publish); 0.4.2 added Gemini through a Google AI Studio key. The app runs on the owner's OnePlus 7 Pro. Not complete: Claude Pro/Max and Google AI subscriptions cannot be used by third-party apps, websites are static only, and there is no general shell. All versions are on the [releases page](https://github.com/Srimi1/antigravity--mobile/releases). See the [checkpoint](docs/PROJECT_CHECKPOINT.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+**Status:** Latest published release **0.6.0** adds durable approvals, foreground agent tasks and the paired CLI bridge. Current source is the **0.7.0/code 13 candidate**, fixing CLI request delivery/upload retry, Linux setup and custom-endpoint verification ([candidate notes](docs/RELEASE_CANDIDATE_0.7.0.md)). It is not signed or published yet. Physical-phone acceptance and live provider inference remain open. Google account access has an official Antigravity CLI route, but this app's CLI backend still requires a passing phone sandbox check ([Gemini login guide](docs/GEMINI_LOGIN.md)). Websites are static only. See the [checkpoint](docs/PROJECT_CHECKPOINT.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Version 0.1.2 includes the original adaptive launcher icon, round launcher support and an Android 13+ themed-icon silhouette. The repository artwork and icon sources are in [assets/branding](assets/branding/README.md).
 
@@ -28,7 +28,7 @@ Version 0.1.2 includes the original adaptive launcher icon, round launcher suppo
 
 ## What is still blocked
 
-- **Claude and Google subscriptions.** Supported, approved integration routes have not been established for this app, so both show as blocked. There is no API-key fallback.
+- **Subscriptions.** Claude Pro/Max and direct native Google subscription access remain blocked. Google account sign-in belongs inside the official `agy` client; this app does not extract its credentials. Codex and Antigravity CLI stay disabled until their device capability checks pass. API-key providers are separate, explicitly selected routes.
 - **ChatGPT** uses OpenAI's documented Sign in with ChatGPT flow, but has not been tested against a live account.
 - **Physical phone and wider projects.** The experimental ARM64 toolchain is now integrated through a separate Android UID. The [separate Kotlin/Compose proof](docs/native-compose-qa-2026-09-30.md) succeeded; see the checkpoint for integration QA. Physical OnePlus, Node/backend websites, other languages and general desktop capabilities are not accepted. Native compatibility and redistribution requirements remain open.
 - **No general shell.** The agent can run approved Gradle builds/unit-test tasks and open the APK installer, but not arbitrary commands.
@@ -50,6 +50,8 @@ python3 tools/android-runtime-lab/prepare.py --sdk "$ANDROID_HOME" \
 
 The output is `dist/antigravity-mobile-<versionName>.apk`. The script generates a local signing key once in `.signing/personal.p12`. Keep that file privately to install future updates; deleting it generates a different signer and requires uninstalling the previous app. The fixed keystore password protects this disposable development container only; filesystem permissions protect the private key. Use a separately managed key before promoting beyond the probe.
 
+For an unsigned release candidate, use `./gradlew -PagmUnsignedRelease=true :app:assembleRelease`. This produces `app-release-unsigned.apk` and bundles an unsigned companion. It cannot update an installed app until both packages are signed with the original signer. Never generate a replacement key or uninstall the owner's app to force an update. Agents must ask before signing or publishing.
+
 Temporary app build output lives in `~/.cache/antigravity-mobile-build`; the script keeps Gradle's project cache in `~/.cache/antigravity-mobile-gradle`. This avoids iCloud creating conflicting copies of generated compiler files. Source and delivered artifacts stay in this project.
 
 Builds also work from `sdk.dir` in an ignored `local.properties` file. Set `ANDROID_HOME` when using the build script. No SDK paths or private signing keys are included in the source delivery.
@@ -66,14 +68,17 @@ Network loss and access denial leave a failed check. Reconnect explicitly. If lo
 ## Development checks
 
 ```bash
-./gradlew :app:testDebugUnitTest :app:lintRelease
-# Worker/main debug APKs must share the test signer:
-./gradlew :build-worker:installDebug :app:connectedDebugAndroidTest
+./gradlew -PagmUnsignedRelease=true :app:testDebugUnitTest :app:lintRelease :build-worker:lintRelease
+# Use a dedicated debug-test emulator. Never install debug APKs over the owner's release app.
+# Install matching debug app/test APKs with adb -s <emulator> install -r -t, then:
+adb -s <emulator> shell am instrument -w \
+  dev.srimi.antigravitymobile.probe.test/dev.srimi.antigravitymobile.RuntimeInstrumentationRunner
+# am instrument preserves the Termux RUN_COMMAND grant between runs.
 ./gradlew -p samples/HelloPhone :app:assembleDebug
 # Fallback when Google Maven is unreachable (compile + JVM tests only):
 gradle -p tools/jvm-harness compileDeviceTestKotlin test
 ```
 
-Device tests use a separate test credential file and never overwrite a saved ChatGPT account. They verify native execution/cancellation, recovery records, credential encryption, the Room v1/v2 to v3 migrations and approved worker isolation/cancellation, JGit on the device and the change ledger. JVM tests cover workspace and archive boundaries, change review and revert conflicts, JGit operations, the Responses stream format, the agent tool loop and signed-token validation. The agent loop tests use a scripted model that exists only in tests. No unit test is represented as a live subscription test.
+Device tests use a separate test credential file. They verify native execution/cancellation, recovery records, credential encryption, Room migrations through v4, worker isolation/cancellation, JGit and the change ledger. Run them on a test emulator; `connectedAndroidTest` may uninstall the tested app and must never target the owner's phone. JVM tests cover workspace/archive bounds, provider streams, approvals and signed-token validation. Scripted models exist only in tests; these checks do not prove live subscription inference.
 
 The command probe launches only its fixed native test program, which creates no child processes. That is not proof of safe cancellation of arbitrary shell process trees. File path checks are not a shell sandbox.

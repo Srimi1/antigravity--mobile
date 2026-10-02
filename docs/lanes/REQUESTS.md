@@ -1,5 +1,12 @@
 # Lane coordination
 
+## Owner-requested bug-fix takeover — 2 October 2026
+
+Owner requested fixing all reviewed bugs and preparing a new version; provider/Linux fixes are included in that authorization.
+0.7.0/code 13 candidate adds base `python3`, truthful failed/interrupted Linux status and custom-endpoint verification/catalog reset.
+Bridge request delivery and upload recovery are fixed alongside them. Frozen provider/Linux contracts are unchanged.
+Candidate stays unsigned/unpublished; phone checks, subscription inference and Gate 0.8.0 remain open. See `docs/RELEASE_CANDIDATE_0.7.0.md`.
+
 ## Lane A → Lane B — Day 0 build isolation
 
 `agmBuildRoot` now selects independent build output; default unchanged. Use `--project-cache-dir ~/.cache/agm-lane-b -PagmBuildRoot=$HOME/.cache/agm-lane-b-build` after this commit reaches `main`.
