@@ -97,9 +97,9 @@ class MemoryPreferences : android.content.SharedPreferences {
     override fun getString(key: String, defValue: String?) = values[key] as? String ?: defValue
     override fun getStringSet(key: String, defValues: MutableSet<String>?) = defValues
     override fun getInt(key: String, defValue: Int) = defValue
-    override fun getLong(key: String, defValue: Long) = defValue
+    override fun getLong(key: String, defValue: Long) = values[key] as? Long ?: defValue
     override fun getFloat(key: String, defValue: Float) = defValue
-    override fun getBoolean(key: String, defValue: Boolean) = defValue
+    override fun getBoolean(key: String, defValue: Boolean) = values[key] as? Boolean ?: defValue
     override fun contains(key: String) = key in values
     override fun registerOnSharedPreferenceChangeListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener?) {}
     override fun unregisterOnSharedPreferenceChangeListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener?) {}
@@ -108,9 +108,9 @@ class MemoryPreferences : android.content.SharedPreferences {
         override fun putString(key: String, value: String?) = apply { pending[key] = value }
         override fun putStringSet(key: String, values: MutableSet<String>?) = this
         override fun putInt(key: String, value: Int) = this
-        override fun putLong(key: String, value: Long) = this
+        override fun putLong(key: String, value: Long) = apply { pending[key] = value }
         override fun putFloat(key: String, value: Float) = this
-        override fun putBoolean(key: String, value: Boolean) = this
+        override fun putBoolean(key: String, value: Boolean) = apply { pending[key] = value }
         override fun remove(key: String) = apply { pending[key] = null }
         override fun clear() = apply { values.clear() }
         override fun commit(): Boolean { apply(); return true }

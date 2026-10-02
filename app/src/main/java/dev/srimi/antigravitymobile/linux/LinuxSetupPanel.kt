@@ -234,6 +234,9 @@ private fun open(context: Context, url: String) = runCatching { context.startAct
     SectionCard("CLI accounts (phone-local Linux)") {
         Text("Each CLI signs in with its own official flow inside Debian; this app never reads their credentials. A CLI counts as verified " +
             "only after a real task completes through it on this phone.", style = MaterialTheme.typography.bodySmall)
+        Text("For Gemini with your personal Google account or Google AI Pro/Ultra, use Antigravity CLI: run agy, complete its sign-in yourself, " +
+            "then use /model or agy models to choose Gemini. Consumer Gemini CLI access moved to Antigravity CLI. " +
+            "Agent chat stays disabled until the phone's sandbox check passes.", style = MaterialTheme.typography.bodySmall)
         if (!usable) { Text("Set up Linux in the Build tab first.", style = MaterialTheme.typography.bodySmall); return@SectionCard }
         state.busy?.let { Text(listOfNotNull(it, state.progress).joinToString(": "), style = MaterialTheme.typography.bodySmall) }
         val installed = state.clis.associateBy { it.tool }

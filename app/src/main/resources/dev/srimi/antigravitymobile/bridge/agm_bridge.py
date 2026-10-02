@@ -342,8 +342,9 @@ class WorkspaceExchange:
                 if value["size"] != size or value["hash"] != digest:
                     raise ProtocolError()
             else:
-                atomic(state, {"size": size, "hash": digest, "ready": False})
-            return {"size": size, "hash": digest}
+                value = {"size": size, "hash": digest, "ready": False}
+                atomic(state, value)
+            return {"size": size, "hash": digest, "ready": value["ready"]}
 
     def chunk(self, task, offset, encoded):
         task = TaskSupervisor.valid_id(task)
@@ -382,7 +383,7 @@ class WorkspaceExchange:
                 if not source.is_dir() or source.is_symlink():
                     raise ProtocolError()
                 return {"cwd": str(source), "hash": value["hash"]}
-            if (self.root / ("task-" + task + ".json")).exists() or not archive.is_file() or archive.stat().st_size != value["size"] or file_hash(archive) != value["hash"] or source.exists():
+            if (self.root / ("task-" + task + ".json")).exists() or not archive.is_file() or archive.stat().st_size != value["size"] or file_hash(archive) != value["hash"] or source.is_symlink():
                 raise ProtocolError()
             parent.mkdir(exist_ok=True); os.chmod(parent, 0o700)
             staging = parent / ("staging-" + secrets.token_hex(8))
@@ -416,7 +417,37 @@ class WorkspaceExchange:
                             if stream.read(1):
                                 raise ProtocolError()
                             output.flush(); os.fsync(output.fileno())
-                staging.rename(source)
+                if source.exists():
+                    # Rename can succeed before the ready checkpoint is durable. Adopt only an exact
+                    # copy of the validated archive, never overwrite edits or recover a started task.
+                    def contents(root):
+                        result, total, files = {}, 0, 0
+
+                        def unreadable(_):
+                            raise ProtocolError()
+
+                        for directory, dirs, names in os.walk(root, followlinks=False, onerror=unreadable):
+                            for name in dirs + names:
+                                path = pathlib.Path(directory) / name
+                                relative = source_path(path.relative_to(root).as_posix())
+                                mode = path.lstat().st_mode
+                                if len(result) >= MAX_SOURCE_FILES * 33:
+                                    raise ProtocolError()
+                                if stat.S_ISDIR(mode):
+                                    result[relative] = None
+                                elif stat.S_ISREG(mode):
+                                    result[relative] = source_hash(root, relative)
+                                    total += result[relative][1]; files += 1
+                                    if total > MAX_SOURCE_BYTES or files > MAX_SOURCE_FILES:
+                                        raise ProtocolError()
+                                else:
+                                    raise ProtocolError()
+                        return result
+
+                    if not source.is_dir() or contents(source) != contents(staging):
+                        raise ProtocolError()
+                else:
+                    staging.rename(source)
                 value["ready"] = True; atomic(state, value)
                 return {"cwd": str(source), "hash": value["hash"]}
             finally:

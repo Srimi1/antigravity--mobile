@@ -39,6 +39,19 @@ class LinuxHelperTest {
         assertFalse(clis.first { it.tool == CliTool.GEMINI }.installed); assertNull(clis.first { it.tool == CliTool.GEMINI }.version)
     }
 
+    @Test fun extractedDebianDoesNotHideFailedOrInterruptedSetup() {
+        for ((failure, message) in listOf("base-packages" to "base packages", "xfce" to "XFCE")) {
+            val status = LinuxHelperOutput.status(kv("distribution=installed\ndebian_version=12.7\njob_install=failed:$failure"), ready)
+            assertEquals(failure, LinuxState.Failed, status.state)
+            assertTrue(status.detail, status.detail.contains(message))
+        }
+        val interrupted = LinuxHelperOutput.status(kv("distribution=installed\ndebian_version=12.7\njob_install=interrupted"), ready)
+        assertEquals(LinuxState.Failed, interrupted.state)
+        assertTrue(interrupted.detail, interrupted.detail.contains("interrupted"))
+        assertEquals(LinuxState.Stopped,
+            LinuxHelperOutput.status(kv("distribution=installed\ndebian_version=12.7\njob_install=done"), ready).state)
+    }
+
     @Test fun termuxResultErrors() {
         assertThrows(TermuxUnavailable.ExternalAppsDisabled::class.java) {
             TermuxProtocol.result(null, null, null, 2, "RUN_COMMAND requires allow-external-apps property to be set to true", 1)

@@ -129,7 +129,7 @@ run_install() {
     *) echo "The agm-debian container is not Debian 12"; finish install "failed:not-debian-12"; return 1 ;;
   esac
   echo "step=installing base packages"
-  in_debian env DEBIAN_FRONTEND=noninteractive sh -c 'apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils gnupg git procps' \
+  in_debian env DEBIAN_FRONTEND=noninteractive sh -c 'apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils gnupg git procps python3' \
     || { finish install "failed:base-packages"; return 1; }
   if [ "$desktop" = desktop ]; then
     echo "step=installing Termux:X11 support"

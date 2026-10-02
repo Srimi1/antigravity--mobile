@@ -79,7 +79,7 @@ class CompatAccountsViewModel(application: Application) : AndroidViewModel(appli
         mutable.update { it.copy(rows = rows, selected = providers.selected, freeOnly = providers.freeOnly,
             agentUsesCompat = services.agentProvider == ProviderId.OPENAI_COMPAT, agentRoutingAvailable = routed,
             cloudflareAccount = providers.cloudflareAccount, customUrl = providers.customUrl, customName = providers.customName,
-            models = it.models + rows.associate { r -> r.entry.descriptor.id to (it.models[r.entry.descriptor.id] ?: providers.cachedModels(r.entry.descriptor.id)) }) }
+            models = rows.associate { r -> r.entry.descriptor.id to providers.cachedModels(r.entry.descriptor.id) }) }
     } }
 
     private fun run(label: String, block: suspend () -> String) {

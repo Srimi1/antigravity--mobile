@@ -118,7 +118,7 @@ import dev.srimi.antigravitymobile.network.DiagnosticDetails
     var removing by remember { mutableStateOf(false) }
     if (account.status == AccountStatus.DISCONNECTED) {
         Text("1. Open Google AI Studio and create an API key (free tier available). 2. Paste it here. " +
-            "This uses the Gemini API, not your Google AI Pro/Ultra subscription; Google does not allow third-party apps to use that login.",
+            "This uses the Gemini API. For Google AI Pro/Ultra, use the official Antigravity CLI sign-in in the CLI accounts section below.",
             style = MaterialTheme.typography.bodySmall)
         OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/apikey"))) }) {
             Text("Get a key in AI Studio")

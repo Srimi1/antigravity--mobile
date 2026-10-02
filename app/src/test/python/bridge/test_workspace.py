@@ -11,7 +11,7 @@ from test_bridge import bridge
 class WorkspaceTest(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
-        self.root = pathlib.Path(self.directory.name)
+        self.root = pathlib.Path(self.directory.name).resolve()
         self.exchange = bridge.WorkspaceExchange(self.root)
 
     def tearDown(self):
@@ -43,6 +43,39 @@ class WorkspaceTest(unittest.TestCase):
         self.assertEqual("CLI edit", (source / "src/Game.kt").read_text())
         with self.assertRaises(bridge.ProtocolError):
             self.exchange.chunk("task-1", 0, bridge.b64(raw))
+
+    def interrupted_commit(self, raw):
+        digest = self.upload(raw)
+        original = bridge.atomic
+
+        def fail_checkpoint(path, value):
+            if path == self.root / "uploads/task-1.json" and value.get("ready"):
+                raise OSError("simulated metadata write failure after workspace rename")
+            return original(path, value)
+
+        with mock.patch.object(bridge, "atomic", fail_checkpoint):
+            with self.assertRaises(OSError):
+                self.exchange.commit("task-1")
+        return digest, self.root / "workspaces/task-1/source"
+
+    def test_retry_recovers_published_workspace_after_commit_checkpoint_failure(self):
+        raw = self.zip([("src/Game.kt", "before"), ("gradlew", "script")])
+        digest, source = self.interrupted_commit(raw)
+        modified = (source / "src/Game.kt").stat().st_mtime_ns
+        # A restarted helper must finish the upload without replacing the published directory.
+        restarted = bridge.WorkspaceExchange(self.root)
+        self.assertFalse(restarted.upload("task-1", len(raw), digest)["ready"])
+        restarted.chunk("task-1", 0, bridge.b64(raw))
+        self.assertEqual({"cwd": str(source), "hash": digest}, restarted.commit("task-1"))
+        self.assertEqual(modified, (source / "src/Game.kt").stat().st_mtime_ns)
+        self.assertTrue(restarted.upload("task-1", len(raw), digest)["ready"])
+
+    def test_commit_recovery_refuses_changed_workspace_without_overwriting_it(self):
+        _, source = self.interrupted_commit(self.zip([("Game.kt", "before")]))
+        (source / "Game.kt").write_text("uncommitted edit")
+        with self.assertRaises(bridge.ProtocolError):
+            bridge.WorkspaceExchange(self.root).commit("task-1")
+        self.assertEqual("uncommitted edit", (source / "Game.kt").read_text())
 
     def test_forbidden_links_and_traversal_never_extract(self):
         for name in ("../outside", ".git/config", ".codex/auth.json", ".agents/mcp_config.json"):

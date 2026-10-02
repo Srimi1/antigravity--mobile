@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+val unsignedRelease = providers.gradleProperty("agmUnsignedRelease").map(String::toBoolean).getOrElse(false)
 val prepared = file("${System.getProperty("user.home")}/.cache/antigravity-mobile-runtime/lab-generated")
 val sdk = System.getenv("ANDROID_HOME") ?: error("Set ANDROID_HOME")
 android {
@@ -20,7 +21,7 @@ android {
             storePassword = "local-probe"; keyAlias = "personal-probe"; keyPassword = "local-probe"
         }
     }
-    buildTypes { release { signingConfig = signingConfigs.getByName("personal") } }
+    buildTypes { release { if (!unsignedRelease) signingConfig = signingConfigs.getByName("personal") } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     packaging { jniLibs { useLegacyPackaging = true; keepDebugSymbols += "**/*.so" } }

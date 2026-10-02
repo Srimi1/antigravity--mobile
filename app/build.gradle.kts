@@ -7,6 +7,9 @@ plugins {
     id("org.jetbrains.kotlin.kapt")
 }
 
+// Build a reviewable release candidate without accessing the owner's signing key.
+val unsignedRelease = providers.gradleProperty("agmUnsignedRelease").map(String::toBoolean).getOrElse(false)
+
 android {
     namespace = "dev.srimi.antigravitymobile"
     compileSdk = 36
@@ -15,8 +18,8 @@ android {
         applicationId = "dev.srimi.antigravitymobile.probe"
         minSdk = 29
         targetSdk = 36
-        versionCode = 12
-        versionName = "0.6.0"
+        versionCode = 13
+        versionName = "0.7.0"
         testInstrumentationRunner = "dev.srimi.antigravitymobile.RuntimeInstrumentationRunner"
         ndk { abiFilters += listOf("arm64-v8a") }
     }
@@ -34,7 +37,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            if (rootProject.file(".signing/personal.p12").exists()) {
+            if (!unsignedRelease && rootProject.file(".signing/personal.p12").exists()) {
                 signingConfig = signingConfigs.getByName("personal")
             }
         }
@@ -123,7 +126,8 @@ androidComponents.onVariants { variant ->
     val capital = variant.name.replaceFirstChar { it.uppercase() }
     val bundle = tasks.register<BundleWorkerApk>("bundle${capital}BuildWorker") {
         dependsOn(":build-worker:assemble$capital")
-        input.set(project(":build-worker").layout.buildDirectory.file("outputs/apk/${variant.name}/build-worker-${variant.name}.apk"))
+        val apkName = if (variant.name == "release" && unsignedRelease) "build-worker-release-unsigned.apk" else "build-worker-${variant.name}.apk"
+        input.set(project(":build-worker").layout.buildDirectory.file("outputs/apk/${variant.name}/$apkName"))
         output.set(layout.buildDirectory.dir("generated/${variant.name}/worker-assets"))
     }
     variant.sources.assets?.addGeneratedSourceDirectory(bundle) { it.output }

@@ -37,18 +37,22 @@ class PairedCliBridge(
         val size = snapshot.archive.length()
         val initialized = call(snapshot.taskId, "upload", JSONObject().put("size", size).put("hash", snapshot.archiveHash))
         if (initialized.integer("size") != size || initialized.requiredText("hash", 64) != snapshot.archiveHash) throw BridgeProtocolException()
-        var offset = 0L
-        snapshot.archive.inputStream().use { input ->
-            val buffer = ByteArray(48 * 1024)
-            while (true) {
-                val count = input.read(buffer); if (count < 0) break
-                val reply = call(snapshot.taskId, "upload_chunk", JSONObject().put("offset", offset)
-                    .put("data", BridgeSecurity.base64(buffer.copyOf(count))))
-                offset += count
-                if (reply.integer("received") !in offset..size) throw BridgeProtocolException()
+        val committed = initialized.get("ready") as? Boolean ?: throw BridgeProtocolException()
+        if (!committed) {
+            var offset = 0L
+            snapshot.archive.inputStream().use { input ->
+                val buffer = ByteArray(48 * 1024)
+                while (true) {
+                    val count = input.read(buffer); if (count < 0) break
+                    val reply = call(snapshot.taskId, "upload_chunk", JSONObject().put("offset", offset)
+                        .put("data", BridgeSecurity.base64(buffer.copyOf(count))))
+                    offset += count
+                    if (reply.integer("received") !in offset..size) throw BridgeProtocolException()
+                }
             }
+            if (offset != size) throw BridgeProtocolException()
         }
-        if (offset != size) throw BridgeProtocolException()
+        // A completed transfer may outlive the client's reply/checkpoint. Revalidate it without overwriting files.
         val ready = call(snapshot.taskId, "upload_commit")
         val expected = "$helperRoot/workspaces/${snapshot.taskId}/source"
         if (ready.requiredText("cwd", 1024) != expected || ready.requiredText("hash", 64) != snapshot.archiveHash) throw BridgeProtocolException()
@@ -72,7 +76,7 @@ class PairedCliBridge(
         if (events.length() > 100) throw BridgeProtocolException()
         val result = (0 until events.length()).map { index -> events.getJSONObject(index).also { event ->
             if (event.integer("sequence") != after + index + 1 || event.integer("sequence") > status.eventCount ||
-                event.requiredText("kind", 32) !in setOf("cli", "exit", "permission_unavailable", "native_call")) throw BridgeProtocolException()
+                event.requiredText("kind", 32) !in setOf("cli", "exit", "permission_unavailable", "native_request")) throw BridgeProtocolException()
         } }
         return CliPage(status, result)
     }

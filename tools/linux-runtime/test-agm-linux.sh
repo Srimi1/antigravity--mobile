@@ -57,6 +57,7 @@ setup; fake_pd oci 12.7 0
 helper install shell >/dev/null; st="$(wait_job install)"
 check "install done" '[ "$st" = done ]'
 check "pinned image and private name" 'grep -q "pd install debian:bookworm --name agm-debian" "$AGM_HOME/calls"'
+check "bridge Python installed in Debian base packages" 'grep -Eq "apt-get install .* python3([ ;]|$)" "$AGM_HOME/calls"'
 check "status shows Debian 12" '[[ "$(helper status)" == *"debian_version=12.7"* ]]'
 check "install keeps user data" 'user_data_intact'
 

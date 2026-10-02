@@ -1,6 +1,7 @@
 package dev.srimi.antigravitymobile.providers
 
 import android.content.Context
+import android.content.SharedPreferences
 import dev.srimi.antigravitymobile.AccountState
 import dev.srimi.antigravitymobile.AccountStatus
 import dev.srimi.antigravitymobile.AgentItem
@@ -29,13 +30,22 @@ import java.util.concurrent.TimeUnit
  * and one model; there is no automatic routing or fallback. Each provider's key is stored separately and sent
  * only to that provider's base URL.
  */
-class CompatProviders(context: Context) : AgentModel {
+class CompatProviders internal constructor(
+    private val prefs: SharedPreferences,
+    private val diagnostics: NetworkDiagnostics,
+    private val engine: CompatEngine,
+    private val readCredentials: (String) -> JSONObject?,
+    private val saveCredentials: (String, JSONObject) -> Unit,
+) : AgentModel {
+    constructor(context: Context) : this(
+        context.applicationContext.getSharedPreferences("compat", Context.MODE_PRIVATE),
+        AndroidNetworkDiagnostics.shared(context.applicationContext),
+        CompatEngine(OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(180, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(false).build()),
+        { id -> CredentialStore(context.applicationContext, "compat-$id.credentials").read() },
+        { id, value -> CredentialStore(context.applicationContext, "compat-$id.credentials").save(value) },
+    )
     override val providerId = "compat"
-    private val app = context.applicationContext
-    private val prefs = app.getSharedPreferences("compat", Context.MODE_PRIVATE)
-    private val diagnostics = AndroidNetworkDiagnostics.shared(app)
-    private val engine = CompatEngine(OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(180, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(false).build())
     private val lock = Mutex()
 
     // ---- settings (no secrets) ----
@@ -60,8 +70,7 @@ class CompatProviders(context: Context) : AgentModel {
     fun entry(id: String): ProviderEntry? = entries().firstOrNull { it.descriptor.id == id }
 
     // ---- credentials (Keystore-encrypted, one record per provider) ----
-    private fun store(id: String) = CredentialStore(app, "compat-$id.credentials")
-    private fun key(id: String): String? = runCatching { store(id).read()?.optString("api_key") }.getOrNull()?.takeIf { it.isNotEmpty() }
+    private fun key(id: String): String? = runCatching { readCredentials(id)?.optString("api_key") }.getOrNull()?.takeIf { it.isNotEmpty() }
     fun hasKey(id: String) = key(id) != null
 
     /** Checks the key by listing models, then saves it. For the custom endpoint the key is bound to [customUrl]. */
@@ -71,18 +80,31 @@ class CompatProviders(context: Context) : AgentModel {
             val value = raw.trim()
             require(value.length in 8..400 && value.none { it.isWhitespace() }) { "That does not look like an API key" }
             val models = fetchCatalog(entry, value)
-            store(id).save(JSONObject().put("api_key", value).put("base_url", entry.descriptor.baseUrl))
+            saveCredentials(id, JSONObject().put("api_key", value).put("base_url", entry.descriptor.baseUrl))
             models
         }
     }
-    suspend fun removeKey(id: String) = withContext(Dispatchers.IO) { store(id).save(JSONObject()); engine.forget(id) }
+    suspend fun removeKey(id: String) = withContext(Dispatchers.IO) { saveCredentials(id, JSONObject()); engine.forget(id) }
 
-    /** Sets the custom endpoint. Changing the URL erases the key saved for the previous URL. */
-    suspend fun setCustom(url: String, name: String) = withContext(Dispatchers.IO) {
-        val clean = url.trim().trimEnd('/')
-        require(ProviderRegistry.validCustomUrl(clean)) { "Use an https:// URL (http:// only for 127.0.0.1 on this phone), without credentials or query" }
-        if (clean != customUrl) { store(ProviderRegistry.CUSTOM).save(JSONObject()); engine.forget(ProviderRegistry.CUSTOM) }
-        prefs.edit().putString("customUrl", clean).putString("customName", name.trim().take(60)).apply()
+    /** A new endpoint must establish its own credentials, plan and tool-calling evidence. */
+    suspend fun setCustom(url: String, name: String) = lock.withLock {
+        withContext(Dispatchers.IO) {
+            val clean = url.trim().trimEnd('/')
+            require(ProviderRegistry.validCustomUrl(clean)) { "Use an https:// URL (http:// only for 127.0.0.1 on this phone), without credentials or query" }
+            if (clean != customUrl) {
+                val id = ProviderRegistry.CUSTOM
+                saveCredentials(id, JSONObject()); engine.forget(id)
+                prefs.edit().apply {
+                    prefs.all.keys.filter { it.startsWith("verified.$id/") || it.startsWith("failed.$id/") }.forEach(::remove)
+                    remove("model.$id"); remove("plan.$id")
+                }.apply()
+                val now = System.currentTimeMillis()
+                ProviderStores.usage.models(id).forEach { verification ->
+                    ProviderStores.usage.recordModel(verification.copy(toolCallingVerified = false, verifiedAt = now))
+                }
+            }
+            prefs.edit().putString("customUrl", clean).putString("customName", name.trim().take(60)).apply()
+        }
     }
 
     private fun baseUrl(entry: ProviderEntry): String {
@@ -93,7 +115,7 @@ class CompatProviders(context: Context) : AgentModel {
         return base.replace("{account_id}", account)
     }
     private fun keyFor(entry: ProviderEntry): String? {
-        val saved = runCatching { store(entry.descriptor.id).read() }.getOrNull()
+        val saved = runCatching { readCredentials(entry.descriptor.id) }.getOrNull()
         val key = saved?.optString("api_key").orEmpty()
         // A key is only ever sent to the base URL it was saved for.
         if (key.isNotEmpty() && saved?.optString("base_url") != entry.descriptor.baseUrl) return null
@@ -115,12 +137,16 @@ class CompatProviders(context: Context) : AgentModel {
     fun failedAt(id: String, model: String): Long? = prefs.getLong("failed.$id/$model", 0).takeIf { it > 0 }
 
     /** Sends one real request offering a single tool; the model is enabled for coding only if it calls it correctly. */
-    suspend fun verifyToolCalling(id: String, model: String): Boolean {
+    suspend fun verifyToolCalling(id: String, model: String): Boolean = lock.withLock {
+        withContext(Dispatchers.IO) { verifyToolCallingLocked(id, model) }
+    }
+
+    private suspend fun verifyToolCallingLocked(id: String, model: String): Boolean {
         val probe = ToolSpec("report_ready", "Report that you are ready.",
             """{"type":"object","properties":{"ready":{"type":"boolean"}},"required":["ready"]}""")
         // A provider that refuses tools for this model (HTTP 4xx) counts as a failed check; network failures propagate.
         val events = try {
-            turn(id, model, AgentRequest("You are testing tool support. Respond only by calling the tool.",
+            turnLocked(id, model, AgentRequest("You are testing tool support. Respond only by calling the tool.",
                 listOf(AgentItem.User("Call report_ready with ready set to true.")), listOf(probe)), requireVerified = false).toList()
         } catch (refused: ProviderFailure.Rejected) { emptyList() }
         val ok = events.any { it is ProviderEvent.Item && (it.item as? AgentItem.ToolCall)?.let { c ->
@@ -139,15 +165,18 @@ class CompatProviders(context: Context) : AgentModel {
     }
 
     private fun turn(id: String, model: String, request: AgentRequest, requireVerified: Boolean): Flow<ProviderEvent> {
+        return flow { lock.withLock { emitAll(turnLocked(id, model, request, requireVerified)) } }.flowOn(Dispatchers.IO)
+    }
+
+    /** Called with the settings mutex held so the endpoint cannot change during a request or its evidence write. */
+    private fun turnLocked(id: String, model: String, request: AgentRequest, requireVerified: Boolean): Flow<ProviderEvent> {
         val entry = entry(id) ?: return flow { throw ProviderFailure.AuthInvalid("This provider is no longer configured") }
         return flow {
-            lock.withLock {
-                if (requireVerified && verifiedAt(id, model) == null)
-                    throw ProviderFailure.Rejected("$model has not passed the tool-calling check. Verify it in Accounts before using it for coding.")
-                val key = keyFor(entry) ?: if (entry.quirks.keyOptional) null else throw ProviderFailure.AuthInvalid("Add a ${entry.descriptor.displayName} key in Accounts")
-                emitAll(engine.turn(entry, baseUrl(entry), key, model, request, freeOnly, planConfirmed(id)))
-            }
-        }.asProviderFailures(entry.descriptor.host, entry.descriptor.displayName, diagnostics).flowOn(Dispatchers.IO)
+            if (requireVerified && verifiedAt(id, model) == null)
+                throw ProviderFailure.Rejected("$model has not passed the tool-calling check. Verify it in Accounts before using it for coding.")
+            val key = keyFor(entry) ?: if (entry.quirks.keyOptional) null else throw ProviderFailure.AuthInvalid("Add a ${entry.descriptor.displayName} key in Accounts")
+            emitAll(engine.turn(entry, baseUrl(entry), key, model, request, freeOnly, planConfirmed(id)))
+        }.asProviderFailures(entry.descriptor.host, entry.descriptor.displayName, diagnostics)
     }
 
     override fun cancel() = engine.cancel()

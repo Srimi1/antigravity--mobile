@@ -15,12 +15,13 @@ object LinuxHelperOutput {
         val install = map["job_install"]
         return when {
             install == "running" -> LinuxStatus(LinuxState.Installing, "Installing Debian 12…", desktopInstalled = desktop)
-            install?.startsWith("failed:") == true && map["distribution"] != "installed" ->
+            install?.startsWith("failed:") == true ->
                 LinuxStatus(LinuxState.Failed, failure(install.removePrefix("failed:")), desktopInstalled = desktop)
+            install == "interrupted" -> LinuxStatus(LinuxState.Failed,
+                "The last install was interrupted. Install again to continue.", desktopInstalled = desktop)
             map["proot_distro"] == "legacy" && map["distribution"] != "installed" ->
                 LinuxStatus(LinuxState.Failed, failure("proot-distro-too-old"))
-            map["distribution"] != "installed" -> LinuxStatus(LinuxState.NotInstalled,
-                if (install == "interrupted") "The last install was interrupted. Install again to continue." else "Debian 12 is not installed.")
+            map["distribution"] != "installed" -> LinuxStatus(LinuxState.NotInstalled, "Debian 12 is not installed.")
             map["desktop_running"] == "yes" -> LinuxStatus(LinuxState.Running, "Debian ${map["debian_version"]} with the XFCE desktop is running.",
                 desktopInstalled = desktop, desktopRunning = true)
             else -> LinuxStatus(LinuxState.Stopped, "Debian ${map["debian_version"] ?: "12"} is installed" + if (desktop) " with the XFCE desktop." else ".",

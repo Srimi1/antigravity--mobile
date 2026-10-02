@@ -60,6 +60,29 @@ class CliRealTermuxDeviceTest {
         return result.stdout.trim().toInt()
     }
 
+    private suspend fun awaitCliStart(services: AppContainer, id: String) {
+        val dao = services.database.runtime()
+        try {
+            withTimeout(120_000) {
+                while (dao.action(id, "cli-start")?.outcome == null) {
+                    val task = dao.task(id)!!
+                    if (task.status in setOf(TaskPhase.Paused.name, TaskPhase.Failed.name,
+                        TaskPhase.Cancelled.name, TaskPhase.Completed.name)) {
+                        // Start may have completed between the action and task reads.
+                        if (dao.action(id, "cli-start")?.outcome != null) return@withTimeout
+                        error("${task.status}: ${task.detail}")
+                    }
+                    delay(100)
+                }
+            }
+        } catch (error: Exception) {
+            evidence(services, id, "start-not-reached")
+            val task = dao.task(id)!!
+            throw AssertionError("CLI Start not recorded: ${task.status}: ${task.detail}; actions=" +
+                dao.actions(id).map { "${it.tool}/${it.status}/${it.outcome}" }, error)
+        }
+    }
+
     @Test fun realCodexWithoutSignInEndsAsRuntimeLimitAndLeavesNoProcess() = runBlocking {
         assumeTrue("Termux with RUN_COMMAND granted is required", granted())
         fixture { services, project, scope ->
@@ -80,7 +103,7 @@ class CliRealTermuxDeviceTest {
         fixture { services, project, scope ->
             val id = services.tasks.start(TaskStart(project.id, null, "Say hello", "codex", AgentBackend.Codex))
             services.tasks.launchFromService(id, scope)
-            withTimeout(120_000) { while (services.database.runtime().action(id, "cli-start")?.outcome == null) delay(100) }
+            awaitCliStart(services, id)
             services.tasks.cancel(id)
             val stopped = services.database.runtime().task(id)!!
             evidence(services, id, "stop")
@@ -95,7 +118,7 @@ class CliRealTermuxDeviceTest {
         fixture { services, project, scope ->
             val id = services.tasks.start(TaskStart(project.id, null, "Say hello", "codex", AgentBackend.Codex))
             services.tasks.launchFromService(id, scope)
-            withTimeout(120_000) { while (services.database.runtime().action(id, "cli-start")?.outcome == null) delay(100) }
+            awaitCliStart(services, id)
             // Kill the helper daemon (proot then stops everything inside it), as Android or the user could.
             AndroidTermuxGateway(context).run(TermuxCommand(TermuxProtocol.BASH, listOf("-c", "pkill -f 'agm_bridge.py serve'; sleep 1"), timeoutMs = 20_000))
             val after = settled(services, id, TaskPhase.Paused, TaskPhase.Failed)
