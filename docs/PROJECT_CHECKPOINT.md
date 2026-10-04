@@ -1,10 +1,10 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **4 October 2026** (0.7.2/code 15 is GitHub Latest; 0.7.3/code 16 signed candidate built and emulator-update tested, not published; physical phone and live CLI acceptance still open).
+Last updated **4 October 2026** (0.7.3/code 16 signed, emulator-update tested and published as GitHub Latest; physical phone and live CLI acceptance still open).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## 0.7.3/code 16 signed candidate — 4 October 2026 (built, not published)
+## 0.7.3/code 16 — 4 October 2026 (published as GitHub Latest)
 
 Contents: the five security audit fixes below + build-cache reuse (worker code 3, `0.7.3-tools`, `MIN_WORKER_VERSION` 3). Built with `./tools/build.sh` using the original `.signing/personal.p12`.
 
@@ -14,7 +14,7 @@ Contents: the five security audit fixes below + build-cache reuse (worker code 3
 - Passed: 183 JVM tests, `:app:lintRelease`, `:build-worker:lintRelease`, apksigner verify.
 - **Signed emulator update (OnePlus7ProSim_API31, Android 12 ARM64):** installed signed 0.7.2/code 15 + worker code 2 with the Spoon-Knife project → `adb install -r` 0.7.3 succeeded (firstInstallTime kept), project and its three files intact, no crash. Build tab showed "Tools update needed / Update build tools"; tapping it opened Android's chooser (Termux also offers to open APKs — pick Package installer), "Do you want to update this app?" → Update → worker code 3 `0.7.3-tools` installed, Build tab "Tools installed". Evidence: `~/.cache/agm-073-upgrade/`. That run used a candidate differing only in one Build-tab sentence (stale "each build has a fresh cache" text, then corrected); the final APK was installed over it and relaunched with project intact. No on-device build was run.
 - Not run: instrumentation, physical phone, live accounts.
-- Committed and pushed to main (no GitHub release created). `dist/` is ignored by Git.
+- Published [v0.7.3](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.3) (Latest) from tag `63e8a3e`; asset digests verified. See [RELEASE_0.7.3.md](RELEASE_0.7.3.md). `dist/` is ignored by Git.
 
 ## Security audit fixes (4 October 2026, committed, unreleased)
 
