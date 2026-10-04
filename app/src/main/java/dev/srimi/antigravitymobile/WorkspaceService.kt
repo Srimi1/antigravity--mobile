@@ -24,6 +24,8 @@ class WorkspaceService(private val root: File, private val checkpointRoot: File)
     }
     /** Validates a relative path and returns it unchanged. */
     fun normalize(path: String): String { resolve(path); return path }
+    /** Project-relative path of the real target after following symlinks, for protected-path policy. */
+    fun resolvedPath(path: String): String = resolve(path).relativeTo(root.canonicalFile).invariantSeparatorsPath
     fun exists(path: String): Boolean = resolve(path).exists()
     fun isDirectory(path: String): Boolean = resolve(path).isDirectory
     fun size(path: String): Long = resolve(path).length()

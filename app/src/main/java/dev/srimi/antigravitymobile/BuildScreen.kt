@@ -114,7 +114,7 @@ object ApkInstaller {
                 Text(if (state.preparing) "Copying project…" else "Review build")
             }
             Text("Copies source before asking for approval. The original project is not mounted in the build app. " +
-                "Dependencies require internet; each build has a fresh cache and keeps its output in build storage.", style = MaterialTheme.typography.bodySmall)
+                "Dependencies require internet the first time; each project keeps its own dependency cache in the build app, and outputs stay in build storage.", style = MaterialTheme.typography.bodySmall)
         }
         val project = state.project
         val report = state.report

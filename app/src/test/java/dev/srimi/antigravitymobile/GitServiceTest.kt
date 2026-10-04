@@ -69,4 +69,34 @@ class GitServiceTest {
         assertTrue(TextDiff.unified("new.kt", null, "x\n".toByteArray()).startsWith("--- /dev/null"))
         assertTrue(TextDiff.unified("bin", byteArrayOf(0, 1), byteArrayOf(0, 2)).startsWith("Binary file"))
     }
+
+    @Test fun savedTokenIsScopedToHttpsGitHub() {
+        assertTrue(GitCredentialScope.allows("https://github.com/owner/repo.git"))
+        assertTrue(GitCredentialScope.allows("https://GitHub.com:443/owner/repo"))
+        for (url in listOf("https://evil.example/owner/repo.git", "https://github.com@evil.example/repo",
+            "https://github.com.evil.example/repo", "https://evil.example/github.com/repo", "http://github.com/owner/repo",
+            "https://gist.github.com/x", "https://github.com:8443/owner/repo", "ssh://git@github.com/owner/repo", "", "not a url")) {
+            assertFalse(url, GitCredentialScope.allows(url))
+        }
+        val provider = GitHubScopedCredentials(GitCredentials("user", "secret-token"))
+        val user = org.eclipse.jgit.transport.CredentialItem.Username()
+        val pass = org.eclipse.jgit.transport.CredentialItem.Password()
+        assertFalse(provider.get(org.eclipse.jgit.transport.URIish("https://evil.example/r.git"), user, pass))
+        assertNull(pass.value)
+        assertTrue(provider.get(org.eclipse.jgit.transport.URIish("https://github.com/o/r.git"), user, pass))
+        assertEquals("secret-token", String(pass.value))
+    }
+
+    @Test fun importedNonGitHubRemoteNeverReceivesToken() {
+        val repo = File(base, "imported").apply { mkdirs() }
+        git.init(repo)
+        File(repo, "a.txt").writeText("a\n"); git.commit(repo, "a", author)
+        // Simulates an imported .git/config whose fetch URL looks like GitHub but whose push URL does not.
+        Git.open(repo).use { g -> g.repository.config.apply {
+            setString("remote", "origin", "url", "https://github.com/owner/repo.git")
+            setString("remote", "origin", "pushurl", "https://127.0.0.1:1/owner/repo.git"); save() } }
+        val messages = mutableListOf<String>()
+        runCatching { git.push(repo, GitCredentials("user", "secret-token"), { false }) { messages += it } }
+        assertTrue(messages.toString(), messages.any { it.startsWith("Saved GitHub token not sent") })
+    }
 }

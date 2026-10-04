@@ -196,7 +196,10 @@ class WorkspaceTools(
         val path = value.trim().trim('/').removePrefix("./")
         if (path.isEmpty()) { require(allowRoot) { "A file path is required" }; return "" }
         require(path.split('/').none { it == ".git" }) { "Git internals (.git) cannot be accessed by tools" }
-        return workspace.normalize(path)
+        val normalized = workspace.normalize(path)
+        // A symlink elsewhere in the project could point into .git; check the real target too.
+        require(workspace.resolvedPath(normalized).split('/').none { it == ".git" }) { "Git internals (.git) cannot be accessed by tools" }
+        return normalized
     }
     private fun text(bytes: ByteArray, path: String): String {
         require(!bytes.take(8000).contains(0.toByte())) { "$path looks like a binary file" }
@@ -214,14 +217,17 @@ class WorkspaceTools(
                 val path = path(args.getString("path"))
                 val content = args.getString("content")
                 require(content.length <= MAX_FILE) { "Content is larger than ${MAX_FILE / 1024} KB" }
-                val before = if (workspace.exists(path)) workspace.readBytes(path) else null
-                require(before == null || !workspace.isDirectory(path)) { "$path is a directory" }
+                val exists = workspace.exists(path)
+                require(!exists || !workspace.isDirectory(path)) { "$path is a directory" }
+                require(!exists || workspace.size(path) <= MAX_FILE) { "$path is larger than ${MAX_FILE / 1024} KB; edit it in the editor instead" }
+                val before = if (exists) workspace.readBytes(path) else null
                 reviewed[call.callId] = path to FileBaseline(before)
                 ToolPreview("${if (before == null) "Create" else "Edit"} $path", TextDiff.unified(path, before, content.toByteArray()))
             }
             "delete_file" -> {
                 val path = path(args.getString("path"))
                 require(workspace.exists(path) && !workspace.isDirectory(path)) { "$path is not an existing file" }
+                require(workspace.size(path) <= MAX_FILE) { "$path is larger than ${MAX_FILE / 1024} KB; delete it from the file browser instead" }
                 val before = workspace.readBytes(path)
                 reviewed[call.callId] = path to FileBaseline(before)
                 ToolPreview("Delete $path", TextDiff.unified(path, before, null))

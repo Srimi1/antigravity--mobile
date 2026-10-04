@@ -19,8 +19,12 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.io.InputStream
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.net.SocketTimeoutException
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
@@ -93,9 +97,13 @@ class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, Agent
                 var callback: Uri? = null
                 while (callback == null && System.currentTimeMillis() < deadline) {
                     server.soTimeout = (deadline - System.currentTimeMillis()).coerceIn(1, 180_000).toInt()
-                    server.accept().use { socket ->
-                        socket.soTimeout = 3000
-                        val request = socket.getInputStream().bufferedReader().readLine()?.take(8192).orEmpty()
+                    // Any local app can connect here. A malformed, oversized or stalled client is dropped
+                    // without ending the attempt; only a state-bound callback completes sign-in.
+                    val client = try { server.accept() } catch (_: SocketTimeoutException) { break }
+                    client.use { socket -> try {
+                        val clientDeadline = minOf(deadline, System.currentTimeMillis() + LoopbackRequest.CLIENT_MILLIS)
+                        socket.soTimeout = (clientDeadline - System.currentTimeMillis()).coerceIn(1, 3000).toInt()
+                        val request = LoopbackRequest.readLine(socket.getInputStream().buffered(), clientDeadline)
                         val target = request.split(' ').getOrNull(1).orEmpty()
                         val uri = Uri.parse("http://127.0.0.1$target")
                         val valid = request.startsWith("GET ") && uri.path == "/auth/callback" &&
@@ -108,7 +116,7 @@ class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, Agent
                             "Content-Type: ${if (valid) "text/html" else "text/plain"}; charset=utf-8\r\nCache-Control: no-store\r\nConnection: close\r\n" +
                             "Content-Length: ${page.toByteArray().size}\r\n\r\n$page").toByteArray())
                         if (valid) callback = uri
-                    }
+                    } catch (_: IOException) { } }
                 }
                 val result = callback ?: error("Sign-in timed out; start a new attempt")
                 check(result.getQueryParameter("error") == null) { "Sign-in was declined or unavailable" }
@@ -279,5 +287,25 @@ class ChatGptProbeAdapter(private val context: Context) : ProviderAdapter, Agent
             cachedModels = null
             revoked
         }
+    }
+}
+
+/** Bounded reader for the one request line of the sign-in loopback callback. */
+internal object LoopbackRequest {
+    const val MAX_LINE = 8192
+    const val CLIENT_MILLIS = 5_000L
+
+    /** Reads one line, failing with [IOException] beyond [max] bytes or after the absolute [deadline]. */
+    fun readLine(input: InputStream, deadline: Long, max: Int = MAX_LINE, now: () -> Long = System::currentTimeMillis): String {
+        val line = ByteArrayOutputStream()
+        while (true) {
+            if (now() > deadline) throw IOException("Callback client too slow")
+            val byte = input.read()
+            if (byte < 0 || byte == '\n'.code) break
+            if (byte == '\r'.code) continue
+            if (line.size() >= max) throw IOException("Callback request too long")
+            line.write(byte)
+        }
+        return line.toString(Charsets.ISO_8859_1.name())
     }
 }

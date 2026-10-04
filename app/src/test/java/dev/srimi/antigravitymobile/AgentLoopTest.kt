@@ -119,4 +119,34 @@ class AgentLoopTest {
             JSONObject().put("path", "vendor/lib/.git/config").put("content", "x").toString())) }
         assertTrue(nested.exceptionOrNull() is IllegalArgumentException)
     }
+
+    @Test fun symlinkAliasCannotReachGitInternals() = runBlocking {
+        workspace.write(".git/config", "[remote \"origin\"]")
+        workspace.write("src/A.kt", "val a = 1\n")
+        val root = workspace.rootDirectory.toPath()
+        Files.createSymbolicLink(root.resolve("alias"), root.resolve(".git"))
+        Files.createSymbolicLink(root.resolve("config-link"), root.resolve(".git/config"))
+        for (path in listOf("alias/config", "config-link")) {
+            val read = runCatching { tools.execute(AgentItem.ToolCall("r", "read_file", JSONObject().put("path", path).toString())) }
+            assertTrue(path, read.exceptionOrNull() is IllegalArgumentException)
+            val write = runCatching { tools.describe(AgentItem.ToolCall("w", "write_file",
+                JSONObject().put("path", path).put("content", "x").toString())) }
+            assertTrue(path, write.exceptionOrNull() is IllegalArgumentException)
+            val delete = runCatching { tools.describe(AgentItem.ToolCall("d", "delete_file", JSONObject().put("path", path).toString())) }
+            assertTrue(path, delete.exceptionOrNull() is IllegalArgumentException)
+        }
+        assertEquals("[remote \"origin\"]", workspace.read(".git/config"))
+        // Ordinary files still work.
+        val ok = tools.execute(AgentItem.ToolCall("r2", "read_file", JSONObject().put("path", "src/A.kt").toString()))
+        assertTrue(ok is ToolOutcome.Success)
+    }
+
+    @Test fun oversizedExistingFileIsRefusedBeforePreview() = runBlocking {
+        workspace.writeBytes("big.bin", ByteArray(WorkspaceTools.MAX_FILE + 1))
+        val write = runCatching { tools.describe(AgentItem.ToolCall("w", "write_file",
+            JSONObject().put("path", "big.bin").put("content", "x").toString())) }
+        assertTrue(write.exceptionOrNull()?.message.orEmpty().contains("larger than"))
+        val delete = runCatching { tools.describe(AgentItem.ToolCall("d", "delete_file", JSONObject().put("path", "big.bin").toString())) }
+        assertTrue(delete.exceptionOrNull()?.message.orEmpty().contains("larger than"))
+    }
 }

@@ -10,6 +10,7 @@ import java.util.UUID
  */
 class ChangeService(private val dao: ChangeDao, private val snapshotRoot: File, private val clock: () -> Long = System::currentTimeMillis) {
     init { snapshotRoot.mkdirs() }
+    private companion object { const val SCRATCH = "scratch" }
 
     data class FileDiff(val path: String, val before: ByteArray?, val after: ByteArray?) {
         val kind: String get() = when { before == null -> "added"; after == null -> "deleted"; else -> "modified" }
@@ -24,9 +25,14 @@ class ChangeService(private val dao: ChangeDao, private val snapshotRoot: File, 
         val file = snapshot(setId, side, path)
         if (bytes == null) { file.delete(); return }
         file.parentFile!!.mkdirs()
-        val temp = File(file.parentFile, ".${file.name}.tmp")
-        temp.writeBytes(bytes)
-        check(temp.renameTo(file) || (file.delete() && temp.renameTo(file))) { "Could not save change snapshot" }
+        // Scratch files live outside the before/after trees with unique names, so they can never
+        // collide with the snapshot of another project file (for example `.A.kt.tmp` next to `A.kt`).
+        val scratch = File(snapshotRoot, "$setId/$SCRATCH").apply { mkdirs() }
+        val temp = File.createTempFile("snapshot", null, scratch)
+        try {
+            temp.writeBytes(bytes)
+            check(temp.renameTo(file) || (file.delete() && temp.renameTo(file))) { "Could not save change snapshot" }
+        } finally { temp.delete() }
     }
     private fun load(setId: String, side: String, path: String, exists: Boolean): ByteArray? =
         if (exists) snapshot(setId, side, path).readBytes() else null

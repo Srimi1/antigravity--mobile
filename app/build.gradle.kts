@@ -18,8 +18,8 @@ android {
         applicationId = "dev.srimi.antigravitymobile.probe"
         minSdk = 29
         targetSdk = 36
-        versionCode = 15
-        versionName = "0.7.2"
+        versionCode = 16
+        versionName = "0.7.3"
         testInstrumentationRunner = "dev.srimi.antigravitymobile.RuntimeInstrumentationRunner"
         ndk { abiFilters += listOf("arm64-v8a") }
     }

@@ -115,12 +115,23 @@ object BuildInspector {
         val reason: String,
     )
 
+    /** Bytes of a build script read for plugin detection; larger scripts are only partly scanned. */
+    const val MAX_SCRIPT_BYTES = 256 * 1024
+
+    /** Reads at most [MAX_SCRIPT_BYTES] so an oversized imported script cannot exhaust the app heap. */
+    internal fun headText(file: File): String = file.inputStream().use { input ->
+        val buffer = ByteArray(MAX_SCRIPT_BYTES)
+        var total = 0
+        while (total < buffer.size) { val read = input.read(buffer, total, buffer.size - total); if (read < 0) break; total += read }
+        String(buffer, 0, total, Charsets.UTF_8)
+    }
+
     fun inspect(dir: File): Report {
         val settings = listOf("settings.gradle.kts", "settings.gradle").any { File(dir, it).isFile }
         val build = listOf("build.gradle.kts", "build.gradle").any { File(dir, it).isFile }
         val wrapper = File(dir, "gradlew").isFile && File(dir, "gradle/wrapper/gradle-wrapper.properties").isFile
         val android = dir.walkTopDown().maxDepth(3).onEnter { it.name != ".git" && it.name != "build" }
-            .any { it.isFile && it.name.startsWith("build.gradle") && it.readText().let { text ->
+            .any { it.isFile && it.name.startsWith("build.gradle") && headText(it).let { text ->
                 "com.android.application" in text || "android.application" in text } }
         val apks = dir.walkTopDown().onEnter { it.name != ".git" && !Files.isSymbolicLink(it.toPath()) }
             .filter { it.isFile && it.extension == "apk" }.take(50)

@@ -1,8 +1,32 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **4 October 2026** (0.7.2/code 15 signed and published as GitHub Latest; physical phone and live CLI acceptance still open).
+Last updated **4 October 2026** (0.7.2/code 15 is GitHub Latest; 0.7.3/code 16 signed candidate built and emulator-update tested, not published; physical phone and live CLI acceptance still open).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
+
+## 0.7.3/code 16 signed candidate — 4 October 2026 (built, not published)
+
+Contents: the five security audit fixes below + build-cache reuse (worker code 3, `0.7.3-tools`, `MIN_WORKER_VERSION` 3). Built with `./tools/build.sh` using the original `.signing/personal.p12`.
+
+- `dist/antigravity-mobile-0.7.3.apk` — 306,303,310 bytes, SHA-256 `78306bb4e09436d3375e4a4531a01113d7438d4d9590c99c85dbce453e7c4188`, `dev.srimi.antigravitymobile.probe` code 16, APK v2 signature.
+- `dist/antigravity-mobile-build-tools-0.7.3-tools.apk` — 261,997,548 bytes, SHA-256 `0adb5aeb202f6cee1bde32cecb8a3c88febf582df70f80e554addc5f9cacf32d`, worker code 3; byte-identical to the embedded `assets/build-worker.apk`.
+- Signer certificate SHA-256 `791980edfce3d623dfe1ba2e3209a506b01c4be7da74065805d400a5051210b5` for both, identical to published v0.7.2, so it installs as an update.
+- Passed: 183 JVM tests, `:app:lintRelease`, `:build-worker:lintRelease`, apksigner verify.
+- **Signed emulator update (OnePlus7ProSim_API31, Android 12 ARM64):** installed signed 0.7.2/code 15 + worker code 2 with the Spoon-Knife project → `adb install -r` 0.7.3 succeeded (firstInstallTime kept), project and its three files intact, no crash. Build tab showed "Tools update needed / Update build tools"; tapping it opened Android's chooser (Termux also offers to open APKs — pick Package installer), "Do you want to update this app?" → Update → worker code 3 `0.7.3-tools` installed, Build tab "Tools installed". Evidence: `~/.cache/agm-073-upgrade/`. That run used a candidate differing only in one Build-tab sentence (stale "each build has a fresh cache" text, then corrected); the final APK was installed over it and relaunched with project intact. No on-device build was run.
+- Not run: instrumentation, physical phone, live accounts.
+- Committed and pushed to main (no GitHub release created). `dist/` is ignored by Git.
+
+## Security audit fixes (4 October 2026, committed, unreleased)
+
+External audit of `056a302` reported five findings; all five were still present at `cfe046a` and are now fixed in source:
+
+1. **Medium — GitHub token sent to any Git host.** `GitService` now uses `GitHubScopedCredentials`: the token is supplied only when JGit requests credentials for `https://github.com` (port 443), checked per request on the current post-redirect URI. Clone URLs and effective fetch/push URLs (incl. `pushurl`, `insteadOf`) are pre-checked; a non-GitHub remote gets no credentials and a "Saved GitHub token not sent" progress message. Pull now uses the branch's configured remote. Accounts text states the actual scope.
+2. **Snapshot collision** (`.A.kt.tmp` + `A.kt` destroyed a backup): `ChangeService.store` writes temp files to `<set>/scratch/` with unique names.
+3. **Heap exhaustion:** `BuildInspector` reads at most 256 KB of each `build.gradle*`; agent write/delete previews refuse existing files over `MAX_FILE` (400 KB) before reading.
+4. **Symlink to `.git`:** agent paths are also checked on the canonical target (`WorkspaceService.resolvedPath`).
+5. **OAuth loopback DoS:** `LoopbackRequest.readLine` caps the request line at 8 KB and each client at a 5 s absolute deadline; a bad client is dropped without ending sign-in; accept timeout now gives the proper "Sign-in timed out" message.
+
+Validation: 183 JVM tests pass (8 new regression tests in AgentLoopTest, ChangeServiceTest, GitServiceTest, new InputBoundsTest) and `:app:lintRelease` passed. Not run: device instrumentation, live GitHub clone/push, real sign-in. JGit may still carry an already-negotiated Authorization header across a cross-host redirect inside one GitHub session; not observed, not tested. Remaining audit correctness items (project-switch races, non-atomic save/revert, interrupted-write diff loss, Linux cleanup vs active tasks) are open. Source is now 0.7.3/code 16 (see candidate above).
 
 ## Build cache reuse (4 October 2026, committed, unreleased)
 

@@ -210,7 +210,7 @@ import dev.srimi.antigravitymobile.network.DiagnosticDetails
             Button(onClick = { model.signInGitHub(githubToken); githubToken = "" }, enabled = idle && githubToken.isNotBlank()) { Text("Sign in") }
             if (state.hasGitToken) OutlinedButton(onClick = model::clearGitToken, enabled = idle) { Text("Sign out") }
         }
-        Text("The token stays in Keystore-encrypted storage and is sent only to GitHub. Revoke it any time in GitHub settings.",
+        Text("The token stays in Keystore-encrypted storage and is sent only to GitHub: the GitHub API and HTTPS Git remotes on github.com. Other Git hosts never receive it. Revoke it any time in GitHub settings.",
             style = MaterialTheme.typography.bodySmall)
     }
     SectionCard("Git") {

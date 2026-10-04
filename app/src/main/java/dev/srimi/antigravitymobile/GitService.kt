@@ -13,7 +13,10 @@ import org.eclipse.jgit.lib.Config
 import org.eclipse.jgit.lib.PersonIdent
 import org.eclipse.jgit.lib.ProgressMonitor
 import org.eclipse.jgit.storage.file.FileBasedConfig
+import org.eclipse.jgit.transport.CredentialItem
 import org.eclipse.jgit.transport.CredentialsProvider
+import org.eclipse.jgit.transport.RemoteConfig
+import org.eclipse.jgit.transport.URIish
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import org.eclipse.jgit.util.FS
 import org.eclipse.jgit.util.SystemReader
@@ -37,6 +40,27 @@ data class GitCommitInfo(val id: String, val message: String, val author: String
 data class GitCredentials(val username: String, val token: String)
 
 /**
+ * The saved Git token is a GitHub token. It is only ever offered to HTTPS github.com: the check runs both
+ * before an operation (so the UI can explain) and inside every credential request JGit makes, which
+ * receives the current URI after redirects. Clone URLs and imported `.git/config` remotes are untrusted.
+ */
+internal object GitCredentialScope {
+    const val HOST = "github.com"
+    fun allows(uri: URIish?): Boolean = uri != null && uri.scheme.equals("https", ignoreCase = true) &&
+        uri.host.equals(HOST, ignoreCase = true) && (uri.port == -1 || uri.port == 443)
+    fun allows(url: String?): Boolean = try { url != null && allows(URIish(url)) } catch (_: Exception) { false }
+}
+
+/** Supplies the token only when JGit asks on behalf of an allowed GitHub URI. */
+internal class GitHubScopedCredentials(credentials: GitCredentials) : CredentialsProvider() {
+    private val delegate = UsernamePasswordCredentialsProvider(credentials.username.ifBlank { "token" }, credentials.token)
+    override fun isInteractive(): Boolean = false
+    override fun supports(vararg items: CredentialItem): Boolean = delegate.supports(*items)
+    override fun get(uri: URIish?, vararg items: CredentialItem): Boolean =
+        GitCredentialScope.allows(uri) && delegate.get(uri, *items)
+}
+
+/**
  * Pure-Java Git through JGit. No `git` executable is used: Android app processes cannot rely on one.
  * The Android-specific behavior (system reader, file modes on app storage) is validated on the JVM only
  * until instrumentation runs on a device.
@@ -52,7 +76,7 @@ class GitService(home: File) {
         require(url.startsWith("https://")) { "Only HTTPS remotes are supported" }
         check(!dir.exists() || dir.list().isNullOrEmpty()) { "Destination is not empty" }
         Git.cloneRepository().setURI(url).setDirectory(dir).setCloneAllBranches(false)
-            .setCredentialsProvider(provider(credentials)).setProgressMonitor(Monitor(isCancelled, progress))
+            .setCredentialsProvider(provider(credentials, listOf(url), progress)).setProgressMonitor(Monitor(isCancelled, progress))
             .call().close()
     }
 
@@ -122,7 +146,9 @@ class GitService(home: File) {
     fun remoteUrl(dir: File): String? = Git.open(dir).use { it.repository.config.getString("remote", "origin", "url") }
 
     fun pull(dir: File, credentials: GitCredentials?, isCancelled: () -> Boolean, progress: (String) -> Unit): String = Git.open(dir).use { git ->
-        val result = git.pull().setCredentialsProvider(provider(credentials)).setProgressMonitor(Monitor(isCancelled, progress)).call()
+        val remote = git.repository.branch?.let { git.repository.config.getString("branch", it, "remote") } ?: "origin"
+        val result = git.pull().setRemote(remote)
+            .setCredentialsProvider(provider(credentials, remoteUrls(git, remote, push = false), progress)).setProgressMonitor(Monitor(isCancelled, progress)).call()
         check(result.isSuccessful) { "Pull did not complete: ${result.mergeResult?.mergeStatus ?: "fetch failed"}" }
         result.mergeResult?.mergeStatus?.toString() ?: "Up to date"
     }
@@ -130,7 +156,8 @@ class GitService(home: File) {
     fun push(dir: File, credentials: GitCredentials?, isCancelled: () -> Boolean, progress: (String) -> Unit): String = Git.open(dir).use { git ->
         val branch = git.repository.branch ?: error("Check out a branch before pushing")
         val results = git.push().setRemote("origin").setRefSpecs(RefSpec("refs/heads/$branch:refs/heads/$branch"))
-            .setCredentialsProvider(provider(credentials)).setProgressMonitor(Monitor(isCancelled, progress)).call()
+            .setCredentialsProvider(provider(credentials, remoteUrls(git, "origin", push = true), progress))
+            .setProgressMonitor(Monitor(isCancelled, progress)).call()
         // Track the pushed branch so later pulls know where to fetch from.
         git.repository.config.apply {
             if (getString("branch", branch, "remote") == null) { setString("branch", branch, "remote", "origin")
@@ -142,8 +169,22 @@ class GitService(home: File) {
         updates.joinToString { "${it.remoteName}: ${it.status}" }.ifEmpty { "Nothing to push" }
     }
 
-    private fun provider(credentials: GitCredentials?): CredentialsProvider? =
-        credentials?.let { UsernamePasswordCredentialsProvider(it.username.ifBlank { "token" }, it.token) }
+    /** Effective URLs (after insteadOf rewriting) that an operation on [remote] may contact. */
+    private fun remoteUrls(git: Git, remote: String, push: Boolean): List<String> {
+        val config = RemoteConfig(git.repository.config, remote)
+        val uris = if (push && config.pushURIs.isNotEmpty()) config.pushURIs else config.urIs + if (push) emptyList() else config.pushURIs
+        return uris.map { it.toString() }.ifEmpty { listOf("") }
+    }
+
+    private fun provider(credentials: GitCredentials?, urls: List<String>, progress: (String) -> Unit): CredentialsProvider? {
+        if (credentials == null) return null
+        val outside = urls.filterNot(GitCredentialScope::allows)
+        if (outside.isNotEmpty()) {
+            progress("Saved GitHub token not sent: remote is not https://${GitCredentialScope.HOST}")
+            return null
+        }
+        return GitHubScopedCredentials(credentials)
+    }
 
     private class Monitor(private val cancelled: () -> Boolean, private val progress: (String) -> Unit) : ProgressMonitor {
         private var task = ""; private var total = 0; private var done = 0; private var reported = -1

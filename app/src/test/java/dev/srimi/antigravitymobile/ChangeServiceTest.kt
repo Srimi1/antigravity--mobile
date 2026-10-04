@@ -95,4 +95,19 @@ class ChangeServiceTest {
         }
         assertFalse(File(base, "escape.kt").exists())
     }
+
+    @Test fun snapshotOfDotTmpSiblingSurvivesEditOfItsNamesake() = runBlocking {
+        workspace.write(".A.kt.tmp", "original-temporary-name")
+        workspace.write("A.kt", "original-A")
+        val set = changes.open("p", "c", "Collision")
+        changes.apply(set.id, workspace, ".A.kt.tmp", "edited-temporary-name".toByteArray())
+        changes.apply(set.id, workspace, "A.kt", "edited-A".toByteArray())
+        val diffs = changes.diffs(set.id).associateBy { it.path }
+        assertEquals("original-temporary-name", String(diffs.getValue(".A.kt.tmp").before!!))
+        assertEquals("original-A", String(diffs.getValue("A.kt").before!!))
+        changes.finish(set.id)
+        changes.revert(set.id, workspace)
+        assertEquals("original-temporary-name", workspace.read(".A.kt.tmp"))
+        assertEquals("original-A", workspace.read("A.kt"))
+    }
 }
