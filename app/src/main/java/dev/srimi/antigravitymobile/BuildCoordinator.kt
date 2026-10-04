@@ -1,6 +1,7 @@
 package dev.srimi.antigravitymobile
 
 import android.content.Context
+import dev.srimi.antigravitymobile.runtime.BuildCache
 import dev.srimi.antigravitymobile.runtime.BuildEvidenceStore
 import dev.srimi.antigravitymobile.runtime.BuildProtocol as P
 import kotlinx.coroutines.*
@@ -65,7 +66,7 @@ class BuildCoordinator(private val context: Context, private val dao: BuildDao,
         check(BuildEvidenceStore.hash(archive(id)) == record.snapshotHash) { "Approved snapshot changed; prepare a new build" }
         check(dao.claimApproval(id) == 1) { "Approval already consumed" }
         try {
-            client.start(id, record.tasks.split(' '), archive(id), record.snapshotHash)
+            client.start(id, record.tasks.split(' '), archive(id), record.snapshotHash, BuildCache.key(record.projectId))
             val current = dao.find(id) ?: record
             if (current.status == "DISPATCHING") dao.save(current.copy(status = "RUNNING", detail = "Build worker running"))
         } catch (cancelled: CancellationException) {

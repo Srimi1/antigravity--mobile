@@ -7,6 +7,7 @@ import android.system.Os
 import android.system.OsConstants
 import android.util.AtomicFile
 import androidx.core.app.NotificationCompat
+import dev.srimi.antigravitymobile.runtime.BuildCache
 import dev.srimi.antigravitymobile.runtime.BuildProtocol as P
 import dev.srimi.antigravityruntime.RuntimeHost
 import kotlinx.coroutines.*
@@ -134,6 +135,7 @@ class BuildWorkerService : Service() {
         val tasks = data.getStringArrayList("tasks")?.toList().orEmpty(); P.validateTasks(tasks)
         val expectedHash = data.getString("sha256").orEmpty()
         require(expectedHash.matches(Regex("[a-f0-9]{64}")))
+        val cacheKey = data.getString("cacheKey")?.also { BuildCache.validateKey(it) }
         val descriptor = data.getParcelable<ParcelFileDescriptor>("source") ?: error("Missing source snapshot")
         synchronized(gate) {
             check(active == null) { "Another build is running" }
@@ -143,6 +145,8 @@ class BuildWorkerService : Service() {
             save(record); activeId = id
             foreground("Preparing build tools")
             active = scope.launch(start = CoroutineStart.LAZY) {
+                var cache: BuildCache.Slot? = null
+                var gradleRan = false
                 try {
                     val host = RuntimeHost(this@BuildWorkerService)
                     val project = host.project(id)
@@ -161,21 +165,25 @@ class BuildWorkerService : Service() {
                     check(digest.digest().joinToString("") { "%02x".format(it) } == expectedHash) { "Snapshot digest changed" }
                     source.inputStream().use { RuntimeHost.extract(it, project) }
                     RuntimeHost.writeText(File(project, "local.properties"), "sdk.dir=${host.sdk.path}\n")
-                    record.put("detail", "Running ${tasks.joinToString(" ")}"); save(record)
+                    val slot = BuildCache.acquire(File(host.root, "build-caches"), cacheKey, id)
+                    cache = slot
+                    record.put("cache", if (slot.reused) "reused" else "fresh")
+                        .put("detail", "Running ${tasks.joinToString(" ")}" + if (slot.reused) " (dependency cache reused)" else ""); save(record)
                     foreground("Building project")
                     // Keep the tested tool profile; project scripts execute only
                     // in this UID. Original workspace files are never mounted.
-                    val args = listOf("--gradle-user-home", File(host.root, "build-caches/$id").path,
+                    val args = listOf("--gradle-user-home", slot.directory.path,
                         "-Dorg.gradle.jvmargs=-Xmx1200m -Dfile.encoding=UTF-8",
                         "-Pandroid.aapt2FromMavenOverride=${File(host.sdk,"build-tools/36.0.0/aapt2").path}") + tasks
                     val result = runInterruptible { host.run("run-$id", project, host.gradle(*args.toTypedArray()), 1200) }
+                    gradleRan = true
                     record.put("exit", result.exit).put("durationMs", result.elapsedMs)
                     if (result.exit == 0) {
                         val apks = project.walkTopDown().filter { it.isFile && it.extension == "apk" }
                             .filter { it.canonicalPath.startsWith(project.canonicalPath + File.separator) }
                             .take(20).map { it.relativeTo(project).invariantSeparatorsPath }.toList()
-                        record.put("apks", JSONArray(apks)).put("status", "COMPLETED").put("detail", "Gradle completed")
-                    } else record.put("status", "FAILED").put("detail", "Gradle exited with ${result.exit}; inspect output")
+                        record.put("apks", JSONArray(apks)).put("status", "COMPLETED").put("detail", "Gradle completed (dependency cache ${record.optString("cache")})")
+                    } else record.put("status", "FAILED").put("detail", "Gradle exited with ${result.exit}; inspect output (dependency cache ${record.optString("cache")})")
                 } catch (_: CancellationException) {
                     record.put("status", "CANCELLED").put("detail", "Build stopped; command was not replayed")
                 } catch (error: Exception) {
@@ -183,6 +191,7 @@ class BuildWorkerService : Service() {
                 } finally {
                     withContext(NonCancellable) {
                         descriptor.close(); stopOwnedChildren()
+                        runCatching { cache?.let { BuildCache.release(it, gradleRan) } }
                         record.put("finishedAt", System.currentTimeMillis()); save(record)
                         synchronized(gate) { active = null; activeId = null }
                         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()

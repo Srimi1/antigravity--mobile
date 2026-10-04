@@ -5,7 +5,7 @@ object BuildProtocol {
     const val WORKER = "dev.srimi.antigravitymobile.worker"
     const val SERVICE = "$WORKER.BuildWorkerService"
     const val PREVIEW_ACTIVITY = "$WORKER.WebPreviewActivity"
-    const val MIN_WORKER_VERSION = 2L
+    const val MIN_WORKER_VERSION = 3L
     const val PERMISSION = "dev.srimi.antigravitymobile.permission.BUILD_WORKER"
     const val HELLO = 1
     const val START = 2

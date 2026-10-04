@@ -73,7 +73,7 @@ class BuildWorkerClient(private val context: Context) {
         } finally { pending.remove(id) }
     }
     suspend fun status(id: String): JSONObject = JSONObject(request(P.QUERY) { putString("id", id) }.getString("json")!!)
-    suspend fun start(id: String, tasks: List<String>, archive: File, hash: String) {
+    suspend fun start(id: String, tasks: List<String>, archive: File, hash: String, cacheKey: String? = null) {
         P.validateId(id); P.validateTasks(tasks)
         withContext(Dispatchers.Main.immediate) {
             ContextCompat.startForegroundService(context, Intent().setComponent(ComponentName(P.WORKER, P.SERVICE)))
@@ -81,6 +81,7 @@ class BuildWorkerClient(private val context: Context) {
         ParcelFileDescriptor.open(archive, ParcelFileDescriptor.MODE_READ_ONLY).use { source ->
             request(P.START) {
                 putString("id", id); putStringArrayList("tasks", ArrayList(tasks)); putString("sha256", hash)
+                cacheKey?.let { putString("cacheKey", it) }
                 putParcelable("source", source)
             }
         }
