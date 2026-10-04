@@ -4,6 +4,18 @@ Last updated **4 October 2026** (0.7.3/code 16 signed, emulator-update tested an
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
+## 0.7.4/code 17 signed candidate — 4 October 2026 (built, not published)
+
+Contents: v0.7.3 plus the audit correctness fixes below (commit `6542345`). Built with `./tools/build.sh` and the original key.
+
+- `dist/antigravity-mobile-0.7.4.apk` — 306,314,926 bytes, SHA-256 `9f2a2cb80a99c378f228330065223d0e58d80a1525048a6b9ce24a8cd65eecfd`, code 17, APK v2, signer `791980ed…10b5` (same as all releases).
+- `dist/antigravity-build-tools-code3-0.7.4.apk` — the embedded `assets/build-worker.apk` extracted byte for byte: 261,997,548 bytes, SHA-256 `6d6ea7f6beb685af9dd4b5fe3b53a38ca88c759708525cfa140c9a1fb942cb3f`, still worker code 3 / `0.7.3-tools`. It differs from the v0.7.3 build-tools asset only in `META-INF/version-control-info.textproto` (AGP records the Git commit); payload identical, so phones that already have code 3 get no update prompt.
+- Passed: 191 JVM tests (unchanged source since the last full run; the build reused that result), `:app:lintRelease`, `:build-worker:lintRelease`, apksigner verify. 
+- **Signed emulator update (OnePlus7ProSim_API31, Android 12 ARM64):** published v0.7.3 with Spoon-Knife → `adb install -r` 0.7.4 succeeded (firstInstallTime kept), project and three files intact, no crash. Editor: opened README.md, appended text, Save → "Saved README.md"; reopening showed the edit (new compare-and-apply save path on ART). Build tab "Tools installed" with no update prompt (worker code 3 kept). Evidence: `~/.cache/agm-074-upgrade/`.
+- Test-setup note: at the start the emulator's 0.7.3 code directory was missing because the previous session killed the emulator right after `adb install`; published 0.7.3 was reinstalled over the existing data (project intact) before the update. Shut down with `sync` + `reboot -p` this time.
+- Minor known issue: the file list keeps showing the old size after an editor save until it is refreshed (save refreshes Git, not the file list).
+- Not run: instrumentation for this exact APK, physical phone.
+
 ## Audit correctness fixes (4 October 2026, committed after v0.7.3, unreleased)
 
 The four data-loss issues from the audit's correctness section are fixed in source (not in the v0.7.3 APK):
