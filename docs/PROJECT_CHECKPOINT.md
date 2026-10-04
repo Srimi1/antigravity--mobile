@@ -1,10 +1,10 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **4 October 2026** (0.7.4/code 17 signed, emulator-update tested and published as GitHub Latest; physical phone and live CLI acceptance still open).
+Last updated **4 October 2026** (0.7.5/code 18 signed, emulator-update tested and published as GitHub Latest; physical phone and live CLI acceptance still open).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## 0.7.5/code 18 signed candidate — 4 October 2026 (built; committed with the Termux fix)
+## 0.7.5/code 18 — 4 October 2026 (published as GitHub Latest)
 
 Contents: v0.7.4 plus the audit lower-priority fixes below (commit `410cab1`) and a Termux setup fix made from the owner's phone screenshots (uncommitted at build time; the APK's version-control-info names `410cab1`). Built with `./tools/build.sh` and the original key; that run executed the JVM suite fresh.
 
@@ -15,6 +15,7 @@ Contents: v0.7.4 plus the audit lower-priority fixes below (commit `410cab1`) an
 - Passed: 198 JVM tests (1 Linux-only skip), `:app:lintRelease`, `:build-worker:lintRelease`, apksigner verify. 
 - **Signed emulator update (OnePlus7ProSim_API31, Android 12 ARM64):** 0.7.4 with Spoon-Knife → `adb install -r` 0.7.5 succeeded (firstInstallTime kept), project intact (README still 801 B from the 0.7.4 editor test), no crash. RUN_COMMAND stayed granted across the update; Build tab "Tools installed"; Linux setup steps 2–3 "Granted"/"Allowed" (so the new command text was not displayed there). The "Termux installed after the app" state was not reproduced. Evidence: `~/.cache/agm-075-upgrade/`. Clean shutdown (`sync` + `reboot -p`).
 - Not run: instrumentation for this exact APK, physical phone.
+- Published [v0.7.5](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.5) (Latest) at tag `c6c0ea6`; digests verified. See [RELEASE_0.7.5.md](RELEASE_0.7.5.md). Owner's phone runs LegionOS (AOSP-based custom ROM).
 
 ## Audit lower-priority fixes (4 October 2026, committed after v0.7.4, unreleased)
 
