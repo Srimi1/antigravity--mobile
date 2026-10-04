@@ -126,6 +126,12 @@ private tailrec fun Context.activity(): Activity? = when (this) { is Activity ->
 private fun showRationale(context: Context) =
     context.activity()?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, TermuxProtocol.PERMISSION) } == true
 private const val SETTINGS_PATH = "Permissions → Additional permissions → Run commands in Termux environment → Allow"
+/** What to do when a paste went wrong in Termux. */
+private const val TERMUX_PASTE_HELP = "If Termux shows a line starting with > instead of ~ $, an earlier paste was cut off: " +
+    "tap CTRL then c, then paste again. If it asks \"Display all … possibilities?\", press n."
+private const val UPDATE_APP_NOTE = "Termux was installed after Antigravity Mobile, so Android has not registered the " +
+    "\"Run commands in Termux environment\" permission for this app: it is missing from Settings and Allow cannot work yet. " +
+    "Install the latest Antigravity Mobile APK again as an update (your projects are kept), open the app, then tap Allow."
 
 /** The same working permission path is available beside Google login and in Build. */
 @Composable private fun TermuxPermissionControls(model: LinuxViewModel) {
@@ -142,10 +148,13 @@ private const val SETTINGS_PATH = "Permissions → Additional permissions → Ru
         }
         model.refresh()
     }
+    val registered = model.state.collectAsStateWithLifecycle().value.termux?.permissionRegistered != false
+    if (!registered) Text(UPDATE_APP_NOTE, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = {
             val granted = context.checkSelfPermission(TermuxProtocol.PERMISSION) == PackageManager.PERMISSION_GRANTED
-            when (TermuxPermissionStep.onAllow(granted, prefs.getBoolean("runCommandAsked", false), showRationale(context))) {
+            when (TermuxPermissionStep.onAllow(granted, prefs.getBoolean("runCommandAsked", false), showRationale(context), registered)) {
+                TermuxPermissionStep.UpdateApp -> model.note(UPDATE_APP_NOTE)
                 TermuxPermissionStep.RequestDialog -> {
                     prefs.edit().putBoolean("runCommandAsked", true).apply()
                     permission.launch(TermuxProtocol.PERMISSION)
@@ -161,7 +170,8 @@ private const val SETTINGS_PATH = "Permissions → Additional permissions → Ru
             openAppSettings(context).onFailure { model.note("Open Android Settings → Apps → Antigravity Mobile → $SETTINGS_PATH.") }
         }) { Text("Open settings") }
     }
-    Text("If no Android dialog appears, allow it in Settings: $SETTINGS_PATH.", style = MaterialTheme.typography.bodySmall)
+    Text("If no Android dialog appears, allow it in Settings: $SETTINGS_PATH. If that entry is missing from Settings, " +
+        "install the Antigravity Mobile APK again as an update (your projects are kept), then tap Allow.", style = MaterialTheme.typography.bodySmall)
 }
 
 /** Build-tab panel: guided Termux + Debian 12 + XFCE setup. */
@@ -206,8 +216,7 @@ private const val SETTINGS_PATH = "Permissions → Additional permissions → Ru
             if (termux.externalAppsAllowed != true) {
                 Text("Open Termux, paste and run this once:", style = MaterialTheme.typography.bodySmall)
                 Text("Press Enter on the keyboard. When it prints Done, come back here; this step updates by itself" +
-                    (if (!termux.runCommandPermission) " once step 2 is allowed" else "") +
-                    ". If Termux asks \"Display all … possibilities?\", press n: the Tab key was pressed, nothing is wrong.",
+                    (if (!termux.runCommandPermission) " once step 2 is allowed" else "") + ". $TERMUX_PASTE_HELP",
                     style = MaterialTheme.typography.bodySmall)
                 Text(TermuxProtocol.ALLOW_EXTERNAL_APPS_COMMAND, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -285,7 +294,7 @@ private const val SETTINGS_PATH = "Permissions → Additional permissions → Ru
         }
         if (termux?.installed == true && !termux.runCommandPermission) TermuxPermissionControls(model)
         if (termux?.runCommandPermission == true && termux.externalAppsAllowed != true) {
-            Text("In Termux, paste this command and press Enter once:", style = MaterialTheme.typography.bodySmall)
+            Text("In Termux, paste this command and press Enter once. $TERMUX_PASTE_HELP", style = MaterialTheme.typography.bodySmall)
             Text(TermuxProtocol.ALLOW_EXTERNAL_APPS_COMMAND, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
             OutlinedButton(onClick = { copy(context, TermuxProtocol.ALLOW_EXTERNAL_APPS_COMMAND); model.openTermux() }) { Text("Copy setup and open Termux") }
         }

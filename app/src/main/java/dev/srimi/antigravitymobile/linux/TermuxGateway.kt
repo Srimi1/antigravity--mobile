@@ -38,9 +38,13 @@ object TermuxProtocol {
     const val PREFIX = "/data/data/com.termux/files/usr"
     const val HOME = "/data/data/com.termux/files/home"
     const val BASH = "$PREFIX/bin/bash"
-    /** The one-time step the user runs in Termux so other apps may send commands. */
+    /**
+     * The one-time step the user runs in Termux so other apps may send commands. Deliberately free of quotes,
+     * backslashes and `&&`: a paste that gets cut off or mangled by the keyboard can never leave the shell waiting at
+     * a `>` continuation prompt for a closing quote, and each part still runs if an earlier one fails.
+     */
     const val ALLOW_EXTERNAL_APPS_COMMAND =
-        "mkdir -p ~/.termux && printf '\\nallow-external-apps=true\\n' >> ~/.termux/termux.properties && termux-reload-settings && echo 'Done. Return to Antigravity Mobile.'"
+        "mkdir -p ~/.termux; echo >> ~/.termux/termux.properties; echo allow-external-apps=true >> ~/.termux/termux.properties; termux-reload-settings; echo Done. Return to Antigravity Mobile."
 
     /** Maps Termux's result bundle values; throws when Termux refused to run the command at all. */
     fun result(stdout: String?, stderr: String?, exitCode: Int?, err: Int?, errmsg: String?, durationMs: Long): TermuxResult {
@@ -70,11 +74,17 @@ class AndroidTermuxGateway(context: Context) : TermuxGateway {
 
     override fun status(): TermuxStatus {
         val termux = version(TermuxProtocol.PACKAGE)
-        return TermuxStatus(termux != null, termux,
-            app.checkSelfPermission(TermuxProtocol.PERMISSION) == PackageManager.PERMISSION_GRANTED,
+        val granted = app.checkSelfPermission(TermuxProtocol.PERMISSION) == PackageManager.PERMISSION_GRANTED
+        return TermuxStatus(termux != null, termux, granted,
             if (prefs.contains("externalApps")) prefs.getBoolean("externalApps", false) else null,
-            version(TermuxProtocol.X11_PACKAGE) != null)
+            version(TermuxProtocol.X11_PACKAGE) != null,
+            permissionRegistered = granted || termux == null || permissionRegistered())
     }
+    private fun permissionRegistered(): Boolean = try {
+        val pm = app.packageManager
+        TermuxPermissionStep.registered(pm.getPackageInfo(TermuxProtocol.PACKAGE, 0).firstInstallTime,
+            pm.getPackageInfo(app.packageName, 0).lastUpdateTime)
+    } catch (_: PackageManager.NameNotFoundException) { true }
 
     /** Starting a terminal service alone does not bring Termux to the foreground on Android 10+. */
     fun openApp() {

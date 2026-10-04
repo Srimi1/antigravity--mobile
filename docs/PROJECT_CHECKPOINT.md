@@ -4,6 +4,18 @@ Last updated **4 October 2026** (0.7.4/code 17 signed, emulator-update tested an
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
+## 0.7.5/code 18 signed candidate — 4 October 2026 (built; committed with the Termux fix)
+
+Contents: v0.7.4 plus the audit lower-priority fixes below (commit `410cab1`) and a Termux setup fix made from the owner's phone screenshots (uncommitted at build time; the APK's version-control-info names `410cab1`). Built with `./tools/build.sh` and the original key; that run executed the JVM suite fresh.
+
+**Termux setup fix (owner report, 4 Oct):** (1) Android's system "Additional permissions" page did not list "Run commands in Termux environment". Android registers another app's custom permission for an app only if the defining app (Termux) was installed before this app was installed or last updated; otherwise Settings omits it and the dialog fails silently. `TermuxStatus.permissionRegistered` (Termux `firstInstallTime` ≤ our `lastUpdateTime`) now makes Allow explain "install the latest APK again as an update (projects kept)" instead of opening a page without the entry; the Settings hint mentions the same. Installing this update on the phone re-registers the permission. (2) Termux sat at a `>` continuation prompt: an earlier cut-off paste (`al-apps=true' >> …`) left an open quote, swallowing later pastes. `ALLOW_EXTERNAL_APPS_COMMAND` is now quote/backslash/`&&`-free (`mkdir -p ~/.termux; echo >> …; echo allow-external-apps=true >> …; termux-reload-settings; echo Done. …`), so a partial paste cannot leave the shell waiting; both setup screens explain CTRL+c when a `>` prompt appears. Verified in bash with a fake HOME (file without trailing newline handled; truncated paste returns to the prompt). The heuristic itself was not reproduced on a device.
+
+- `dist/antigravity-mobile-0.7.5.apk` — 306,333,930 bytes, SHA-256 `7d00b8a3b067254d5e9383c3c8e4b6a828a2b0bb214cc47bbad8963fcce60f07`, code 18, APK v2, signer `791980ed…10b5`.
+- `dist/antigravity-build-tools-code3-0.7.5.apk` — embedded worker extracted byte for byte: 261,997,548 bytes, SHA-256 `c162cc44d6a3993a5b65b1550417909b2ec1ecc11231ee624f331a76018b03c5`; still code 3, no tools update prompt.
+- Passed: 198 JVM tests (1 Linux-only skip), `:app:lintRelease`, `:build-worker:lintRelease`, apksigner verify. 
+- **Signed emulator update (OnePlus7ProSim_API31, Android 12 ARM64):** 0.7.4 with Spoon-Knife → `adb install -r` 0.7.5 succeeded (firstInstallTime kept), project intact (README still 801 B from the 0.7.4 editor test), no crash. RUN_COMMAND stayed granted across the update; Build tab "Tools installed"; Linux setup steps 2–3 "Granted"/"Allowed" (so the new command text was not displayed there). The "Termux installed after the app" state was not reproduced. Evidence: `~/.cache/agm-075-upgrade/`. Clean shutdown (`sync` + `reboot -p`).
+- Not run: instrumentation for this exact APK, physical phone.
+
 ## Audit lower-priority fixes (4 October 2026, committed after v0.7.4, unreleased)
 
 1. **Commit what was reviewed.** `ChangeService.reviewedFinal()` gives the latest accepted bytes per path; Changes → Commit refuses (listing the paths) when a file changed after it was kept, instead of committing unreviewed bytes.

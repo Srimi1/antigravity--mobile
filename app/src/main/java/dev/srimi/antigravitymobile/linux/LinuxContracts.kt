@@ -17,6 +17,12 @@ data class TermuxStatus(
     val runCommandPermission: Boolean,
     val externalAppsAllowed: Boolean?,
     val x11Installed: Boolean,
+    /**
+     * False when Termux was installed after this app was installed or last updated. Android then never registered
+     * the RUN_COMMAND permission for this app: it is missing from Settings and the dialog fails silently until this
+     * app is updated or reinstalled.
+     */
+    val permissionRegistered: Boolean = true,
 ) {
     val ready: Boolean get() = installed && runCommandPermission && externalAppsAllowed != false
 }
@@ -154,11 +160,15 @@ interface LinuxRuntime {
  * working path is the app's Settings page (Permissions → Additional permissions).
  */
 enum class TermuxPermissionStep {
-    Done, RequestDialog, OpenSettings, Explain;
+    Done, RequestDialog, OpenSettings, Explain, UpdateApp;
 
     companion object {
-        fun onAllow(granted: Boolean, askedBefore: Boolean, showRationale: Boolean): TermuxPermissionStep = when {
+        /** Android registers another app's custom permission for this app only if that app was installed first. */
+        fun registered(termuxFirstInstall: Long, appLastUpdate: Long): Boolean = termuxFirstInstall <= appLastUpdate
+
+        fun onAllow(granted: Boolean, askedBefore: Boolean, showRationale: Boolean, registered: Boolean = true): TermuxPermissionStep = when {
             granted -> Done
+            !registered -> UpdateApp
             !askedBefore || showRationale -> RequestDialog
             else -> OpenSettings
         }
