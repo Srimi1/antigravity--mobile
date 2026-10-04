@@ -15,13 +15,13 @@
     "worker_version": "0.4.0-tools",
     "worker_code": 2,
     "room_version": 4,
-    "commit": "release tag v0.7.2",
-    "status": "signed update prepared; publication verification pending; physical/live acceptance open"
+    "commit": "c2f7a516677418e5a2f3343157c8abc0603906e0",
+    "status": "signed update published; later documentation does not change its APK; physical/live acceptance open"
   },
-  "public_release": "v0.7.2 publication verification pending; earlier v0.7.0 remains published",
+  "public_release": "v0.7.2 public, non-draft, non-prerelease, GitHub Latest; all five asset hashes/sizes verified; earlier releases preserved",
   "provider_acceptance": {
     "ChatGPT": "unverified live account",
-    "Claude": "blocked supported approved route",
+    "Claude": "Anthropic API-key route implemented; Pro/Max subscription blocked; live inference unverified",
     "Google": "official Android CLI sign-in UI/browser verified; completed login/inference unverified; native/Agent adapter gated"
   },
   "full_product_ready": false,
@@ -31,7 +31,11 @@
     "apk": "antigravity-mobile-0.7.2.apk",
     "bytes": 306282142,
     "sha256": "8f3d9bc3aea5ed557cda836e4022e03683c19046769fdb63dcc274156cc48796",
-    "url": "https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.2"
+    "url": "https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.2",
+    "code": 15,
+    "published_utc": "2026-10-04T06:01:27Z",
+    "source_commit": "c2f7a516677418e5a2f3343157c8abc0603906e0",
+    "apk_url": "https://github.com/Srimi1/antigravity--mobile/releases/download/v0.7.2/antigravity-mobile-0.7.2.apk"
   },
   "providers": {
     "ChatGPT": "Sign in with ChatGPT; owner reports working on phone since 0.4.2",
@@ -44,8 +48,38 @@
     "jvm": 166,
     "device_last": "19 targeted checks on API36 for 0.7.2, not the entire suite",
     "jvm_classes": 37,
-    "signed_upgrade": "0.5.2\u21920.7.2 on API31 retained repository files"
+    "signed_upgrade": "0.5.2\u21920.7.2 on API31 retained repository files",
+    "jvm_tests": 166,
+    "jvm_failures": 0,
+    "jvm_errors": 0,
+    "jvm_skipped": 0,
+    "targeted_android_checks": 19,
+    "signed_build_output": "BUILD SUCCESSFUL in 4m 18s; 227 tasks executed",
+    "lint": {
+      "app_errors": 0,
+      "worker_errors": 0,
+      "app_warnings": 62,
+      "worker_warnings": 15
+    }
   },
-  "next_step": "Owner installs signed update and follows docs/PHONE_TEST_0.7.2.md; verify publication hashes first",
-  "local_parallel_work": "Local save documents and build-cache/worker-code-3 work preserved, excluded from this release"
+  "next_step": "Owner installs the signed update and follows docs/PHONE_TEST_0.7.2.md; completed account sign-in and real response remain unverified",
+  "local_parallel_work": "Local save documents and build-cache/worker-code-3 work preserved, excluded from this release",
+  "release_source_commit": "c2f7a516677418e5a2f3343157c8abc0603906e0",
+  "worker_release": {
+    "apk": "antigravity-build-tools-code2.apk",
+    "bytes": 261989704,
+    "code": 2,
+    "sha256": "da9788f32491923693ec6d7ea665b5de419238cb7067a3afb27707105368f4b1",
+    "embedded_matches_standalone": true
+  },
+  "source_archive": {
+    "name": "antigravity-mobile-0.7.2-source.zip",
+    "bytes": 18586554,
+    "sha256": "ab6bdcaa1b04f9675dfc7d857ad07d2d858a950f70e8a9111906bfb71bf8d4d0"
+  },
+  "signing": {
+    "certificate_sha256": "791980edfce3d623dfe1ba2e3209a506b01c4be7da74065805d400a5051210b5",
+    "both_release_apks_verified": true,
+    "private_key_in_archives": false
+  }
 }

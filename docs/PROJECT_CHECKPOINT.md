@@ -1,6 +1,6 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **4 October 2026** (0.7.2/code 15 signed update prepared; publication verification pending; physical phone and live CLI acceptance still open).
+Last updated **4 October 2026** (0.7.2/code 15 signed and published as GitHub Latest; physical phone and live CLI acceptance still open).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
@@ -14,7 +14,9 @@ The owner requested CLI/Termux opening fixes, a working Allow button, Gemini log
 - Main APK SHA-256 `8f3d9bc3aea5ed557cda836e4022e03683c19046769fdb63dcc274156cc48796` (306,282,142 bytes). Companion SHA-256 `da9788f32491923693ec6d7ea665b5de419238cb7067a3afb27707105368f4b1` (261,989,704 bytes); embedded copy matches.
 - Full product remains unaccepted: phone results, actual Google/Claude/ChatGPT subscription acceptance, confinement, and phone-only repository/build/install/launch tasks remain open. No credentials or paid requests were used.
 
-Next: verify GitHub publication and its asset hashes, then the owner installs the APK as an update and follows PHONE_TEST_0.7.2.md. Do not replay commands, regenerate the key, overwrite separate cache work, or call the full app complete.
+Published [v0.7.2](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.2) at `2026-10-04T06:01:27Z`, public/non-draft/non-prerelease and GitHub Latest. Release tag/source is `c2f7a516677418e5a2f3343157c8abc0603906e0`. All five uploaded asset sizes and GitHub SHA-256 digests match the isolated local release files. Public main APK HEAD returned HTTP 200 and Content-Length 306282142. Source ZIP: 18,586,554 bytes, SHA-256 `ab6bdcaa1b04f9675dfc7d857ad07d2d858a950f70e8a9111906bfb71bf8d4d0`; its 556 files passed ZIP integrity and signing-key/local-config/build-binary exclusion checks. The immutable source archive reflects the preparation commit; later publication documentation does not change the APK. Earlier releases remain intact.
+
+Next: the owner installs the APK as an update and follows PHONE_TEST_0.7.2.md. Do not replay commands, regenerate the key, overwrite separate cache work, or call the full app complete.
 
 ## Earlier published: 0.7.0/code 13 — 2 October 2026
 

@@ -1,6 +1,6 @@
 # Antigravity Mobile 0.7.2 (code 15)
 
-Signed update prepared on 4 October 2026 for the owner's report: CLI/Termux not opening, Allow doing nothing, and Gemini login. Publication is explicitly authorized by the owner's request to launch the update. Release: [v0.7.2](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.2).
+Signed update published on 4 October 2026 for the owner's report: CLI/Termux not opening, Allow doing nothing, and Gemini login. Publication is explicitly authorized by the owner's request to launch the update. Release: [v0.7.2](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.2).
 
 ## Changes
 
@@ -22,6 +22,10 @@ The Google login action does not connect the native AI Studio-key provider or un
 - Signed UI: Allow → first denial → Allow → second denial automatically opened App info; another Allow with USER_FIXED again opened App info. Permissions → Additional permissions → Run commands in Termux environment → Allow → return automatically removed the permission controls. Copy setup and open Termux opened its Activity; long-press Paste + Enter ran the actual copied setup line; return enabled Google sign-in without Refresh.
 - Signed Google button opened the real official **agy 1.2.16 Android ARM64** Google OAuth menu. Selecting Google OAuth opened Chrome at Google's sign-in page for Google Antigravity. A first native-client probe used a host-verified upstream binary; the subsequent first-install UI run downloaded and installed it in Termux through the app's actual installer command. No account credentials, OAuth codes, entitled inference or paid request were supplied.
 - An earlier Chrome first-run attempt displayed a Chrome ANR while host builds and two emulators were active. Chrome was stopped; no root cause or physical-phone browser stability is claimed.
+
+## Publication
+
+Published [v0.7.2](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.2) at `2026-10-04T06:01:27Z`, public/non-draft/non-prerelease and GitHub Latest. Release tag/source is `c2f7a516677418e5a2f3343157c8abc0603906e0`. All five uploaded asset sizes and GitHub SHA-256 digests match the isolated local release files. Public main APK HEAD returned HTTP 200 and Content-Length 306282142. Source ZIP: 18,586,554 bytes, SHA-256 `ab6bdcaa1b04f9675dfc7d857ad07d2d858a950f70e8a9111906bfb71bf8d4d0`; its 556 files passed ZIP integrity and signing-key/local-config/build-binary exclusion checks. The immutable source archive reflects the preparation commit; later publication documentation does not change the APK. Earlier releases remain intact.
 
 ## Signed artifacts
 

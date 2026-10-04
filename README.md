@@ -10,7 +10,7 @@ For agents continuing this project, read [AGENTS.md](AGENTS.md) and the [saved c
 
 A native Kotlin/Compose coding app for one Android phone: open or clone a repository, ask an agent for changes, review every edit, and commit locally.
 
-**Status:** **0.7.2/code 15** is a signed update for Termux/CLI opening, the Allow button and Google sign-in. [Release record](docs/RELEASE_0.7.2.md) and [phone steps](docs/PHONE_TEST_0.7.2.md). Accounts → **Gemini with Google sign-in** opens Google's official Android CLI in Termux; Debian is not needed for that login. Actual account completion and inference remain unverified, and in-app CLI Agent backends still require a passing sandbox check. Full-product acceptance remains open. The API-key providers remain separate, explicitly selected options. See [third-party notices](THIRD_PARTY_NOTICES.md).
+**Status:** **0.7.2/code 15** is published as [GitHub Latest](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.2) with fixes for Termux/CLI opening, the Allow button and Google sign-in. [Release record](docs/RELEASE_0.7.2.md) and [phone steps](docs/PHONE_TEST_0.7.2.md). Accounts → **Gemini with Google sign-in** opens Google's official Android CLI in Termux; Debian is not needed for that login. Actual account completion and inference remain unverified, and in-app CLI Agent backends still require a passing sandbox check. Full-product acceptance remains open. The API-key providers remain separate, explicitly selected options. See [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Version 0.1.2 includes the original adaptive launcher icon, round launcher support and an Android 13+ themed-icon silhouette. The repository artwork and icon sources are in [assets/branding](assets/branding/README.md).
 
