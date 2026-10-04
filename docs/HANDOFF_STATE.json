@@ -1,5 +1,5 @@
 {
-  "saved_utc": "2026-10-01T13:00:00+00:00",
+  "saved_utc": "2026-10-04T05:55:59.837587+00:00",
   "purpose": "Portable AI handoff; see CONTINUE_WITH_ANY_AI.md",
   "continuation_prompt": "CONTINUE_WITH_ANY_AI.md",
   "goal": "Create apps, websites and do coding on the phone with the full native Antigravity app; user requests desktop-equivalent capabilities.",
@@ -10,38 +10,42 @@
     "physical_device_verified": false
   },
   "current_source": {
-    "main_version": "0.5.2",
-    "main_code": 11,
+    "main_version": "0.7.2",
+    "main_code": 15,
     "worker_version": "0.4.0-tools",
     "worker_code": 2,
-    "room_version": 3,
-    "commit": "c4212d1",
-    "status": "public Latest release; owner reports app working on phone"
+    "room_version": 4,
+    "commit": "release tag v0.7.2",
+    "status": "signed update prepared; publication verification pending; physical/live acceptance open"
   },
-  "public_release": "0.1.2-probe/code3 unchanged; 0.4.1 only as private GitHub draft",
+  "public_release": "v0.7.2 publication verification pending; earlier v0.7.0 remains published",
   "provider_acceptance": {
     "ChatGPT": "unverified live account",
     "Claude": "blocked supported approved route",
-    "Google": "blocked supported route"
+    "Google": "official Android CLI sign-in UI/browser verified; completed login/inference unverified; native/Agent adapter gated"
   },
   "full_product_ready": false,
   "credentials_and_signing_key_in_source_archive": false,
   "latest_release": {
-    "tag": "v0.5.2",
-    "apk": "antigravity-mobile-0.5.2.apk",
-    "bytes": 305254448,
-    "sha256": "3c80020f653478c062dd46867b44d29963623814c2e69f259c06c8b67c2ca7db",
-    "url": "https://github.com/Srimi1/antigravity--mobile/releases/latest"
+    "tag": "v0.7.2",
+    "apk": "antigravity-mobile-0.7.2.apk",
+    "bytes": 306282142,
+    "sha256": "8f3d9bc3aea5ed557cda836e4022e03683c19046769fdb63dcc274156cc48796",
+    "url": "https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.2"
   },
   "providers": {
     "ChatGPT": "Sign in with ChatGPT; owner reports working on phone since 0.4.2",
     "Gemini": "owner's AI Studio API key (approved exception); real key untested",
     "Claude": "owner's Anthropic API key via official Java SDK (approved, paid per use); real key untested",
     "Claude Pro/Max": "BLOCKED",
-    "Google AI subscription": "BLOCKED; bypass request declined"
+    "Google AI subscription": "official Android agy in Termux; completed account/entitlement response unverified; no credential transfer"
   },
   "tests": {
-    "jvm": 78,
-    "device_last": "21/21 on API36 for 0.5.1"
-  }
+    "jvm": 166,
+    "device_last": "19 targeted checks on API36 for 0.7.2, not the entire suite",
+    "jvm_classes": 37,
+    "signed_upgrade": "0.5.2\u21920.7.2 on API31 retained repository files"
+  },
+  "next_step": "Owner installs signed update and follows docs/PHONE_TEST_0.7.2.md; verify publication hashes first",
+  "local_parallel_work": "Local save documents and build-cache/worker-code-3 work preserved, excluded from this release"
 }

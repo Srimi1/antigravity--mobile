@@ -10,7 +10,7 @@ For agents continuing this project, read [AGENTS.md](AGENTS.md) and the [saved c
 
 A native Kotlin/Compose coding app for one Android phone: open or clone a repository, ask an agent for changes, review every edit, and commit locally.
 
-**Status:** Latest published release is **[0.7.0/code 13](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.0)**, fixing CLI request delivery/upload retry, Linux setup and custom-endpoint verification. Main APK and embedded Build Tools use the original signer; an emulator 0.6.0→0.7.0 update retained the existing project ([release evidence](docs/RELEASE_0.7.0.md)). Physical-phone acceptance, the remaining candidate real-Termux tests and live provider inference remain open. Google account access has an official Antigravity CLI route, but this app's CLI backend still requires a passing phone sandbox check ([Gemini login guide](docs/GEMINI_LOGIN.md)). Websites are static only. See the [checkpoint](docs/PROJECT_CHECKPOINT.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+**Status:** **0.7.2/code 15** is a signed update for Termux/CLI opening, the Allow button and Google sign-in. [Release record](docs/RELEASE_0.7.2.md) and [phone steps](docs/PHONE_TEST_0.7.2.md). Accounts → **Gemini with Google sign-in** opens Google's official Android CLI in Termux; Debian is not needed for that login. Actual account completion and inference remain unverified, and in-app CLI Agent backends still require a passing sandbox check. Full-product acceptance remains open. The API-key providers remain separate, explicitly selected options. See [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Version 0.1.2 includes the original adaptive launcher icon, round launcher support and an Android 13+ themed-icon silhouette. The repository artwork and icon sources are in [assets/branding](assets/branding/README.md).
 
@@ -50,7 +50,7 @@ python3 tools/android-runtime-lab/prepare.py --sdk "$ANDROID_HOME" \
 
 The output is `dist/antigravity-mobile-<versionName>.apk`. The script generates a local signing key once in `.signing/personal.p12`. Keep that file privately to install future updates; deleting it generates a different signer and requires uninstalling the previous app. The fixed keystore password protects this disposable development container only; filesystem permissions protect the private key. Use a separately managed key before promoting beyond the probe.
 
-For an unsigned release candidate, use `./gradlew -PagmUnsignedRelease=true :app:assembleRelease`. This produces `app-release-unsigned.apk` and bundles an unsigned companion. It cannot update an installed app until both packages are signed with the original signer. Never generate a replacement key or uninstall the owner's app to force an update. Agents must ask before signing or publishing.
+For an unsigned release candidate, use `./gradlew -PagmUnsignedRelease=true :app:assembleRelease`. This produces `app-release-unsigned.apk` and bundles an unsigned companion. It cannot update an installed app until both packages are signed with the original signer. Never generate a replacement key or uninstall the owner's app to force an update. Signing and publication need owner authorization; the owner expressly requested the current update.
 
 Temporary app build output lives in `~/.cache/antigravity-mobile-build`; the script keeps Gradle's project cache in `~/.cache/antigravity-mobile-gradle`. This avoids iCloud creating conflicting copies of generated compiler files. Source and delivered artifacts stay in this project.
 

@@ -101,7 +101,13 @@ class LinuxViewModel(application: Application) : AndroidViewModel(application) {
         val cli = runtime.installCli(tool, ::progress)
         "${tool.label} ${cli.version ?: ""} installed at ${cli.binaryPath}. Sign in inside it (Open Debian terminal)."
     })
-    fun openTerminal() = run("Open terminal") { runtime.openTerminal(); "Termux opened inside Debian. Run the CLI there to sign in." }
+    fun openTermux() { try { gateway.openApp() } catch (error: TermuxUnavailable) { note(error.message.orEmpty()) } }
+    fun openTerminal() = run("Open terminal") { runtime.openTerminal(); "Debian terminal requested. Continue in Termux." }
+    fun signIn(tool: CliTool) = run("Open ${tool.label}") { runtime.openTerminal(tool); "Continue sign-in inside ${tool.label} in Termux." }
+    fun openGoogleCli() = run("Open Google sign-in") {
+        GoogleCliCommands.open(gateway)
+        "Continue in Termux: choose Google OAuth and sign in in your browser."
+    }
 }
 
 private fun copy(context: Context, text: String) =
@@ -116,12 +122,9 @@ private fun showRationale(context: Context) =
     context.activity()?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, TermuxProtocol.PERMISSION) } == true
 private const val SETTINGS_PATH = "Permissions → Additional permissions → Run commands in Termux environment → Allow"
 
-/** Build-tab panel: guided Termux + Debian 12 + XFCE setup. Lane A inserts it into BuildScreen. */
-@Composable fun LinuxSetupPanel() {
-    val model: LinuxViewModel = viewModel()
-    val state by model.state.collectAsStateWithLifecycle()
+/** The same working permission path is available beside Google login and in Build. */
+@Composable private fun TermuxPermissionControls(model: LinuxViewModel) {
     val context = LocalContext.current
-    val idle = state.busy == null
     val prefs = remember { context.getSharedPreferences("termux", Context.MODE_PRIVATE) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         when (TermuxPermissionStep.afterResult(granted, showRationale(context))) {
@@ -134,6 +137,34 @@ private const val SETTINGS_PATH = "Permissions → Additional permissions → Ru
         }
         model.refresh()
     }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = {
+            val granted = context.checkSelfPermission(TermuxProtocol.PERMISSION) == PackageManager.PERMISSION_GRANTED
+            when (TermuxPermissionStep.onAllow(granted, prefs.getBoolean("runCommandAsked", false), showRationale(context))) {
+                TermuxPermissionStep.RequestDialog -> {
+                    prefs.edit().putBoolean("runCommandAsked", true).apply()
+                    permission.launch(TermuxProtocol.PERMISSION)
+                }
+                TermuxPermissionStep.OpenSettings -> {
+                    model.note("Allow it in the Settings page that opened: $SETTINGS_PATH, then come back.")
+                    openAppSettings(context).onFailure { model.note("Open Android Settings → Apps → Antigravity Mobile → $SETTINGS_PATH.") }
+                }
+                else -> model.refresh()
+            }
+        }) { Text("Allow") }
+        OutlinedButton(onClick = {
+            openAppSettings(context).onFailure { model.note("Open Android Settings → Apps → Antigravity Mobile → $SETTINGS_PATH.") }
+        }) { Text("Open settings") }
+    }
+    Text("If no Android dialog appears, allow it in Settings: $SETTINGS_PATH.", style = MaterialTheme.typography.bodySmall)
+}
+
+/** Build-tab panel: guided Termux + Debian 12 + XFCE setup. */
+@Composable fun LinuxSetupPanel() {
+    val model: LinuxViewModel = viewModel()
+    val state by model.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val idle = state.busy == null
     // Coming back from Settings or Termux re-checks the permission and whether Termux now accepts commands.
     LifecycleResumeEffect(Unit) { model.refresh(); onPauseOrDispose { } }
     var confirm by remember { mutableStateOf<Set<CleanupItem>?>(null) }
@@ -162,38 +193,21 @@ private const val SETTINGS_PATH = "Permissions → Additional permissions → Ru
             StepRow("2. Permission to run commands in Termux", termux.runCommandPermission,
                 if (termux.runCommandPermission) "Granted" else "Not granted (runtime limitation until you allow it)")
             if (!termux.runCommandPermission) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = {
-                        val granted = context.checkSelfPermission(TermuxProtocol.PERMISSION) == PackageManager.PERMISSION_GRANTED
-                        when (TermuxPermissionStep.onAllow(granted, prefs.getBoolean("runCommandAsked", false), showRationale(context))) {
-                            TermuxPermissionStep.RequestDialog -> {
-                                prefs.edit().putBoolean("runCommandAsked", true).apply()
-                                permission.launch(TermuxProtocol.PERMISSION)
-                            }
-                            TermuxPermissionStep.OpenSettings -> {
-                                model.note("Android no longer shows its dialog for this permission. In the Settings page that opened: $SETTINGS_PATH, then come back.")
-                                openAppSettings(context)
-                            }
-                            else -> model.refresh()
-                        }
-                    }, enabled = idle) { Text("Allow") }
-                    OutlinedButton(onClick = { openAppSettings(context) }) { Text("Open settings") }
-                }
-                Text("If no Android dialog appears, allow it in Settings: $SETTINGS_PATH.", style = MaterialTheme.typography.bodySmall)
+                TermuxPermissionControls(model)
             }
             // Step 3: allow-external-apps
             StepRow("3. Termux accepts commands from this app", termux.externalAppsAllowed == true, when (termux.externalAppsAllowed) {
                 true -> "Allowed"; false -> "Off in Termux settings"; null -> "Unknown until the first command" })
             if (termux.externalAppsAllowed != true) {
                 Text("Open Termux, paste and run this once:", style = MaterialTheme.typography.bodySmall)
-                Text("It prints nothing when it works. Then come back here; this step updates by itself" +
+                Text("Press Enter on the keyboard. When it prints Done, come back here; this step updates by itself" +
                     (if (!termux.runCommandPermission) " once step 2 is allowed" else "") +
                     ". If Termux asks \"Display all … possibilities?\", press n: the Tab key was pressed, nothing is wrong.",
                     style = MaterialTheme.typography.bodySmall)
                 Text(TermuxProtocol.ALLOW_EXTERNAL_APPS_COMMAND, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { copy(context, TermuxProtocol.ALLOW_EXTERNAL_APPS_COMMAND) }) { Text("Copy") }
-                    OutlinedButton(onClick = { context.packageManager.getLaunchIntentForPackage(TermuxProtocol.PACKAGE)?.let(context::startActivity) }) { Text("Open Termux") }
+                    OutlinedButton(onClick = model::openTermux) { Text("Open Termux") }
                 }
             }
         }
@@ -250,6 +264,35 @@ private const val SETTINGS_PATH = "Permissions → Additional permissions → Ru
     }
 }
 
+/** Google account login uses the official Android CLI; Debian and a desktop keyring are not prerequisites. */
+@Composable fun GoogleCliSignInSection() {
+    val model: LinuxViewModel = viewModel()
+    val state by model.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    LifecycleResumeEffect(Unit) { model.refresh(); onPauseOrDispose { } }
+    SectionCard("Gemini with Google sign-in") {
+        Text("Sign in with your Google account in Google's official Antigravity CLI. It opens in Termux, then opens your browser. " +
+            "Debian is not needed for this sign-in.", style = MaterialTheme.typography.bodySmall)
+        val termux = state.termux
+        if (termux?.installed == false) {
+            Text("Install Termux, open it once to finish setup, then return here.", style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = { open(context, "https://github.com/termux/termux-app/releases") }) { Text("Install Termux") }
+        }
+        if (termux?.installed == true && !termux.runCommandPermission) TermuxPermissionControls(model)
+        if (termux?.runCommandPermission == true && termux.externalAppsAllowed != true) {
+            Text("In Termux, paste this command and press Enter once:", style = MaterialTheme.typography.bodySmall)
+            Text(TermuxProtocol.ALLOW_EXTERNAL_APPS_COMMAND, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = { copy(context, TermuxProtocol.ALLOW_EXTERNAL_APPS_COMMAND); model.openTermux() }) { Text("Copy setup and open Termux") }
+        }
+        state.busy?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        Button(onClick = model::openGoogleCli, enabled = state.busy == null && termux?.ready == true) { Text("Sign in with Google") }
+        OutlinedButton(onClick = model::openTermux, enabled = termux?.installed == true) { Text("Open Termux") }
+        state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        Text("The first launch downloads Google's Android CLI; sign-in stays inside that client. In-app CLI Agent chat still needs a passing " +
+            "sandbox check. A Google login here does not connect the AI Studio API-key account below.", style = MaterialTheme.typography.bodySmall)
+    }
+}
+
 @Composable private fun StepRow(title: String, done: Boolean, detail: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text(title); Text(detail, style = MaterialTheme.typography.bodySmall) }
@@ -284,7 +327,12 @@ private const val SETTINGS_PATH = "Permissions → Additional permissions → Ru
         Text("For Gemini with your personal Google account or Google AI Pro/Ultra, use Antigravity CLI: run agy, complete its sign-in yourself, " +
             "then use /model or agy models to choose Gemini. Consumer Gemini CLI access moved to Antigravity CLI. " +
             "Agent chat stays disabled until the phone's sandbox check passes.", style = MaterialTheme.typography.bodySmall)
-        if (!usable) { Text("Set up Linux in the Build tab first.", style = MaterialTheme.typography.bodySmall); return@SectionCard }
+        if (!usable) {
+            Text("Set up Linux in the Build tab first. Allow command access, then install Debian.", style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = model::openTermux) { Text("Open Termux") }
+            state.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            return@SectionCard
+        }
         state.busy?.let { Text(listOfNotNull(it, state.progress).joinToString(": "), style = MaterialTheme.typography.bodySmall) }
         val installed = state.clis.associateBy { it.tool }
         listOf(CliTool.CODEX to "codex login", CliTool.ANTIGRAVITY to "agy", CliTool.CLAUDE_CODE to "claude", CliTool.GEMINI to "gemini").forEach { (tool, signIn) ->
@@ -296,6 +344,9 @@ private const val SETTINGS_PATH = "Permissions → Additional permissions → Ru
                         else "Not installed", style = MaterialTheme.typography.bodySmall)
                 }
                 if (cli?.installed != true) TextButton(onClick = { model.installCli(tool) }, enabled = idle) { Text("Install") }
+                else TextButton(onClick = { model.signIn(tool) }, enabled = idle) {
+                    Text(if (tool == CliTool.ANTIGRAVITY) "Google sign-in" else "Open CLI")
+                }
             }
         }
         Text("Gemini CLI stopped serving Google sign-in (free and Google AI Pro/Ultra) on 18 June 2026; Google points those users to the " +

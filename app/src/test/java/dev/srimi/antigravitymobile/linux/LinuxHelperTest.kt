@@ -57,6 +57,7 @@ class LinuxHelperTest {
             TermuxProtocol.result(null, null, null, 2, "RUN_COMMAND requires allow-external-apps property to be set to true", 1)
         }
         assertThrows(TermuxUnavailable.Failed::class.java) { TermuxProtocol.result(null, null, null, 1, "Executable not found", 1) }
+        assertThrows(TermuxUnavailable.Failed::class.java) { TermuxProtocol.result("", "", 0, 1, "Executable not found", 1) }
         val ok = TermuxProtocol.result("a=1", "", 0, -1, null, 1)
         assertTrue(ok.succeeded)
         assertFalse(TermuxProtocol.result("", "boom", 3, -1, null, 1).succeeded)

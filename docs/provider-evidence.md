@@ -1,4 +1,10 @@
-# Subscription evidence — updated 2 October 2026
+# Subscription evidence — updated 4 October 2026
+
+## Google Android CLI login — 4 October 2026 (0.7.2)
+
+The owner's request to fix Gemini login adds Accounts → **Gemini with Google sign-in**. It opens Google's official Android/Bionic Antigravity CLI inside Termux; Google handles OAuth, browser callback and credential storage. No credentials are imported into this app. The official [installer](https://antigravity.google/cli/install.sh) now selects `android_arm64` in Termux and checks its public manifest's SHA-512. The current client used in QA was 1.2.16, verified and executed on Android 12 ARM64. The app's real first-install action downloaded it in Termux and displayed Google OAuth; choosing it opened Google's sign-in page for Google Antigravity.
+
+**Completed account sign-in, entitlement and inference are still unverified.** Debian's CLI Agent backend remains sandbox-gated; this launcher does not enable it or transfer its account session. Native Gemini AI Studio keys remain separate, user-selected API access. [Official authentication](https://antigravity.google/docs/cli/install/) and [Google's consumer CLI transition](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/) describe the first-party route. The earlier direct-native Google restriction remains; it must not be read as denying the existence of Google's own CLI.
 
 ## Google account route — 2 October 2026
 

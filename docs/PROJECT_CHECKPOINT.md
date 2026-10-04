@@ -1,10 +1,22 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **2 October 2026** (0.7.0/code 13 signed and published as GitHub Latest; physical phone and CLI acceptance still open).
+Last updated **4 October 2026** (0.7.2/code 15 signed update prepared; publication verification pending; physical phone and live CLI acceptance still open).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## Latest published: 0.7.0/code 13 — 2 October 2026
+## Current update: 0.7.2/code 15 — 4 October 2026
+
+The owner requested CLI/Termux opening fixes, a working Allow button, Gemini login and a launched update. [Release record](RELEASE_0.7.2.md) records the signed APK, hashes, validation and limitations; [phone checklist](PHONE_TEST_0.7.2.md) gives the exact next steps.
+
+- Includes the unpublished 0.7.1 permission fix; foreground terminal Activity launch and preflight errors; CLI sign-in actions; a prominent Google sign-in action using the official Android/Bionic `agy` inside Termux without Debian. This is an explicit official-client launch, not a native subscription adapter or credential transfer. Agent sandbox gates remain closed.
+- Original signer, application ID, worker code 2 and Room v4 retained. Signed 0.5.2→0.7.2 emulator update retained the Spoon-Knife repository and its files. 166 JVM tests, both release lints and 19 targeted Android checks passed. Actual signed UI reproduced and fixed USER_FIXED permission recovery and opened the Google OAuth menu; live account completion and inference remain unverified.
+- Built in an isolated managed worktree to preserve concurrent build-cache/worker-code-3 edits and local save documents. Those edits are not part of this APK. Recovery: `~/.cache/antigravity-cli-fix-20261004/recovery/`; build/signing verification and UI evidence under its parent. Private signing key stayed local and excluded.
+- Main APK SHA-256 `8f3d9bc3aea5ed557cda836e4022e03683c19046769fdb63dcc274156cc48796` (306,282,142 bytes). Companion SHA-256 `da9788f32491923693ec6d7ea665b5de419238cb7067a3afb27707105368f4b1` (261,989,704 bytes); embedded copy matches.
+- Full product remains unaccepted: phone results, actual Google/Claude/ChatGPT subscription acceptance, confinement, and phone-only repository/build/install/launch tasks remain open. No credentials or paid requests were used.
+
+Next: verify GitHub publication and its asset hashes, then the owner installs the APK as an update and follows PHONE_TEST_0.7.2.md. Do not replay commands, regenerate the key, overwrite separate cache work, or call the full app complete.
+
+## Earlier published: 0.7.0/code 13 — 2 October 2026
 
 The owner requested fixes for the reviewed bugs and a new app version, authorizing the provider/Linux fixes along with bridge work. They then pushed the source and explicitly requested the new APK and release on GitHub. [v0.7.0](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.0) is now published as Latest. Release evidence: [RELEASE_0.7.0.md](RELEASE_0.7.0.md); earlier unsigned preparation: [RELEASE_CANDIDATE_0.7.0.md](RELEASE_CANDIDATE_0.7.0.md). Gate 0.7.0 and full-product acceptance are not complete.
 

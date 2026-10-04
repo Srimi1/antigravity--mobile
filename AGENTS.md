@@ -9,6 +9,10 @@
 
 These files describe the state saved on 1 October 2026 (see CONTINUE_WITH_ANY_AI.md). Verify the current checkout and newer changes before relying on version numbers, provider availability or test counts. Update the checkpoint when completing substantive work so the next agent can continue.
 
+## Current release continuation — 4 October 2026
+
+Current source: **0.7.2/code 15**, signed update for CLI/Termux opening, Allow permission recovery and Gemini/Google login. See `docs/RELEASE_0.7.2.md` and `docs/PHONE_TEST_0.7.2.md`. Main app stays native. At the owner's explicit request, Accounts can launch Google's own Android/Bionic CLI in Termux for Google OAuth; Debian is not needed for that action. This is separate from the native API-key account and from the still-gated Debian CLI Agent backend. Never transfer CLI credentials or open a sandbox gate merely because login opens. Worker remains code 2 and Room v4. 166 JVM tests, both release lints, 19 targeted Android checks and a data-preserving 0.5.2→0.7.2 emulator update passed; physical account/task acceptance remains open. Older version/test counts below are historical. Preserve any local build-cache/worker-code-3 edits; they are excluded from this release.
+
 ## User's current objective
 
 Build a **full native Android app** with Projects, Agent chat, Changes, Build and Accounts screens. Target phone: OnePlus 7 Pro, 12 GB RAM, 256 GB storage. Current source and Latest GitHub release is **0.5.2 (code 11)**: GitHub support, agent build/install tools, ChatGPT plus Gemini (AI Studio key) and Claude (Anthropic API key) providers. The owner reports the app working on the phone; see **[CONTINUE_WITH_ANY_AI.md](CONTINUE_WITH_ANY_AI.md)** for the complete 1 Oct 2026 handoff, decisions and next steps.

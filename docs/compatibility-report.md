@@ -1,8 +1,12 @@
 # Compatibility report
 
-Status: **CURRENT SOURCE AND LATEST PUBLISHED APK 0.7.0/code 13; full-product gate BLOCKED**. Current evidence is below and in the [release record](RELEASE_0.7.0.md). Earlier [candidate notes](RELEASE_CANDIDATE_0.7.0.md) and older milestone sections are historical. Physical-phone acceptance and live subscriptions remain unverified.
+Status: **SOURCE AND SIGNED UPDATE 0.7.2/code 15; full-product acceptance remains open**. [Current release evidence](RELEASE_0.7.2.md) takes precedence over historical milestone sections.
 
 Latest user-reported target: OnePlus 7 Pro, 12 GB RAM, 256 GB storage (earlier records said 7T Pro). Physical model, current Android and free storage remain uninspected. No physical device was used in QA. Android 10+ and `arm64-v8a` remain the app requirements.
+
+## 0.7.2 validation — 4 October 2026
+
+166 JVM tests and both release lints passed; 19 targeted API 36 instrumentation checks passed. Signed Android 12 update 0.5.2→0.7.2 preserved the existing repository (Room v3→v4). USER_FIXED Allow recovery, copied Termux setup, foreground CLI opening and the official Android `agy` Google OAuth menu were exercised. Google's browser sign-in page loaded without entering account credentials; completed sign-in/inference and the physical OnePlus remain unverified. An earlier Chrome ANR under concurrent host load is recorded in the release evidence. Worker remains code 2; CLI Agent confinement gates are unchanged. This is not a full connected suite or phone acceptance.
 
 ## 0.7.0 validation and publication — 2 October 2026
 

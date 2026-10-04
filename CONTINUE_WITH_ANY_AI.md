@@ -1,5 +1,8 @@
 # Antigravity Mobile — continuation prompt for any AI
 
+**Current handoff — 4 October 2026:** 0.7.2/code 15 signed CLI/Termux, permission and Google-login update. Read `docs/PROJECT_CHECKPOINT.md` and `docs/RELEASE_0.7.2.md` for the current validation/artifacts. Accounts opens Google's official Android CLI in Termux; completed sign-in/inference are unverified and the in-app CLI Agent sandbox gates remain closed. Worker code 2, Room v4, original signing key. 166 JVM tests, both release lints and 19 targeted Android checks passed; signed 0.5.2→0.7.2 retained repository files. Separate local save/cache work remains preserved and excluded. The older saved narrative below is historical; its version, foreground-service and blanket Google-route statements are superseded by the checkpoint. Full native phone-only app acceptance remains open.
+
+
 Saved **1 October 2026** at the user's request. Give this file and the project folder (or a clone of `https://github.com/Srimi1/antigravity--mobile`, branch `main`) to the next AI. It summarises everything done so far and how to continue. It is a development handoff, not a claim that the product is finished.
 
 ## 1. Instructions to the next AI

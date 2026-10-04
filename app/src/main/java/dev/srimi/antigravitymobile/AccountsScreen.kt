@@ -26,9 +26,10 @@ import dev.srimi.antigravitymobile.network.DiagnosticDetails
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Accounts", style = MaterialTheme.typography.headlineSmall)
-        Text("Credentials stay in Keystore-encrypted storage on this phone. Nothing switches providers on its own: the Agent uses only the account you choose.",
+        Text("Native account keys stay in Keystore-encrypted storage on this phone. CLI sign-ins stay in their official clients. The Agent uses only the account you choose.",
             style = MaterialTheme.typography.bodySmall)
         state.busy?.let { BusyRow(it, onCancel = model::cancel) }
+        dev.srimi.antigravitymobile.linux.GoogleCliSignInSection()
 
         state.accounts.forEach { account ->
             SectionCard(account.provider.label) {
@@ -118,7 +119,7 @@ import dev.srimi.antigravitymobile.network.DiagnosticDetails
     var removing by remember { mutableStateOf(false) }
     if (account.status == AccountStatus.DISCONNECTED) {
         Text("1. Open Google AI Studio and create an API key (free tier available). 2. Paste it here. " +
-            "This uses the Gemini API. For Google AI Pro/Ultra, use the official Antigravity CLI sign-in in the CLI accounts section below.",
+            "This uses the Gemini API. For your Google account, use Sign in with Google above.",
             style = MaterialTheme.typography.bodySmall)
         OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/apikey"))) }) {
             Text("Get a key in AI Studio")

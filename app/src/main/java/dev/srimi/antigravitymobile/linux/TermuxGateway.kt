@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger
 @android.annotation.SuppressLint("SdCardPath")
 object TermuxProtocol {
     const val PACKAGE = "com.termux"
+    const val ACTIVITY = "com.termux.app.TermuxActivity"
     const val X11_PACKAGE = "com.termux.x11"
     const val X11_ACTIVITY = "com.termux.x11.MainActivity"
     const val PERMISSION = "com.termux.permission.RUN_COMMAND"
@@ -39,14 +40,14 @@ object TermuxProtocol {
     const val BASH = "$PREFIX/bin/bash"
     /** The one-time step the user runs in Termux so other apps may send commands. */
     const val ALLOW_EXTERNAL_APPS_COMMAND =
-        "mkdir -p ~/.termux && echo 'allow-external-apps=true' >> ~/.termux/termux.properties && termux-reload-settings"
+        "mkdir -p ~/.termux && printf '\\nallow-external-apps=true\\n' >> ~/.termux/termux.properties && termux-reload-settings && echo 'Done. Return to Antigravity Mobile.'"
 
     /** Maps Termux's result bundle values; throws when Termux refused to run the command at all. */
     fun result(stdout: String?, stderr: String?, exitCode: Int?, err: Int?, errmsg: String?, durationMs: Long): TermuxResult {
         val message = errmsg?.take(2_000)
         if (err != null && err != -1 && message != null) {
             if (message.contains("allow-external-apps", ignoreCase = true)) throw TermuxUnavailable.ExternalAppsDisabled()
-            if (exitCode == null) throw TermuxUnavailable.Failed("Termux could not run the command: ${message.lineSequence().first().take(200)}")
+            throw TermuxUnavailable.Failed("Termux could not run the command: ${message.lineSequence().first().take(200)}")
         }
         return TermuxResult(exitCode, stdout.orEmpty(), stderr.orEmpty(), err, message, durationMs)
     }
@@ -75,6 +76,16 @@ class AndroidTermuxGateway(context: Context) : TermuxGateway {
             version(TermuxProtocol.X11_PACKAGE) != null)
     }
 
+    /** Starting a terminal service alone does not bring Termux to the foreground on Android 10+. */
+    fun openApp() {
+        if (!status().installed) throw TermuxUnavailable.NotInstalled()
+        val intent = app.packageManager.getLaunchIntentForPackage(TermuxProtocol.PACKAGE)
+            ?: Intent(Intent.ACTION_MAIN).setClassName(TermuxProtocol.PACKAGE, TermuxProtocol.ACTIVITY)
+                .addCategory(Intent.CATEGORY_LAUNCHER)
+        try { app.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        catch (_: Exception) { throw TermuxUnavailable.Failed("Android could not open Termux. Open Termux from your phone's app list and finish its first-time setup, then retry.") }
+    }
+
     override suspend fun run(command: TermuxCommand): TermuxResult {
         val status = status()
         if (!status.installed) throw TermuxUnavailable.NotInstalled()
@@ -84,18 +95,21 @@ class AndroidTermuxGateway(context: Context) : TermuxGateway {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) { reply.complete(intent.getBundleExtra(TermuxProtocol.RESULT_BUNDLE) ?: Bundle()) }
         }
-        if (Build.VERSION.SDK_INT >= 33) app.registerReceiver(receiver, IntentFilter(action), Context.RECEIVER_NOT_EXPORTED)
-        else @Suppress("UnspecifiedRegisterReceiverFlag") app.registerReceiver(receiver, IntentFilter(action))
-        val callback = PendingIntent.getBroadcast(app, requestCodes.incrementAndGet(), Intent(action).setPackage(app.packageName),
-            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_MUTABLE)
+        if (command.background) {
+            if (Build.VERSION.SDK_INT >= 33) app.registerReceiver(receiver, IntentFilter(action), Context.RECEIVER_NOT_EXPORTED)
+            else @Suppress("UnspecifiedRegisterReceiverFlag") app.registerReceiver(receiver, IntentFilter(action))
+        }
+        // Interactive CLI output and login codes stay in Termux, never in this app's result receiver.
+        val callback = if (command.background) PendingIntent.getBroadcast(app, requestCodes.incrementAndGet(), Intent(action).setPackage(app.packageName),
+            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_MUTABLE) else null
         val started = System.currentTimeMillis()
         try {
             val intent = Intent(TermuxProtocol.ACTION).setClassName(TermuxProtocol.PACKAGE, TermuxProtocol.SERVICE)
                 .putExtra(TermuxProtocol.EXTRA_PATH, command.executable)
                 .putExtra(TermuxProtocol.EXTRA_ARGUMENTS, command.arguments.toTypedArray())
                 .putExtra(TermuxProtocol.EXTRA_BACKGROUND, command.background)
-                .putExtra(TermuxProtocol.EXTRA_PENDING_INTENT, callback)
                 .apply {
+                    callback?.let { putExtra(TermuxProtocol.EXTRA_PENDING_INTENT, it) }
                     command.stdin?.let { putExtra(TermuxProtocol.EXTRA_STDIN, it) }
                     command.workingDirectory?.let { putExtra(TermuxProtocol.EXTRA_WORKDIR, it) }
                     command.label?.let { putExtra(TermuxProtocol.EXTRA_LABEL, it) }
@@ -106,8 +120,11 @@ class AndroidTermuxGateway(context: Context) : TermuxGateway {
                 app.startForegroundService(intent) ?: throw TermuxUnavailable.NotInstalled()
             } catch (denied: SecurityException) { throw TermuxUnavailable.PermissionDenied() }
             catch (background: IllegalStateException) { throw TermuxUnavailable.Failed("Android blocked starting Termux from the background; open Antigravity Mobile and retry") }
-            // A foreground terminal reports only when the user closes it; opening it is the result.
-            if (!command.background) return TermuxResult(null, "", "", null, null, System.currentTimeMillis() - started)
+            // Android can defer foreground terminal commands until Termux's Activity is opened.
+            if (!command.background) {
+                openApp()
+                return TermuxResult(null, "", "", null, null, System.currentTimeMillis() - started)
+            }
             val bundle = withTimeoutOrNull(command.timeoutMs) { reply.await() } ?: throw TermuxUnavailable.TimedOut(command.timeoutMs)
             val result = try {
                 TermuxProtocol.result(bundle.getString("stdout"), bundle.getString("stderr"),
@@ -117,8 +134,8 @@ class AndroidTermuxGateway(context: Context) : TermuxGateway {
             prefs.edit().putBoolean("externalApps", true).apply()
             return result
         } finally {
-            runCatching { app.unregisterReceiver(receiver) }
-            callback.cancel()
+            if (command.background) runCatching { app.unregisterReceiver(receiver) }
+            callback?.cancel()
         }
     }
 }

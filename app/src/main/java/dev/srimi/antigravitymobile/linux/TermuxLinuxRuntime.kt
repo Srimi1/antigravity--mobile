@@ -161,6 +161,13 @@ class TermuxLinuxRuntime(context: Context, private val termux: TermuxGateway = A
     }
 
     /** Opens a Termux terminal already inside Debian, for the official CLI's own sign-in. */
-    suspend fun openTerminal(): TermuxResult = termux.run(TermuxCommand("${TermuxProtocol.PREFIX}/bin/proot-distro",
-        listOf("login", "agm-debian"), background = false, timeoutMs = 15_000, label = "Debian (Antigravity Mobile)"))
+    suspend fun openTerminal(tool: CliTool? = null): TermuxResult {
+        // Unlike an interactive session, this returns an immediate result for permission, settings,
+        // missing Debian and missing executables. Never claim the terminal opened after a failed check.
+        val ready = termux.run(LinuxTerminalCommands.preflight(tool))
+        if (!ready.succeeded) throw TermuxUnavailable.Failed(
+            "Could not start ${tool?.label ?: "Debian"}. Install it in Build/Accounts first. " +
+                ready.stderr.lineSequence().lastOrNull { it.isNotBlank() }.orEmpty().take(160))
+        return termux.run(LinuxTerminalCommands.open(tool))
+    }
 }

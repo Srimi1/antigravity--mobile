@@ -1,13 +1,11 @@
-# Gemini models with a Google login
+# Gemini with a Google account (0.7.2)
 
-Use Google's official **Antigravity CLI (`agy`)** for personal Google account access. Consumer Gemini CLI login moved to that product; enterprise and API-key routes differ. [Google announcement](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/).
+1. Install the signed 0.7.2 app update. Open **Accounts → Gemini with Google sign-in**.
+2. Use **Allow**. If Android stopped showing its dialog, follow App info → Permissions → Additional permissions → Run commands in Termux environment → Allow.
+3. Use **Copy setup and open Termux**, paste and press Enter. After **Done**, return to the app.
+4. Tap **Sign in with Google**. The official Google installer selects its Android ARM64 client in Termux and verifies the downloaded checksum. Debian is not needed for this login. Choose **Google OAuth** and complete the browser sign-in in Google's own client.
+5. Run a small coding request in the CLI to confirm a real Gemini response. Login completion, subscription entitlement, renewal/logout and physical-phone stability still need the owner's results.
 
-The app has an adapter for `agy`, but it is **disabled** until its phone capability gate passes. Its account panel does not establish live inference. No direct native consumer subscription adapter or credential extraction is provided.
+The app does not read CLI tokens, OAuth codes or passwords. This login does not connect the native AI Studio-key account or unlock the app's Debian CLI Agent backend. That backend still requires a passing confinement check. Keys and API billing remain separate and are never selected automatically.
 
-1. In **Build → Linux setup**, install Debian and the base packages in Termux. 0.7.0 includes the required `python3` package.
-2. In **Accounts → CLI accounts**, install Antigravity CLI and open the Debian terminal.
-3. Launch `agy`; complete Google's sign-in yourself inside its documented browser/keyring flow. Never paste passwords, OAuth codes or tokens into the app chat or a bug report. Android/proot browser and keyring compatibility remain unverified. [Official authentication guide](https://antigravity.google/docs/cli/install/).
-4. Run `agy models` and choose an available Gemini model using `/model` or a documented `--model` slug. Model availability depends on your account. [Official model/headless guide](https://antigravity.google/docs/cli/headless/).
-5. A real successful response is required to confirm access. App integration additionally needs a documented sandbox check that refuses outside-workspace writes on the phone. `--sandbox` alone is not evidence that confinement works.
-
-Until those checks pass, the app's native **Gemini (AI Studio key)** provider is the existing, separately selected API route. It uses an API key and its API allowance/billing, not a Google AI Pro/Ultra login. No automatic fallback is used.
+[Phone checklist](PHONE_TEST_0.7.2.md) · [Google authentication documentation](https://antigravity.google/docs/cli/install/) · [Official installer](https://antigravity.google/cli/install.sh) · [Google's CLI transition](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
