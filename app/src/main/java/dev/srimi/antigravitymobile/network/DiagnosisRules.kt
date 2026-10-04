@@ -42,10 +42,14 @@ object DiagnosisRules {
             f.tlsOk == false -> Triple(ConnectionStage.Tls, "A secure (TLS) connection to ${f.host} could not be made" +
                 (f.tlsError?.let { " ($it)" } ?: "") + ". Something on the path may be intercepting it.",
                 "Check that the phone's date and time are set automatically. If they are, this ${net(f)} (or a VPN/filter app) is interfering; try ${other(f)}.")
-            f.networkChanges > 0 -> Triple(null, "The phone switched networks during the request; the connection to ${f.host} works now.",
+            // A passing probe only shows DNS, TCP and TLS worked at probe time. It cannot see HTTP-level filtering,
+            // stream interruptions or faults that came and went, so it never rules the network out.
+            f.networkChanges > 0 -> Triple(null, "The phone's network changed in the last few minutes, which can interrupt a request. " +
+                "A fresh check just now reached ${f.host} (DNS, connection and TLS worked).",
                 "Retry the request.")
-            else -> Triple(null, "The network reached ${f.host} normally (DNS, connection and TLS all worked). If a request failed, the cause was the provider or the app, not this network.",
-                null)
+            else -> Triple(null, "A check just now reached ${f.host}: DNS, connection and TLS worked. " +
+                "This does not rule out a brief network drop or filtering of the request itself; if retrying fails the same way, the provider or the app is the more likely cause.",
+                "Retry the request.")
         }
         return DiagnosticReport(f.host, now, f.transport, f.networkAvailable, f.validated, f.captivePortal, f.vpnActive,
             f.privateDns, f.privateDnsServer, f.resolvedAddresses, stage, summary, recovery, f.networkChanges)

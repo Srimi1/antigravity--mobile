@@ -46,7 +46,25 @@ pd_kind() {
 installed() { [ -d "$ROOTFS" ]; }
 # Plain login: --shared-tmp would expose proot's own temp files (in Termux's tmp) to apt and break it.
 in_debian() { "$PD" login "$NAME" -- "$@"; }
-alive() { [ -f "$1" ] && kill -0 "$(cat "$1")" 2>/dev/null; }
+# PID files hold "pid starttime" (field 22 of /proc/<pid>/stat). A PID is ours only while that process still has
+# the recorded start time, so a stale file whose number was reused by an unrelated process is never signalled.
+start_time() { [ -r "/proc/$1/stat" ] && sed 's/.*) //' "/proc/$1/stat" | cut -d' ' -f20; }
+record_pid() { echo "$2 $(start_time "$2")" > "$1"; }
+owned_pid() {
+  local pid stamp now
+  [ -f "$1" ] || return 1
+  read -r pid stamp < "$1" || [ -n "$pid" ] || return 1
+  case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+  kill -0 "$pid" 2>/dev/null || return 1
+  now="$(start_time "$pid")"
+  if [ -n "$stamp" ]; then [ -n "$now" ] && [ "$now" = "$stamp" ] || return 1
+  else
+    # File written by an older helper without a stamp: accept only a process that is visibly ours.
+    grep -aqE 'agm-linux|termux-x11' "/proc/$pid/cmdline" 2>/dev/null || return 1
+  fi
+  echo "$pid"
+}
+alive() { owned_pid "$1" >/dev/null; }
 size_kb() { if [ -e "$1" ]; then du -sk "$1" 2>/dev/null | cut -f1; else echo 0; fi; }
 
 cli_path() {
@@ -108,7 +126,7 @@ detach() {
   else
     nohup bash "$SELF" "$@" >> "$AGM_HOME/$job.log" 2>&1 < /dev/null &
   fi
-  echo $! > "$AGM_HOME/$job.pid"
+  record_pid "$AGM_HOME/$job.pid" $!
   kv state running
 }
 
@@ -207,7 +225,7 @@ cmd_start() {
   # Termux:X11's documented form: the X server starts and owns the session (-xstartup), so they live and stop together.
   setsid nohup termux-x11 :1 -xstartup "$PD login $NAME --shared-x11 -- env DISPLAY=:1 dbus-launch --exit-with-session startxfce4" \
     > "$AGM_HOME/desktop.log" 2>&1 < /dev/null &
-  echo $! > "$AGM_HOME/desktop.pid"
+  record_pid "$AGM_HOME/desktop.pid" $!
   rm -f "$AGM_HOME/x11.pid"
   sleep 3
   alive "$AGM_HOME/desktop.pid" || die "desktop-exited: $(tail -n 3 "$AGM_HOME/desktop.log" | tr '\n' ' ')" 5
@@ -216,13 +234,13 @@ cmd_start() {
 
 # Stops only processes this helper started (recorded pid files).
 cmd_stop() {
-  local f
+  local f pid
   for f in desktop x11; do
-    if alive "$AGM_HOME/$f.pid"; then
+    if pid="$(owned_pid "$AGM_HOME/$f.pid")"; then
       # The recorded PID leads its own session/process group (setsid), so the group holds exactly what we started.
-      kill -TERM -- "-$(cat "$AGM_HOME/$f.pid")" 2>/dev/null
-      pkill -TERM -P "$(cat "$AGM_HOME/$f.pid")" 2>/dev/null
-      kill -TERM "$(cat "$AGM_HOME/$f.pid")" 2>/dev/null
+      kill -TERM -- "-$pid" 2>/dev/null
+      pkill -TERM -P "$pid" 2>/dev/null
+      kill -TERM "$pid" 2>/dev/null
     fi
     rm -f "$AGM_HOME/$f.pid"
   done
@@ -275,6 +293,7 @@ case "${1:-status}" in
   clis) cmd_clis ;;
   start) cmd_start "${2:-shell}" ;;
   stop) cmd_stop ;;
+  _owned) owned_pid "${2:-}" || exit 1 ;;
   storage) cmd_storage ;;
   cleanup) shift; cmd_cleanup "$@" ;;
   *) die "unknown-command" 2 ;;

@@ -241,7 +241,8 @@ class NativeAgentTaskRunner(
                 override val providerId = delegate.providerId
                 override fun cancel() = delegate.cancel()
                 override fun streamAgentTurn(request: AgentRequest): Flow<ProviderEvent> = flow {
-                    if (current.providerSelection != services.agentSelection(current.providerId))
+                    // Tasks recorded before model pinning have no snapshot; they keep the earlier behaviour.
+                    if (current.providerSelection != null && current.providerSelection != services.agentSelection(current.providerId))
                         throw ProviderSelectionChanged()
                     emitAll(delegate.streamAgentTurn(request))
                 }

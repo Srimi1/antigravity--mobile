@@ -194,4 +194,20 @@ class ChangeServiceTest {
         assertEquals("REVIEW", stored.status)
         assertTrue(stored.detail, stored.detail.contains("A.kt"))
     }
+
+    @Test fun reviewedFinalTakesTheLatestAcceptedResultPerPath() = runBlocking {
+        var now = 1L
+        val ledger = ChangeService(dao, File(base, "snapshots5"), clock = { now++ })
+        workspace.write("A.kt", "a0"); workspace.write("B.kt", "b0")
+        val first = ledger.open("p", "c", "First")
+        ledger.apply(first.id, workspace, "A.kt", "a1".toByteArray())
+        ledger.apply(first.id, workspace, "B.kt", null)
+        ledger.finish(first.id)
+        val second = ledger.open("p", "c", "Second")
+        ledger.apply(second.id, workspace, "A.kt", "a2".toByteArray())
+        ledger.finish(second.id)
+        val reviewed = ledger.reviewedFinal(listOf(second.id, first.id))
+        assertEquals("a2", String(reviewed.getValue("A.kt")!!))
+        assertTrue(reviewed.containsKey("B.kt")); assertNull(reviewed["B.kt"])
+    }
 }

@@ -164,6 +164,13 @@ class ProviderRegistryTest {
         assertFalse(ProviderRegistry.validCustomUrl("http://omniroute.example.com/v1"))
         assertFalse(ProviderRegistry.validCustomUrl("https://user:pass@example.com/v1"))
         assertFalse(ProviderRegistry.validCustomUrl("https://example.com/v1?key=x"))
+        // Matches the cleartext policy (127.0.0.1 only) and uses a real URL parser.
+        assertFalse(ProviderRegistry.validCustomUrl("http://localhost:20128/v1"))
+        assertFalse(ProviderRegistry.validCustomUrl("https://example.com#frag"))
+        assertFalse(ProviderRegistry.validCustomUrl("https://exa mple.com/v1"))
+        assertFalse(ProviderRegistry.validCustomUrl("ftp://example.com/v1"))
+        assertFalse(ProviderRegistry.validCustomUrl("https://example.com:99999/v1"))
+        assertTrue(ProviderRegistry.validCustomUrl("HTTPS://Example.com:8443/v1"))
         assertEquals(AllowanceClass.Paid, ProviderRegistry.custom("https://x.example/v1", "").descriptor.allowanceClass)
     }
 }

@@ -120,14 +120,20 @@ object ProviderRegistry {
         FreeRule.Listed(emptySet()), CompatQuirks(keyOptional = true),
         "Your endpoint decides where requests go. No automatic routing: only the model you select is used.")
 
-    /** Accepts https URLs, or http only for this phone (127.0.0.1/localhost, e.g. a local OmniRoute). */
+    /**
+     * Accepts https URLs, or http only for 127.0.0.1 on this phone (for example a local OmniRoute); that is the only
+     * cleartext host the app's network security config permits, so http://localhost is refused here rather than
+     * failing later. Parsed with [java.net.URI]; user info, query and fragment are refused.
+     */
     fun validCustomUrl(url: String): Boolean {
-        val trimmed = url.trim()
-        val host = trimmed.substringAfter("://").substringBefore('/').substringBefore(':').lowercase()
-        return when {
-            trimmed.startsWith("https://") -> host.matches(Regex("[a-z0-9.-]{1,253}")) && '.' in host || host == "localhost"
-            trimmed.startsWith("http://") -> host == "127.0.0.1" || host == "localhost"
+        val uri = runCatching { java.net.URI(url.trim()) }.getOrNull() ?: return false
+        val host = uri.host?.lowercase() ?: return false
+        if (uri.rawUserInfo != null || uri.rawQuery != null || uri.rawFragment != null || '@' in url) return false
+        if (uri.port != -1 && uri.port !in 1..65535) return false
+        return when (uri.scheme?.lowercase()) {
+            "https" -> host == "localhost" || host == "127.0.0.1" || (host.matches(Regex("[a-z0-9.-]{1,253}")) && '.' in host && !host.startsWith('.') && !host.endsWith('.'))
+            "http" -> host == "127.0.0.1"
             else -> false
-        } && !trimmed.contains('@') && !trimmed.contains('?') && !trimmed.contains('#')
+        }
     }
 }

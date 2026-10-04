@@ -46,22 +46,31 @@ import androidx.compose.ui.unit.sp
     }
 }
 
-/** Colored unified diff. Long lines scroll horizontally rather than wrapping. */
+/**
+ * Colored unified diff. Long lines scroll horizontally rather than wrapping. Large diffs show [maxLines]
+ * at a time with a control to reveal more, so the whole change can always be reviewed before approving.
+ */
 @Composable fun DiffView(diff: String, maxLines: Int = 400) {
-    val lines = diff.lines()
-    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
-        .horizontalScroll(rememberScrollState()).padding(8.dp)) {
-        lines.take(maxLines).forEach { line ->
-            val color = when {
-                line.startsWith("+++") || line.startsWith("---") -> MaterialTheme.colorScheme.onSurfaceVariant
-                line.startsWith("+") -> Color(0xFF3FA66B)
-                line.startsWith("-") -> Color(0xFFE0605A)
-                line.startsWith("@@") -> MaterialTheme.colorScheme.secondary
-                else -> MaterialTheme.colorScheme.onSurface
+    val lines = remember(diff) { diff.lines() }
+    var shown by remember(diff) { mutableStateOf(maxLines) }
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)).padding(8.dp)) {
+        Column(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+            lines.take(shown).forEach { line ->
+                val color = when {
+                    line.startsWith("+++") || line.startsWith("---") -> MaterialTheme.colorScheme.onSurfaceVariant
+                    line.startsWith("+") -> Color(0xFF3FA66B)
+                    line.startsWith("-") -> Color(0xFFE0605A)
+                    line.startsWith("@@") -> MaterialTheme.colorScheme.secondary
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
+                Text(line.ifEmpty { " " }, color = color, fontFamily = FontFamily.Monospace, fontSize = 12.sp, softWrap = false)
             }
-            Text(line.ifEmpty { " " }, color = color, fontFamily = FontFamily.Monospace, fontSize = 12.sp, softWrap = false)
         }
-        if (lines.size > maxLines) Text("… ${lines.size - maxLines} more lines", style = MaterialTheme.typography.labelSmall)
+        if (lines.size > shown) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("${lines.size - shown} more lines", style = MaterialTheme.typography.labelSmall)
+            TextButton(onClick = { shown += maxLines }) { Text("Show more") }
+            TextButton(onClick = { shown = lines.size }) { Text("Show all") }
+        }
     }
 }
 

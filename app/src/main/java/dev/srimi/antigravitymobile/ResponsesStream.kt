@@ -113,7 +113,7 @@ object ResponsesWire {
             val code = (error?.optString("code").orEmpty().ifEmpty { error?.optString("type").orEmpty() })
                 .takeIf { it.matches(Regex("[A-Za-z0-9_.-]{1,64}")) }
             val message = (error?.optString("message") ?: json?.optString("detail")).orEmpty()
-                .replace(Regex("\\s+"), " ").replace(Regex("(?i)bearer\\s+\\S+|sk-[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_.-]+"), "[redacted]").take(200)
+                .replace(Regex("\\s+"), " ").replace(Regex("(?i)bearer\\s+\\S+|sk-[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_.-]+"), "[redacted]").let(SafeText::redact).take(200)
             return "OpenAI replied HTTP $status ($type)" + (code?.let { ": $it" } ?: "") + (if (message.isNotBlank()) " — $message" else "")
         }
         return when {

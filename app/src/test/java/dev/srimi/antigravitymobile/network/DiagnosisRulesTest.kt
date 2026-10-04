@@ -48,11 +48,17 @@ class DiagnosisRulesTest {
         assertTrue(tls.recovery!!.contains("date and time"))
     }
 
-    @Test fun healthyPathBlamesProviderAndNetworkSwitchSaysRetry() {
+    @Test fun healthyProbeStaysConditionalAndSaysRetry() {
         val ok = DiagnosisRules.explain(healthy)
         assertNull(ok.failedStage)
-        assertNull(ok.recovery)
-        assertEquals("Retry the request.", DiagnosisRules.explain(healthy.copy(networkChanges = 2)).recovery)
+        assertEquals("Retry the request.", ok.recovery)
+        // A passing probe must not claim the network is ruled out or that a change happened during the request.
+        assertFalse(ok.summary, ok.summary.contains("not this network"))
+        assertTrue(ok.summary, ok.summary.contains("does not rule out"))
+        val switched = DiagnosisRules.explain(healthy.copy(networkChanges = 2))
+        assertEquals("Retry the request.", switched.recovery)
+        assertFalse(switched.summary, switched.summary.contains("during the request"))
+        assertTrue(switched.summary, switched.summary.contains("last few minutes"))
     }
 }
 

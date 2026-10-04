@@ -123,7 +123,7 @@ class CompatStreamParser(private val providerLabel: String) {
         val json = runCatching { JSONObject(raw) }.getOrElse { throw ProviderFailure.Unknown("$providerLabel sent an unreadable event") }
         json.optJSONObject("error")?.let { error ->
             val code = error.opt("code")?.toString().orEmpty().take(64)
-            val message = error.optString("message").replace(Regex("\\s+"), " ").take(200)
+            val message = dev.srimi.antigravitymobile.SafeText.redact(error.optString("message").replace(Regex("\\s+"), " ")).take(200)
             throw FailureClassifier.http(error.optInt("status", error.optInt("code", 0)).takeIf { it in 100..599 } ?: 500,
                 "$providerLabel failed during the reply" + (if (code.isNotEmpty()) " ($code)" else "") + (if (message.isNotEmpty()) " — $message" else ""), code)
         }

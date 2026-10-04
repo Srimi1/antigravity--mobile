@@ -167,6 +167,17 @@ class ChangeService(
         if (before.contentEqualsNullable(after)) null else FileDiff(file.path, before, after)
     }
 
+    /**
+     * Final reviewed bytes per path across [setIds], later sets overriding earlier ones (by creation time).
+     * Null means the reviewed result is a deletion.
+     */
+    suspend fun reviewedFinal(setIds: List<String>): Map<String, ByteArray?> {
+        val sets = setIds.mapNotNull { dao.findSet(it) }.sortedWith(compareBy({ it.createdAt }, { it.id }))
+        val result = linkedMapOf<String, ByteArray?>()
+        sets.forEach { set -> diffs(set.id).forEach { result[it.path] = it.after } }
+        return result
+    }
+
     suspend fun accept(setId: String) = transition(setId, setOf("REVIEW"), "ACCEPTED", "Kept. Commit it from Changes or the Git panel.")
 
     /**

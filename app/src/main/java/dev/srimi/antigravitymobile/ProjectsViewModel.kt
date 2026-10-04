@@ -328,7 +328,7 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
                         ?.copy(original = editor.text, baseline = bytes)
                     state.copy(editor = saved ?: state.editor, message = "Saved ${editor.path}")
                 }
-                refreshGit()
+                refreshFiles(); refreshGit()
             } catch (error: Exception) { mutable.update { it.copy(message = "Save failed: ${friendly(error)}") } }
         }
     }
@@ -433,8 +433,11 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
     }
 }
 
-/** Short, user-facing error text. Never includes credentials: our own messages and exception types only. */
+/**
+ * Short, user-facing error text: the first line of the message, passed through [SafeText.redact] because library
+ * exceptions (JGit, OkHttp, SDKs) can quote URLs or headers.
+ */
 fun friendly(error: Throwable): String {
-    val message = error.message?.lineSequence()?.firstOrNull()?.take(240)
+    val message = error.message?.lineSequence()?.firstOrNull()?.let(SafeText::redact)?.take(240)
     return if (message.isNullOrBlank()) error.javaClass.simpleName else message
 }

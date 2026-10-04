@@ -37,7 +37,7 @@ class CompatProvidersTest {
     @Test fun changingCustomEndpointRequiresItsOwnToolVerification() = runBlocking {
         withProviders { providers, server, usage ->
             val id = ProviderRegistry.CUSTOM
-            providers.setCustom(server.url("/endpoint-a/v1").toString(), "A")
+            providers.setCustom(server.url("/endpoint-a/v1").toString().replace("//localhost:", "//127.0.0.1:"), "A")
             server.enqueue(catalog())
             providers.saveKey(id, "fixture-key-only")
             providers.freeOnly = false
@@ -48,7 +48,7 @@ class CompatProvidersTest {
             assertNotNull(providers.verifiedAt(id, "same-model"))
             assertTrue(usage.models(id).single().toolCallingVerified)
 
-            providers.setCustom(server.url("/endpoint-b/v1").toString(), "B")
+            providers.setCustom(server.url("/endpoint-b/v1").toString().replace("//localhost:", "//127.0.0.1:"), "B")
             assertNull("endpoint B never passed the check", providers.verifiedAt(id, "same-model"))
             assertFalse(providers.hasKey(id))
             assertNull(providers.model(id))
@@ -78,7 +78,7 @@ class CompatProvidersTest {
         }
         withProviders(usage) { providers, server, _ ->
             val id = ProviderRegistry.CUSTOM
-            providers.setCustom(server.url("/a/v1").toString(), "A")
+            providers.setCustom(server.url("/a/v1").toString().replace("//localhost:", "//127.0.0.1:"), "A")
             providers.freeOnly = false
             server.enqueue(toolCall())
             val probe = async(Dispatchers.IO) { providers.verifyToolCalling(id, "same-model") }
@@ -86,7 +86,7 @@ class CompatProvidersTest {
             val changing = CompletableDeferred<Unit>()
             val change = async(Dispatchers.IO) {
                 changing.complete(Unit)
-                providers.setCustom(server.url("/b/v1").toString(), "B")
+                providers.setCustom(server.url("/b/v1").toString().replace("//localhost:", "//127.0.0.1:"), "B")
             }
             try {
                 changing.await()

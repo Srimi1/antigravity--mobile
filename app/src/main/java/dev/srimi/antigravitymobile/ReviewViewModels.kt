@@ -11,6 +11,8 @@ data class ChangesState(
     val project: ProjectRecord? = null,
     val sets: List<ChangeSetRecord> = emptyList(),
     val files: Map<String, List<FileReview>> = emptyMap(),
+    /** Change sets whose diff could not be loaded; Keep stays disabled for them. */
+    val loadErrors: Map<String, String> = emptyMap(),
     val isRepo: Boolean = false,
     val busy: Boolean = false,
     val message: String? = null,
@@ -47,15 +49,24 @@ class ChangesViewModel(application: Application) : AndroidViewModel(application)
 
     fun load(setId: String, force: Boolean = false) {
         if (!force && setId in state.value.files) return
+        val projectId = state.value.project?.id ?: return
         viewModelScope.launch {
-            val reviews = withContext(Dispatchers.IO) {
-                services.changes.diffs(setId).map { diff ->
-                    val text = TextDiff.unified(diff.path, diff.before, diff.after)
-                    val (added, removed) = TextDiff.stats(text)
-                    FileReview(diff.path, diff.kind, text, added, removed)
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    services.changes.diffs(setId).map { diff ->
+                        val text = TextDiff.unified(diff.path, diff.before, diff.after)
+                        val (added, removed) = TextDiff.stats(text)
+                        FileReview(diff.path, diff.kind, text, added, removed)
+                    }
                 }
             }
-            mutable.update { it.copy(files = it.files + (setId to reviews)) }
+            result.exceptionOrNull()?.let { if (it is CancellationException) throw it }
+            mutable.update { state ->
+                if (state.project?.id != projectId) state
+                else result.fold(
+                    { state.copy(files = state.files + (setId to it), loadErrors = state.loadErrors - setId) },
+                    { error -> state.copy(files = state.files - setId, loadErrors = state.loadErrors + (setId to friendly(error))) })
+            }
         }
     }
 
@@ -67,7 +78,11 @@ class ChangesViewModel(application: Application) : AndroidViewModel(application)
             mutable.update { it.copy(busy = false, message = message) }
         }
     }
-    fun accept(setId: String) = action { services.changes.accept(setId); "Kept. Commit accepted changes when ready." }
+    fun accept(setId: String) {
+        // Keep means "I reviewed this diff": only allowed once it has loaded.
+        if (state.value.files[setId] == null) return
+        action { services.changes.accept(setId); "Kept. Commit accepted changes when ready." }
+    }
     fun revert(setId: String) {
         // Bind the project when the owner taps Revert, not when the IO work runs: a project switch in
         // between must not restore this set's files into another project.
@@ -83,7 +98,15 @@ class ChangesViewModel(application: Application) : AndroidViewModel(application)
         check(services.git.isRepository(dir)) { "Initialize Git for this project in Projects first" }
         val accepted = state.value.sets.filter { it.status == "ACCEPTED" }
         check(accepted.isNotEmpty()) { "Accept a change set first" }
-        val paths = accepted.flatMap { services.changes.diffs(it.id).map(ChangeService.FileDiff::path) }.distinct()
+        // Commit only what was reviewed: every path must still hold the bytes of its latest accepted diff.
+        val reviewed = services.changes.reviewedFinal(accepted.map { it.id })
+        val workspace = services.workspace(project)
+        val changed = reviewed.filter { (path, bytes) ->
+            val current = if (workspace.exists(path) && !workspace.isDirectory(path)) workspace.readBytes(path) else null
+            !current.contentEqualsNullable(bytes)
+        }.keys
+        check(changed.isEmpty()) { "Changed after you kept them: ${changed.joinToString()}. Commit from the Git panel to include those edits, or revert them first." }
+        val paths = reviewed.keys.toList()
         val commit = services.git.commit(dir, message, services.author(), paths)
         services.changes.markCommitted(accepted.map { it.id }, commit)
         "Committed ${paths.size} file(s) as ${commit.take(10)}"
@@ -193,8 +216,9 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     fun saveGeminiKey(key: String) = run("Check Gemini key") {
         val models = services.gemini.saveKey(key)
         mutable.update { it.copy(geminiModels = models) }
-        if (services.chatgpt.accountState().status == AccountStatus.DISCONNECTED) services.agentProvider = ProviderId.GEMINI
-        "Key accepted by Google and saved in Keystore-encrypted storage. ${models.size} Gemini model(s) available."
+        // Saving an account never changes which provider (and billing) future tasks use; that is "Use for Agent".
+        "Key accepted by Google and saved in Keystore-encrypted storage. ${models.size} Gemini model(s) available." +
+            if (services.agentProvider != ProviderId.GEMINI) " Tap Use for Agent to send tasks to Gemini." else ""
     }
     fun removeGeminiKey() = run("Remove Gemini key") {
         services.gemini.removeKey()

@@ -57,7 +57,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
                     }
                     if (open) {
                         val files = state.files[set.id]
-                        if (files == null) Text("Loading diff…")
+                        val failed = state.loadErrors[set.id]
+                        if (files == null && failed != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Diff could not be loaded: $failed", color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { model.load(set.id, force = true) }) { Text("Retry") }
+                        }
+                        else if (files == null) Text("Loading diff…")
                         else files.forEach { file ->
                             Text("${file.kind}  ${file.path}  +${file.added} −${file.removed}", fontFamily = FontFamily.Monospace,
                                 style = MaterialTheme.typography.labelLarge)
@@ -65,7 +70,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
                         }
                     }
                     if (set.status == "REVIEW" || set.status == "ACCEPTED") Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (set.status == "REVIEW") Button(onClick = { model.accept(set.id) }, enabled = !state.busy) { Text("Keep") }
+                        if (set.status == "REVIEW") Button(onClick = { model.accept(set.id) }, enabled = !state.busy && state.files[set.id] != null) { Text("Keep") }
                         OutlinedButton(onClick = { reverting = set }, enabled = !state.busy) { Text("Revert") }
                     }
                 }

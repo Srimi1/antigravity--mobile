@@ -84,24 +84,26 @@ class LinuxViewModel(application: Application) : AndroidViewModel(application) {
             mutable.update { it.copy(storage = runtime.storageUsage(), clis = runtime.installedClis()) }
     }
 
+    private fun cliEnvironmentChanged() = getApplication<Application>().container.cliGate.environmentChanged()
     fun cancel() { job?.cancel() }
     fun dismiss() = mutable.update { it.copy(message = null) }
     fun note(text: String) = mutable.update { it.copy(message = text) }
     fun install(desktop: Boolean) = run(if (desktop) "Install Debian with desktop" else "Install Debian", block = afterwards {
-        runtime.ensureInstalled(desktop, ::progress).detail
+        try { runtime.ensureInstalled(desktop, ::progress).detail } finally { cliEnvironmentChanged() }
     })
     fun start(desktop: Boolean) = run("Start", block = afterwards { runtime.start(desktop).detail })
     fun stop() = run("Stop", block = afterwards { runtime.stop().detail })
     fun cleanup(items: Set<CleanupItem>) = run("Clean up", block = afterwards {
         val active = getApplication<Application>().container.let { it.ready.await(); it.database.runtime().active() }
         CleanupPolicy.blockedReason(items, active?.backend)?.let { return@afterwards it }
-        val result = runtime.cleanup(items)
+        val result = try { runtime.cleanup(items) }
+            finally { if (items.any { it == CleanupItem.CliInstalls || it == CleanupItem.Distribution }) cliEnvironmentChanged() }
         "Removed: ${result.removed.joinToString { it.name }.ifEmpty { "nothing" }}" +
             (result.freedBytes?.let { ", freed ${it / 1_048_576} MB" } ?: "") +
             (if (result.failures.isNotEmpty()) ". Not removed: ${result.failures.keys.joinToString { it.name }}" else "")
     })
     fun installCli(tool: CliTool) = run("Install ${tool.label}", block = afterwards {
-        val cli = runtime.installCli(tool, ::progress)
+        val cli = try { runtime.installCli(tool, ::progress) } finally { cliEnvironmentChanged() }
         "${tool.label} ${cli.version ?: ""} installed at ${cli.binaryPath}. Sign in inside it (Open Debian terminal)."
     })
     fun openTermux() { try { gateway.openApp() } catch (error: TermuxUnavailable) { note(error.message.orEmpty()) } }

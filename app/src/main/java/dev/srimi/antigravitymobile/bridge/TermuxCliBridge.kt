@@ -138,23 +138,29 @@ exit 3
 }
 
 data class CliProbe(val backend: String, val machine: String, val version: String?, val sandbox: String,
-    val helperHash: String, val at: Long)
+    val helperHash: String, val at: Long, val environment: Long = 0)
 
 /**
  * A CLI backend opens only on a device whose own probe proved ARM64 execution, a working CLI binary and a sandbox
- * that refuses writes outside its workspace. Evidence is per helper version; anything else is RuntimeUnavailable.
+ * that refuses writes outside its workspace. Evidence is per helper version and per Linux environment generation
+ * (bumped when the app installs or removes Debian or CLIs); anything else is RuntimeUnavailable. A CLI updated by
+ * hand inside Termux is not detected; verify again after doing that.
  */
 class CliCapabilityGate(private val prefs: SharedPreferences, private val launcher: TermuxBridgeLauncher) {
     private fun key(backend: AgentBackend) = "cliProbe.${backend.helperId()}"
+    private val environment: Long get() = prefs.getLong(ENVIRONMENT, 0)
+    /** Call after the app installs, updates or removes Debian or a CLI: earlier probes no longer describe it. */
+    fun environmentChanged() { prefs.edit().putLong(ENVIRONMENT, environment + 1).apply() }
     fun recorded(backend: AgentBackend): CliProbe? = prefs.getString(key(backend), null)?.let { raw ->
         runCatching { JSONObject(raw).let { CliProbe(it.getString("backend"), it.getString("machine"),
-            it.optString("version").ifBlank { null }, it.getString("sandbox"), it.getString("helperHash"), it.getLong("at")) } }.getOrNull()
+            it.optString("version").ifBlank { null }, it.getString("sandbox"), it.getString("helperHash"), it.getLong("at"), it.optLong("environment", 0)) } }.getOrNull()
     }
     fun unavailable(backend: AgentBackend): ToolOutcome.RuntimeUnavailable? {
         val label = if (backend == AgentBackend.Codex) "Codex CLI" else "Antigravity CLI"
         val probe = recorded(backend) ?: return ToolOutcome.RuntimeUnavailable("$label is not verified on this phone. Run Verify in Build › Local CLI agents.")
         return when {
             probe.helperHash != launcher.helperHash -> ToolOutcome.RuntimeUnavailable("App updated; verify $label again in Build › Local CLI agents.")
+            probe.environment != environment -> ToolOutcome.RuntimeUnavailable("Debian or its CLIs changed since $label was verified; verify again in Build › Local CLI agents.")
             probe.machine != "aarch64" -> ToolOutcome.RuntimeUnavailable("$label needs ARM64 Debian; this device reported ${probe.machine}.")
             probe.version == null -> ToolOutcome.RuntimeUnavailable("$label did not run in Debian. Reinstall it in Build › Linux setup.")
             probe.sandbox == "unsupported" -> ToolOutcome.RuntimeUnavailable("$label has no verifiable headless sandbox yet; it stays disabled.")
@@ -168,9 +174,10 @@ class CliCapabilityGate(private val prefs: SharedPreferences, private val launch
         if (value.requiredText("backend", 32) != backend.helperId()) throw BridgeProtocolException()
         val sandbox = value.requiredText("sandbox", 32)
         if (sandbox !in setOf("confirmed", "escaped", "unavailable", "unsupported")) throw BridgeProtocolException()
-        val probe = CliProbe(backend.helperId(), value.requiredText("machine", 32), value.nullableText("version", 120), sandbox, launcher.helperHash, now)
+        val probe = CliProbe(backend.helperId(), value.requiredText("machine", 32), value.nullableText("version", 120), sandbox, launcher.helperHash, now, environment)
         prefs.edit().putString(key(backend), JSONObject().put("backend", probe.backend).put("machine", probe.machine)
-            .put("version", probe.version ?: "").put("sandbox", probe.sandbox).put("helperHash", probe.helperHash).put("at", probe.at).toString()).apply()
+            .put("version", probe.version ?: "").put("sandbox", probe.sandbox).put("helperHash", probe.helperHash).put("at", probe.at).put("environment", probe.environment).toString()).apply()
         return probe
     }
+    private companion object { const val ENVIRONMENT = "cliEnvironmentGeneration" }
 }

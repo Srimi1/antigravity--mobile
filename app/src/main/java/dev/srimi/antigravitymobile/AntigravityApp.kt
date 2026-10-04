@@ -64,9 +64,19 @@ class AppContainer(context: Context, databaseOverride: SessionStore? = null,
     fun agentAccount(provider: ProviderId = agentProvider): AccountState = when (provider) {
         ProviderId.CHATGPT -> chatgpt.accountState(); ProviderId.GEMINI -> gemini.accountState(); ProviderId.CLAUDE_KEY -> claude.accountState()
         ProviderId.OPENAI_COMPAT -> compat.accountState(); ProviderId.CLAUDE -> ProviderPolicy.claude; ProviderId.GOOGLE -> ProviderPolicy.google }
-    /** Non-secret route snapshot. A paused task cannot silently switch a compatible provider or its model. */
+    /**
+     * Non-secret route snapshot captured when a task starts. A running or paused task cannot silently switch
+     * its provider's model (or a compatible provider's endpoint) between turns or on retry.
+     */
     fun agentSelection(provider: String): String? {
-        if (provider != ProviderId.OPENAI_COMPAT.name) return null
+        val model = when (provider) {
+            ProviderId.CHATGPT.name -> chatgpt.preferredModel
+            ProviderId.GEMINI.name -> gemini.preferredModel
+            ProviderId.CLAUDE_KEY.name -> claude.preferredModel
+            ProviderId.OPENAI_COMPAT.name -> null
+            else -> return null
+        }
+        if (provider != ProviderId.OPENAI_COMPAT.name) return JSONObject().put("model", model ?: JSONObject.NULL).toString()
         val id = compat.selected
         return JSONObject().put("id", id ?: JSONObject.NULL).put("model", id?.let { compat.model(it) } ?: JSONObject.NULL)
             .put("freeOnly", compat.freeOnly).put("planConfirmed", id?.let { compat.planConfirmed(it) } ?: false)

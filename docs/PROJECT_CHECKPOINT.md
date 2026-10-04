@@ -4,6 +4,20 @@ Last updated **4 October 2026** (0.7.4/code 17 signed, emulator-update tested an
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
+## Audit lower-priority fixes (4 October 2026, committed after v0.7.4, unreleased)
+
+1. **Commit what was reviewed.** `ChangeService.reviewedFinal()` gives the latest accepted bytes per path; Changes → Commit refuses (listing the paths) when a file changed after it was kept, instead of committing unreviewed bytes.
+2. **Complete review.** `DiffView` shows 400 (agent approval: 300) lines at a time with Show more / Show all. Keep is disabled until the diff has loaded; load failures show an error with Retry; stale loads after a project switch are dropped.
+3. **Saving a Gemini key no longer switches the Agent provider** (that would silently move tasks to a billed API). The message suggests Use for Agent instead.
+4. **Model pinning.** `agentSelection()` now snapshots the chosen model for ChatGPT, Gemini and Claude too; a running or paused task pauses with "selected provider or model changed" rather than switching models between turns. Tasks recorded before this (no snapshot) keep the old behaviour.
+5. **PID ownership in agm-linux.sh** (both copies kept identical): PID files hold `pid starttime`; `owned_pid` signals only while `/proc/<pid>/stat` field 22 still matches. Old files without a stamp are accepted only for an `agm-linux`/`termux-x11` command line. New `_owned` helper command for tests.
+6. **Stale CLI evidence.** `CliCapabilityGate` stores a Linux environment generation, bumped after Debian install, CLI install and CLI/container cleanup; older probes require Verify again. A CLI upgraded by hand inside Termux is still not detected.
+7. **Diagnostics wording.** A passing DNS/TCP/TLS probe no longer says the network is ruled out; a recent network change is described as within the last few minutes, not "during the request". Recovery is always "Retry the request."
+8. **Redaction and endpoint parsing.** New `SafeText.redact` (bearer, sk-/sk-ant-, AIza, GitHub tokens, JWTs, URL user info, credential query parameters) is applied in `friendly()`, OpenAI-compatible stream errors and Responses errors. Custom endpoints are parsed with `java.net.URI`; `http://` only for `127.0.0.1` (matching the cleartext policy; `http://localhost` is now refused).
+9. Editor save now refreshes the file list (fixes the stale size seen in the 0.7.4 emulator test).
+
+Validation: 196 JVM tests (1 skipped on macOS: `PidOwnershipTest` needs Linux `/proc`), both release lints. The PID functions were run under mksh/toybox on the API 36 emulator: matching stamp owned; wrong stamp, unrelated legacy file, dead PID and garbage refused. Not covered by automated tests: model pinning (AppContainer), the Gemini routing change and the Changes UI states.
+
 ## 0.7.4/code 17 — 4 October 2026 (published as GitHub Latest)
 
 Contents: v0.7.3 plus the audit correctness fixes below (commit `6542345`). Built with `./tools/build.sh` and the original key.
