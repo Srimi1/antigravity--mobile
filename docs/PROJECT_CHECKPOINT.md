@@ -1,10 +1,10 @@
 # Antigravity Mobile — saved checkpoint
 
-Last updated **4 October 2026** (0.7.3/code 16 signed, emulator-update tested and published as GitHub Latest; physical phone and live CLI acceptance still open).
+Last updated **4 October 2026** (0.7.4/code 17 signed, emulator-update tested and published as GitHub Latest; physical phone and live CLI acceptance still open).
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
-## 0.7.4/code 17 signed candidate — 4 October 2026 (built, not published)
+## 0.7.4/code 17 — 4 October 2026 (published as GitHub Latest)
 
 Contents: v0.7.3 plus the audit correctness fixes below (commit `6542345`). Built with `./tools/build.sh` and the original key.
 
@@ -15,6 +15,7 @@ Contents: v0.7.3 plus the audit correctness fixes below (commit `6542345`). Buil
 - Test-setup note: at the start the emulator's 0.7.3 code directory was missing because the previous session killed the emulator right after `adb install`; published 0.7.3 was reinstalled over the existing data (project intact) before the update. Shut down with `sync` + `reboot -p` this time.
 - Minor known issue: the file list keeps showing the old size after an editor save until it is refreshed (save refreshes Git, not the file list).
 - Not run: instrumentation for this exact APK, physical phone.
+- Published [v0.7.4](https://github.com/Srimi1/antigravity--mobile/releases/tag/v0.7.4) (Latest) at tag `0e6607d`; asset digests verified. See [RELEASE_0.7.4.md](RELEASE_0.7.4.md).
 
 ## Audit correctness fixes (4 October 2026, committed after v0.7.3, unreleased)
 
