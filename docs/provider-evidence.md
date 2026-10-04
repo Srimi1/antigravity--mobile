@@ -1,5 +1,11 @@
 # Subscription evidence — updated 4 October 2026
 
+## Physical phone report — 4 October 2026 (0.7.5, OnePlus 7 Pro on LegionOS; owner-reported)
+
+- **ChatGPT (Sign in with ChatGPT):** the owner ran an Agent task with the ChatGPT provider that edited HelloPhone's title; they reviewed it in Changes, tapped Keep, rebuilt and reinstalled on the phone, and the new title appeared. This is the first report of a completed ChatGPT agent turn (with tool calls) on the physical phone through the documented Sign in with ChatGPT + Responses route. Owner-reported; no request trace, model name or account plan was collected here.
+- **Google (official Android Antigravity CLI in Termux):** after v0.7.5 fixed the Termux permission registration, the owner completed Google sign-in inside Google's CLI. Login only: no Gemini response through that login was reported, and the in-app CLI Agent backend remains sandbox-gated.
+- Claude Pro/Max: unchanged, BLOCKED. API-key providers (Gemini AI Studio, Anthropic) were not exercised in this report.
+
 ## Google Android CLI login — 4 October 2026 (0.7.2)
 
 The owner's request to fix Gemini login adds Accounts → **Gemini with Google sign-in**. It opens Google's official Android/Bionic Antigravity CLI inside Termux; Google handles OAuth, browser callback and credential storage. No credentials are imported into this app. The official [installer](https://antigravity.google/cli/install.sh) now selects `android_arm64` in Termux and checks its public manifest's SHA-512. The current client used in QA was 1.2.16, verified and executed on Android 12 ARM64. The app's real first-install action downloaded it in Termux and displayed Google OAuth; choosing it opened Google's sign-in page for Google Antigravity.
@@ -33,7 +39,7 @@ Personal use is the intended scope. Provider documentation and a real entitled r
 | Provider | Interface and authentication | Subscription entitlement | Android status | Outcome |
 | --- | --- | --- | --- | --- |
 | Google | Antigravity first-party desktop login; SDK documents Gemini API key or Google Cloud credentials | Google Pro/Ultra supported in Google's app; no supported direct native third-party subscription integration established | No Android Antigravity package listed; no mobile subscription request executed | BLOCKED |
-| ChatGPT | Documented Sign in with ChatGPT dynamic registration, loopback callback, PKCE, signed ID token; eligible Responses API requests | Requires explicit `chatgpt.tokens.use.direct` grant and completed inference; client eligibility must be established | Native probe implemented; no actual account sign-in or inference executed here | UNVERIFIED |
+| ChatGPT | Documented Sign in with ChatGPT dynamic registration, loopback callback, PKCE, signed ID token; eligible Responses API requests | Requires explicit `chatgpt.tokens.use.direct` grant and completed inference; client eligibility must be established | Owner reported a completed Agent task (edit → keep → rebuild → reinstall) on the physical phone with 0.7.5 (4 Oct 2026); not independently traced | OWNER-REPORTED WORKING |
 | Claude | Agent SDK or official Claude Code; documentation requires prior approval to offer claude.ai login or limits through third-party products | Applicable approved integration for this private Android implementation has not been established | No Android subscription request executed | BLOCKED |
 
 ## Primary evidence
