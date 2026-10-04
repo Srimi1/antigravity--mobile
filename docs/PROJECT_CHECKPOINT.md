@@ -4,6 +4,17 @@ Last updated **4 October 2026** (0.7.3/code 16 signed, emulator-update tested an
 
 **For the next agent:** start with the repository-root [AGENTS.md](../AGENTS.md). It maps the current implementation, explains the user's full-app request, and gives continuation, validation and signing guidance. This checkpoint records the completed work; AGENTS.md explains how to resume it.
 
+## Audit correctness fixes (4 October 2026, committed after v0.7.3, unreleased)
+
+The four data-loss issues from the audit's correctness section are fixed in source (not in the v0.7.3 APK):
+
+1. **Project-switch races.** Editor open/save, file listing and Git panel results are bound to the project that started them and dropped if the selection changed. `EditorState` carries `projectId` and the exact bytes read (`baseline`); saving into another project is refused. Changes → Revert captures the project when tapped and `ChangeService.revert(setId, workspace, projectId)` refuses a set from another project.
+2. **Non-atomic save/revert.** Editor save uses `WorkspaceService.compareAndApply` against the opened bytes (a deleted or changed file is refused, never recreated/overwritten). Revert prechecks every file, then restores each with compare-and-apply; files changed during the revert are left alone, reported, and the set stays reviewable (files already restored are accepted on retry).
+3. **Interrupted writes vanishing from Changes.** `ChangeService.apply` writes a durable pending intent (`<set>/pending.path` + `pending.bin`) before touching the workspace and clears it after the after snapshot/record are saved. `recoverInterrupted()` and `finish()` reconcile a leftover intent with the real file (via the new `workspaceFor` resolver): promoted when the write landed, dropped when it did not, flagged in the set's detail otherwise. `finish()` no longer discards a set with an unsettled write.
+4. **Linux cleanup vs active CLI tasks.** `CleanupPolicy` refuses "Project copies in Debian" and "Entire Debian container" (both delete `/root/agm-work`) while a non-native task holds the runtime task slot.
+
+Validation: 191 JVM tests (8 new: ChangeServiceTest ×6, linux/CleanupPolicyTest ×2), both release lints, and `FullAppDeviceTest` 5/5 on the API 36 QA emulator (Room change ledger, migrations, JGit). Not covered by automated tests: the ProjectsViewModel race guards (Android ViewModel, no JVM harness); concurrent edits during a revert are covered only by the compare-and-apply primitive. The QA emulator's leftover 1.9 GB test build caches were deleted to make room for the debug install. Still open from the audit's lower-priority list: commit reviewed content, Keep while diff loading, Gemini key save changing route, pin task model settings, PID ownership in agm-linux.sh, stale CLI capability evidence, diagnostics wording, central error redaction.
+
 ## 0.7.3/code 16 — 4 October 2026 (published as GitHub Latest)
 
 Contents: the five security audit fixes below + build-cache reuse (worker code 3, `0.7.3-tools`, `MIN_WORKER_VERSION` 3). Built with `./tools/build.sh` using the original `.signing/personal.p12`.

@@ -110,4 +110,88 @@ class ChangeServiceTest {
         assertEquals("original-temporary-name", workspace.read(".A.kt.tmp"))
         assertEquals("original-A", workspace.read("A.kt"))
     }
+
+    @Test fun revertIsRefusedForAnotherProject() = runBlocking {
+        workspace.write("A.kt", "one")
+        val set = changes.open("p", "c", "Edit")
+        changes.apply(set.id, workspace, "A.kt", "two".toByteArray())
+        changes.finish(set.id)
+        val error = assertThrows(IllegalStateException::class.java) { runBlocking { changes.revert(set.id, workspace, "other-project") } }
+        assertTrue(error.message!!.contains("another project"))
+        assertEquals("two", workspace.read("A.kt"))
+        changes.revert(set.id, workspace, "p")
+        assertEquals("one", workspace.read("A.kt"))
+    }
+
+    @Test fun revertRetryAcceptsFilesAlreadyRestored() = runBlocking {
+        workspace.write("A.kt", "a1"); workspace.write("B.kt", "b1")
+        val set = changes.open("p", "c", "Edit")
+        changes.apply(set.id, workspace, "A.kt", "a2".toByteArray())
+        changes.apply(set.id, workspace, "B.kt", "b2".toByteArray())
+        changes.finish(set.id)
+        workspace.write("A.kt", "a1") // as left by an earlier, partly completed revert
+        changes.revert(set.id, workspace, "p")
+        assertEquals("a1", workspace.read("A.kt")); assertEquals("b1", workspace.read("B.kt"))
+        assertEquals("REVERTED", dao.sets.getValue(set.id).status)
+    }
+
+    /** DAO whose [failAt]-th saveFile fails, simulating process death at that point. */
+    private class FailingDao(val inner: MemoryChangeDao = MemoryChangeDao(), var failAt: Int = 0) : ChangeDao by inner {
+        private var saves = 0
+        override suspend fun saveFile(file: ChangeFileRecord) {
+            if (++saves == failAt) throw IllegalStateException("simulated crash")
+            inner.saveFile(file)
+        }
+    }
+
+    @Test fun interruptedWriteIsRecoveredFromTheWorkspaceNotLost() = runBlocking {
+        // B.kt: saves 1 (provisional) and 2 (after). A.kt: save 3 provisional, save 4 after the workspace write fails.
+        val failing = FailingDao(failAt = 4)
+        val ledger = ChangeService(failing, File(base, "snapshots2"), workspaceFor = { workspace })
+        workspace.write("A.kt", "old")
+        val set = ledger.open("p", "c", "Edit")
+        ledger.apply(set.id, workspace, "B.kt", "first".toByteArray())
+        assertThrows(IllegalStateException::class.java) { runBlocking { ledger.apply(set.id, workspace, "A.kt", "new".toByteArray()) } }
+        assertEquals("new", workspace.read("A.kt")) // the workspace write happened
+        ledger.recoverInterrupted()
+        val diff = ledger.diffs(set.id).associateBy { it.path }
+        assertEquals("old", String(diff.getValue("A.kt").before!!))
+        assertEquals("new", String(diff.getValue("A.kt").after!!))
+        assertEquals("REVIEW", failing.inner.sets.getValue(set.id).status)
+        ledger.revert(set.id, workspace, "p")
+        assertEquals("old", workspace.read("A.kt"))
+        assertFalse(workspace.exists("B.kt"))
+    }
+
+    @Test fun finishDoesNotDiscardAnInterruptedOnlyEdit() = runBlocking {
+        val failing = FailingDao(failAt = 2)
+        val ledger = ChangeService(failing, File(base, "snapshots3"), workspaceFor = { workspace })
+        workspace.write("A.kt", "old")
+        val set = ledger.open("p", "c", "Edit")
+        assertThrows(IllegalStateException::class.java) { runBlocking { ledger.apply(set.id, workspace, "A.kt", "new".toByteArray()) } }
+        ledger.finish(set.id)
+        assertEquals("REVIEW", failing.inner.sets.getValue(set.id).status)
+        assertEquals("new", String(ledger.diffs(set.id).single().after!!))
+    }
+
+    @Test fun conflictBeforeWriteLeavesNoPendingState() = runBlocking {
+        workspace.write("A.kt", "old")
+        val set = changes.open("p", "c", "Edit")
+        val stale = FileBaseline("something else".toByteArray())
+        assertThrows(IllegalStateException::class.java) { runBlocking { changes.apply(set.id, workspace, "A.kt", "new".toByteArray(), stale) } }
+        changes.finish(set.id)
+        assertNull(dao.sets[set.id]) // nothing changed, so the set is discarded
+    }
+
+    @Test fun interruptedWriteWithoutWorkspaceStaysReviewable() = runBlocking {
+        val failing = FailingDao(failAt = 2)
+        val ledger = ChangeService(failing, File(base, "snapshots4"))
+        workspace.write("A.kt", "old")
+        val set = ledger.open("p", "c", "Edit")
+        assertThrows(IllegalStateException::class.java) { runBlocking { ledger.apply(set.id, workspace, "A.kt", "new".toByteArray()) } }
+        ledger.recoverInterrupted()
+        val stored = failing.inner.sets.getValue(set.id)
+        assertEquals("REVIEW", stored.status)
+        assertTrue(stored.detail, stored.detail.contains("A.kt"))
+    }
 }

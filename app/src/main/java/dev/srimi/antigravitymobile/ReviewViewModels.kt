@@ -68,10 +68,14 @@ class ChangesViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     fun accept(setId: String) = action { services.changes.accept(setId); "Kept. Commit accepted changes when ready." }
-    fun revert(setId: String) = action {
-        val project = state.value.project ?: error("Select a project")
-        services.changes.revert(setId, services.workspace(project))
-        "Reverted"
+    fun revert(setId: String) {
+        // Bind the project when the owner taps Revert, not when the IO work runs: a project switch in
+        // between must not restore this set's files into another project.
+        val project = state.value.project ?: return
+        action {
+            services.changes.revert(setId, services.workspace(project), project.id)
+            "Reverted"
+        }
     }
     fun commitAccepted(message: String) = action {
         val project = state.value.project ?: error("Select a project")

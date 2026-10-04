@@ -13,7 +13,12 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.io.File
 
-data class EditorState(val path: String, val original: String, val text: String, val readOnly: Boolean, val note: String? = null) {
+/**
+ * [projectId] and [baseline] (the exact bytes read from disk) bind the editor to the file it opened:
+ * saving compares those bytes atomically and never writes into a different project.
+ */
+data class EditorState(val path: String, val original: String, val text: String, val readOnly: Boolean, val note: String? = null,
+                       val projectId: String = "", val baseline: ByteArray? = null) {
     val dirty: Boolean get() = !readOnly && text != original
 }
 data class GitPanel(val isRepo: Boolean, val status: GitStatus? = null, val log: List<GitCommitInfo> = emptyList(), val remote: String? = null,
@@ -272,19 +277,22 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
     fun closeProject() = services.selectProject(null)
 
     fun refreshFiles() {
-        val workspace = workspace() ?: return
+        val project = state.value.selected ?: return
+        val workspace = services.workspace(project)
+        val directory = state.value.directory
         viewModelScope.launch {
             val entries = withContext(Dispatchers.IO) {
-                try { workspace.listDirectory(state.value.directory).filter { it.name != ".git" } } catch (_: Exception) { emptyList() }
+                try { workspace.listDirectory(directory).filter { it.name != ".git" } } catch (_: Exception) { emptyList() }
             }
-            mutable.update { it.copy(entries = entries) }
+            mutable.update { if (it.selected?.id == project.id && it.directory == directory) it.copy(entries = entries) else it }
         }
     }
     fun navigate(path: String) { mutable.update { it.copy(directory = path) }; refreshFiles() }
     fun up() = navigate(state.value.directory.substringBeforeLast('/', ""))
 
     fun openFile(path: String) {
-        val workspace = workspace() ?: return
+        val project = state.value.selected ?: return
+        val workspace = services.workspace(project)
         viewModelScope.launch {
             val editor = withContext(Dispatchers.IO) {
                 try {
@@ -292,27 +300,34 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
                     if (size > MAX_EDITABLE) return@withContext EditorState(path, "", "", true, "File is ${size / 1024} KB. Files over ${MAX_EDITABLE / 1000} KB are not opened in the editor.")
                     val bytes = workspace.readBytes(path)
                     if (bytes.take(8000).contains(0.toByte())) EditorState(path, "", "", true, "Binary file (${bytes.size} bytes) is not editable here.")
-                    else bytes.toString(Charsets.UTF_8).let { EditorState(path, it, it, false) }
+                    else bytes.toString(Charsets.UTF_8).let { EditorState(path, it, it, false, projectId = project.id, baseline = bytes) }
                 } catch (error: Exception) { EditorState(path, "", "", true, friendly(error)) }
             }
-            mutable.update { it.copy(editor = editor) }
+            mutable.update { if (it.selected?.id == project.id) it.copy(editor = editor) else it }
         }
     }
     fun edit(text: String) = mutable.update { state -> state.copy(editor = state.editor?.copy(text = text)) }
     fun closeEditor() = mutable.update { it.copy(editor = null) }
     fun saveFile() {
-        val workspace = workspace() ?: return
+        val project = state.value.selected ?: return
         val editor = state.value.editor ?: return
         if (!editor.dirty) return
+        if (editor.projectId != project.id) { mutable.update { it.copy(editor = null, message = "Save failed: the file belongs to another project") }; return }
+        val workspace = services.workspace(project)
+        val bytes = editor.text.toByteArray()
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    // Refuse to overwrite a change made elsewhere (for example by an agent task) since the file was opened.
-                    val current = if (workspace.exists(editor.path)) workspace.read(editor.path) else null
-                    check(current == null || current == editor.original) { "${editor.path} changed since you opened it. Close and reopen it." }
-                    workspace.write(editor.path, editor.text)
+                    // Atomic under the workspace path lock: refuses when the file changed or was deleted since it was
+                    // opened (for example by an agent task), instead of overwriting or recreating it.
+                    try { workspace.compareAndApply(editor.path, editor.baseline, bytes) }
+                    catch (_: IllegalStateException) { error("${editor.path} changed since you opened it. Close and reopen it.") }
                 }
-                mutable.update { it.copy(editor = editor.copy(original = editor.text), message = "Saved ${editor.path}") }
+                mutable.update { state ->
+                    val saved = state.editor?.takeIf { it.projectId == project.id && it.path == editor.path }
+                        ?.copy(original = editor.text, baseline = bytes)
+                    state.copy(editor = saved ?: state.editor, message = "Saved ${editor.path}")
+                }
                 refreshGit()
             } catch (error: Exception) { mutable.update { it.copy(message = "Save failed: ${friendly(error)}") } }
         }
@@ -345,14 +360,15 @@ class ProjectsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun refreshGit() {
-        val dir = dir() ?: return
+        val project = state.value.selected ?: return
+        val dir = services.projects.directory(project)
         viewModelScope.launch {
             val panel = withContext(Dispatchers.IO) {
                 if (!services.git.isRepository(dir)) GitPanel(false)
                 else try { GitPanel(true, services.git.status(dir), services.git.log(dir), services.git.remoteUrl(dir), services.git.branches(dir)) }
-                catch (error: Exception) { GitPanel(true).also { mutable.update { s -> s.copy(message = "Git: ${friendly(error)}") } } }
+                catch (error: Exception) { GitPanel(true).also { mutable.update { s -> if (s.selected?.id == project.id) s.copy(message = "Git: ${friendly(error)}") else s } } }
             }
-            mutable.update { it.copy(git = panel) }
+            mutable.update { if (it.selected?.id == project.id) it.copy(git = panel) else it }
         }
     }
     fun initGit() = operation("Initialize Git") {

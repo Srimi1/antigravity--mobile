@@ -100,6 +100,18 @@ enum class CleanupItem { PackageCache, Workspaces, CliInstalls, Desktop, Distrib
 
 data class CleanupResult(val removed: Set<CleanupItem>, val freedBytes: Long?, val failures: Map<CleanupItem, String>)
 
+/**
+ * Workspaces and Distribution delete `/root/agm-work`, which holds the CLI bridge's task journals, uploads,
+ * copied workspaces and exports. They are refused while a CLI-backed task holds the task slot (running,
+ * awaiting approval, paused or with an unconfirmed cancellation), so recovery state is never removed under it.
+ */
+object CleanupPolicy {
+    val TOUCHES_CLI_STATE = setOf(CleanupItem.Workspaces, CleanupItem.Distribution)
+    fun blockedReason(selection: Set<CleanupItem>, activeBackend: String?): String? =
+        if (activeBackend == null || activeBackend == "Native" || selection.none { it in TOUCHES_CLI_STATE }) null
+        else "A CLI agent task is still active or paused. Finish, cancel or discard it in Agent before removing project copies or the Debian container."
+}
+
 enum class CliTool(val id: String, val label: String) {
     CODEX("codex", "Codex CLI"),
     ANTIGRAVITY("antigravity", "Antigravity CLI"),

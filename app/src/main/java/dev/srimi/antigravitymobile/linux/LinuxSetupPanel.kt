@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.srimi.antigravitymobile.SectionCard
+import dev.srimi.antigravitymobile.container
 import dev.srimi.antigravitymobile.StatusChip
 import dev.srimi.antigravitymobile.friendly
 import kotlinx.coroutines.CancellationException
@@ -92,6 +93,8 @@ class LinuxViewModel(application: Application) : AndroidViewModel(application) {
     fun start(desktop: Boolean) = run("Start", block = afterwards { runtime.start(desktop).detail })
     fun stop() = run("Stop", block = afterwards { runtime.stop().detail })
     fun cleanup(items: Set<CleanupItem>) = run("Clean up", block = afterwards {
+        val active = getApplication<Application>().container.let { it.ready.await(); it.database.runtime().active() }
+        CleanupPolicy.blockedReason(items, active?.backend)?.let { return@afterwards it }
         val result = runtime.cleanup(items)
         "Removed: ${result.removed.joinToString { it.name }.ifEmpty { "nothing" }}" +
             (result.freedBytes?.let { ", freed ${it / 1_048_576} MB" } ?: "") +
